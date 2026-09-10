@@ -92,10 +92,16 @@ object Formatters {
     /** See [dev.happyc0der.forgelog.domain.format.plainNumber]. */
     fun plainNumber(value: Double): String = domainPlainNumber(value)
 
-    /** Seconds spent on timed work, shown only when a session actually had any. */
-    fun timedSeconds(seconds: Int): String? {
-        if (seconds <= 0) return null
-        return compactDuration(seconds * 1_000L)
+    /**
+     * Seconds spent on timed work, shown only when a session actually had any.
+     *
+     * Under a minute keeps its seconds: a 45-second plank reported as "< 1m" tells the user
+     * nothing, and timed work is exactly where that precision matters.
+     */
+    fun timedSeconds(seconds: Int): String? = when {
+        seconds <= 0 -> null
+        seconds < 60 -> seconds(seconds)
+        else -> compactDuration(seconds * 1_000L)
     }
 
     fun fullDate(date: LocalDate): String =

@@ -109,4 +109,14 @@ class FormattersTest {
         assertEquals("45.4 kg", Formatters.load(100.0, ExerciseUnit.KG))
         assertEquals("100 kg", Formatters.weight(100.0, ExerciseUnit.KG))
     }
+
+    @Test
+    fun `timed work under a minute keeps its seconds`() {
+        // "< 1m" for a 45-second plank is true and useless.
+        assertEquals("45s", Formatters.timedSeconds(45))
+        assertEquals("1m", Formatters.timedSeconds(60))
+        assertEquals("2m", Formatters.timedSeconds(120))
+        assertEquals("1h", Formatters.timedSeconds(3600))
+        assertNull(Formatters.timedSeconds(0))
+    }
 }
