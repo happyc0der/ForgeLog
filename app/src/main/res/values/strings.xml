@@ -53,6 +53,8 @@
     <string name="history_range_this_week">This week</string>
     <string name="history_range_last_week">Last week</string>
     <string name="history_range_30_days">Last 30 days</string>
+    <string name="history_range_custom">Custom…</string>
+    <string name="history_range_custom_selected">%1$s – %2$s</string>
     <string name="history_empty_title">No completed workouts</string>
     <string name="history_empty_message">Finish a session and it appears here.</string>
     <string name="history_empty_filtered_title">Nothing matches</string>
@@ -184,6 +186,12 @@
     <string name="workout_notification_channel">Workout timer</string>
     <string name="workout_notification_channel_description">Live elapsed time for the workout you are logging.</string>
 
+    <string name="workout_delete_set">Delete set</string>
+    <string name="workout_delete_set_title">Delete this set?</string>
+    <string name="workout_delete_set_message">Set %1$d and everything logged in it will be removed.</string>
+    <string name="workout_start_rest">Rest</string>
+    <string name="workout_session_feedback">How did this session go?</string>
+
     <string name="summary_title">Workout complete</string>
     <string name="summary_subtitle">%1$s · %2$s</string>
     <string name="summary_breakdown_title">What you did</string>
@@ -216,6 +224,7 @@
     <string name="analytics_compare_title">This week vs %1$s</string>
     <string name="analytics_compare_last_week">last week</string>
     <string name="analytics_compare_weeks_ago">%1$d weeks ago</string>
+    <string name="analytics_compare_custom_title">%1$s vs the span before</string>
     <string name="analytics_compare_offset">Compare with</string>
     <string name="analytics_volume_by_day">Volume by day</string>
     <string name="analytics_sets_by_category">Sets by category</string>
@@ -251,6 +260,7 @@
 
     <string name="action_save">Save</string>
     <string name="action_cancel">Cancel</string>
+    <string name="action_apply">Apply</string>
     <string name="action_close">Close</string>
     <string name="action_move_up">Move up</string>
     <string name="action_move_down">Move down</string>

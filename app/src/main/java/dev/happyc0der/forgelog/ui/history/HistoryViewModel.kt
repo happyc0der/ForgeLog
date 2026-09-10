@@ -48,12 +48,18 @@ data class HistoryRow(
     val programName: String?,
 )
 
-/** Quick date presets. Explicit ranges stay available through [HistoryViewModel.setDateRange]. */
+/**
+ * Quick date presets, plus [CUSTOM] for an arbitrary span chosen from the calendar.
+ *
+ * [CUSTOM] is never selectable directly — picking it opens the range picker, and it becomes the
+ * active preset only once [HistoryViewModel.setDateRange] has been given real dates.
+ */
 enum class DateRangePreset {
     ALL_TIME,
     THIS_WEEK,
     LAST_WEEK,
     LAST_30_DAYS,
+    CUSTOM,
 }
 
 data class HistoryUiState(
@@ -191,7 +197,6 @@ class HistoryViewModel @Inject constructor(
     fun onExerciseSelected(exerciseId: Long?) = filter.update { it.copy(exerciseId = exerciseId) }
 
     fun onPresetSelected(value: DateRangePreset) {
-        preset.value = value
         val now = timeProvider.nowEpochMs()
         val zone = zoneProvider.zone()
         val range = when (value) {
@@ -202,13 +207,22 @@ class HistoryViewModel @Inject constructor(
                 start = WeekBoundary.startOfDay(now, zone) - THIRTY_DAYS_MS,
                 endExclusive = WeekBoundary.dayRange(now, zone).endExclusive,
             )
+            // The screen opens the picker instead; the preset only becomes CUSTOM once
+            // setDateRange has been given real dates, so the chip cannot show as selected while
+            // the filter is still whatever it was.
+            DateRangePreset.CUSTOM -> return
         }
+        preset.value = value
         filter.update { it.copy(fromEpochMs = range?.start, untilEpochMs = range?.endExclusive) }
     }
 
     /** Explicit range, for when the presets do not cover what the user wants. */
     fun setDateRange(fromEpochMs: Long?, untilEpochMs: Long?) {
-        preset.value = DateRangePreset.ALL_TIME
+        preset.value = if (fromEpochMs == null && untilEpochMs == null) {
+            DateRangePreset.ALL_TIME
+        } else {
+            DateRangePreset.CUSTOM
+        }
         filter.update { it.copy(fromEpochMs = fromEpochMs, untilEpochMs = untilEpochMs) }
     }
 

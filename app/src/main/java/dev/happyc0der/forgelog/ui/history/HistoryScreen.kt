@@ -35,6 +35,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,6 +51,7 @@ import dev.happyc0der.forgelog.domain.model.SessionStatus
 import dev.happyc0der.forgelog.domain.model.WorkoutProgram
 import dev.happyc0der.forgelog.ui.components.CardHeader
 import dev.happyc0der.forgelog.ui.components.ConfirmDialog
+import dev.happyc0der.forgelog.ui.components.DateRangePickerDialog
 import dev.happyc0der.forgelog.ui.components.EmptyState
 import dev.happyc0der.forgelog.ui.components.ErrorState
 import dev.happyc0der.forgelog.ui.components.ForgeCard
@@ -73,7 +75,8 @@ fun HistoryScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val zone = remember { ZoneId.systemDefault() }
-    var showFilters by remember { mutableStateOf(false) }
+    var showFilters by rememberSaveable { mutableStateOf(false) }
+    var showRangePicker by rememberSaveable { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<HistoryRow?>(null) }
     var pendingSaveAsDay by remember { mutableStateOf<HistoryRow?>(null) }
 
@@ -84,6 +87,19 @@ fun HistoryScreen(
                 is HistoryEvent.RepeatStarted -> onResumeWorkout(event.sessionId)
             }
         }
+    }
+
+    if (showRangePicker) {
+        DateRangePickerDialog(
+            zone = zone,
+            initialFromEpochMs = uiState.filter.fromEpochMs,
+            initialUntilEpochMs = uiState.filter.untilEpochMs,
+            onConfirm = { from, until ->
+                viewModel.setDateRange(from, until)
+                showRangePicker = false
+            },
+            onDismiss = { showRangePicker = false },
+        )
     }
 
     pendingDelete?.let { row ->
@@ -170,7 +186,13 @@ fun HistoryScreen(
                         onProgramSelected = viewModel::onProgramSelected,
                         onDaySelected = viewModel::onDaySelected,
                         onExerciseSelected = viewModel::onExerciseSelected,
-                        onPresetSelected = viewModel::onPresetSelected,
+                        onPresetSelected = { preset ->
+                            if (preset == DateRangePreset.CUSTOM) {
+                                showRangePicker = true
+                            } else {
+                                viewModel.onPresetSelected(preset)
+                            }
+                        },
                     )
                 }
                 if (uiState.rows.isEmpty()) {
@@ -234,7 +256,8 @@ private fun FilterPanel(
                     onClick = { onPresetSelected(preset) },
                     label = {
                         Text(
-                            text = stringResource(preset.labelRes()),
+                            text = customRangeLabel(preset, uiState)
+                                ?: stringResource(preset.labelRes()),
                             style = MaterialTheme.typography.labelMedium,
                         )
                     },
@@ -419,4 +442,21 @@ private fun DateRangePreset.labelRes(): Int = when (this) {
     DateRangePreset.THIS_WEEK -> R.string.history_range_this_week
     DateRangePreset.LAST_WEEK -> R.string.history_range_last_week
     DateRangePreset.LAST_30_DAYS -> R.string.history_range_30_days
+    DateRangePreset.CUSTOM -> R.string.history_range_custom
+}
+
+/** The custom chip shows the dates it stands for once it has some, rather than staying "Custom…". */
+@Composable
+private fun customRangeLabel(preset: DateRangePreset, uiState: HistoryUiState): String? {
+    if (preset != DateRangePreset.CUSTOM) return null
+    val from = uiState.filter.fromEpochMs ?: return null
+    val until = uiState.filter.untilEpochMs ?: return null
+    val today = uiState.today ?: return null
+    val zone = ZoneId.systemDefault()
+    return stringResource(
+        R.string.history_range_custom_selected,
+        Formatters.relativeDate(from, today, zone),
+        // The stored end is exclusive; name the last day actually included.
+        Formatters.relativeDate(until - 1, today, zone),
+    )
 }

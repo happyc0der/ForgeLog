@@ -48,6 +48,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.transformWhile
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -227,9 +228,10 @@ class ActiveWorkoutViewModel @Inject constructor(
         /*
          * Announces the end of rest exactly once per timer.
          *
-         * distinctUntilChanged on the finished flag is what keeps it to one event: the countdown is
-         * recomputed every second, so a naive check would fire continuously for as long as the timer
-         * sat at zero. The ticker only runs while a timer is actually active.
+         * The ticker runs only while a timer is active AND still counting: transformWhile stops it
+         * on the tick that reaches zero, so a finished timer is not still waking this coroutine
+         * once a second for as long as the screen stays on the back stack. distinctUntilChanged
+         * keeps it to one event per timer even across a restart.
          */
         launchSafely(::reportAsMessage) {
             restTimer
@@ -237,7 +239,12 @@ class ActiveWorkoutViewModel @Inject constructor(
                     if (state == null || !state.isActive) {
                         flowOf(false)
                     } else {
-                        ticker(timeProvider).map { now -> RestTimer.hasFinished(state, now) }
+                        ticker(timeProvider)
+                            .map { now -> RestTimer.hasFinished(state, now) }
+                            .transformWhile { finished ->
+                                emit(finished)
+                                !finished
+                            }
                     }
                 }
                 .distinctUntilChanged()
@@ -307,6 +314,47 @@ class ActiveWorkoutViewModel @Inject constructor(
             .firstOrNull { it.item.exercise.id == sessionExerciseId }
             ?.previous
             ?.exercise
+
+    /**
+     * How the session felt, recorded while it is still happening.
+     *
+     * Previously only editable afterwards from history, which is both the wrong moment to ask and
+     * the reason the planner's "how did this go last time" line was almost always blank.
+     */
+    fun onOverallFeeling(feeling: Int?) {
+        launchSafely(::reportAsMessage) {
+            workoutSessionRepository.setOverallFeeling(sessionId, feeling)
+        }
+    }
+
+    fun onOverallNotes(notes: String) {
+        launchSafely(::reportAsMessage) {
+            workoutSessionRepository.setOverallNotes(sessionId, notes.trim().ifBlank { null })
+        }
+    }
+
+    fun deleteSet(setId: Long) {
+        launchSafely(::reportAsMessage) {
+            // Drop any pending debounced write for this set, or it would resurrect the row.
+            drafts.value.keys
+                .filter { it.substringBefore(":").toLongOrNull() == setId }
+                .forEach { key ->
+                    debounceJobs.remove(key)?.cancel()
+                    drafts.update { it - key }
+                }
+            workoutSessionRepository.deleteSetLog(setId)
+        }
+    }
+
+    /**
+     * Starts rest without ticking a set — for a rest taken between exercises, or after a set that
+     * was logged earlier. The countdown otherwise only ever began when a set was completed.
+     */
+    fun startRestTimer(sessionExerciseId: Long) {
+        launchSafely(::reportAsMessage) {
+            startRestTimer(sessionExerciseId, timeProvider.nowEpochMs())
+        }
+    }
 
     fun toggleMoreFields(sessionExerciseId: Long) {
         revealed.update { current ->

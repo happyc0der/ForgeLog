@@ -45,6 +45,8 @@ enum class TrendWindow(val weeks: Int) {
 
 data class AnalyticsUiState(
     val isLoading: Boolean = true,
+    /** True while an arbitrary range is in force, so the UI stops claiming "this week". */
+    val isCustomRange: Boolean = false,
     val errorMessage: String? = null,
     /** How many weeks back the "previous" window sits. 1 is last week. */
     val comparisonOffset: Int = 1,
@@ -80,6 +82,14 @@ class AnalyticsViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val comparisonOffset = MutableStateFlow(1)
+
+    /**
+     * An arbitrary span, when the week-over-week presets do not cover what the user wants.
+     *
+     * Its comparison window is the equally long span immediately before it, which is the only
+     * baseline that makes sense for a range the app did not choose.
+     */
+    private val customRange = MutableStateFlow<WeekBoundary.Range?>(null)
     private val trendWindow = MutableStateFlow(TrendWindow.TWELVE_WEEKS)
     private val selectedExerciseId = MutableStateFlow<Long?>(null)
     private val errorMessage = MutableStateFlow<String?>(null)
@@ -92,12 +102,21 @@ class AnalyticsViewModel @Inject constructor(
     private val ranges: Flow<Pair<WeekBoundary.Range, WeekBoundary.Range>> = combine(
         comparisonOffset,
         settingsRepository.settings.map { it.weekStartDay }.distinctUntilChanged(),
+        customRange,
         retryToken,
-    ) { offset, weekStart, _ ->
-        val now = timeProvider.nowEpochMs()
-        val zone = zoneProvider.zone()
-        WeekBoundary.weekRange(now, zone, weekStart) to
-            WeekBoundary.weekRangeOffset(now, zone, offset, weekStart)
+    ) { offset, weekStart, custom, _ ->
+        if (custom != null) {
+            val length = custom.endExclusive - custom.start
+            custom to WeekBoundary.Range(
+                start = custom.start - length,
+                endExclusive = custom.start,
+            )
+        } else {
+            val now = timeProvider.nowEpochMs()
+            val zone = zoneProvider.zone()
+            WeekBoundary.weekRange(now, zone, weekStart) to
+                WeekBoundary.weekRangeOffset(now, zone, offset, weekStart)
+        }
     }.distinctUntilChanged()
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -209,9 +228,11 @@ class AnalyticsViewModel @Inject constructor(
         comparisonOffset,
         trendWindow,
         errorMessage,
-    ) { analytics, offset, window, error ->
+        customRange,
+    ) { analytics, offset, window, error, custom ->
         AnalyticsUiState(
             isLoading = false,
+            isCustomRange = custom != null,
             errorMessage = error,
             comparisonOffset = offset,
             currentRange = analytics.ranges?.first,
@@ -237,7 +258,20 @@ class AnalyticsViewModel @Inject constructor(
 
     /** 1 compares with last week, 2 with the week before that, and so on. */
     fun setComparisonOffset(weeksAgo: Int) {
+        // Choosing a preset leaves the custom range behind, or the chips would appear to do
+        // nothing.
+        customRange.value = null
         comparisonOffset.value = weeksAgo.coerceIn(1, MAX_COMPARISON_OFFSET)
+    }
+
+    /** An arbitrary span, compared against the equally long span immediately before it. */
+    fun setCustomRange(fromEpochMs: Long, untilEpochMs: Long) {
+        if (untilEpochMs <= fromEpochMs) return
+        customRange.value = WeekBoundary.Range(start = fromEpochMs, endExclusive = untilEpochMs)
+    }
+
+    fun clearCustomRange() {
+        customRange.value = null
     }
 
     fun setTrendWindow(window: TrendWindow) {

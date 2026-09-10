@@ -17,6 +17,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -25,6 +26,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -37,11 +39,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -56,11 +60,14 @@ import dev.happyc0der.forgelog.domain.workout.DurationInputUnit
 import dev.happyc0der.forgelog.domain.workout.SetInputField
 import dev.happyc0der.forgelog.ui.components.ConfirmDialog
 import dev.happyc0der.forgelog.ui.components.ErrorState
+import dev.happyc0der.forgelog.ui.components.FeelingRow
 import dev.happyc0der.forgelog.ui.components.LoadingState
+import dev.happyc0der.forgelog.ui.components.NotesField
 import dev.happyc0der.forgelog.ui.exercise.EnumDropdown
 import dev.happyc0der.forgelog.ui.input.DurationSecondsField
 import dev.happyc0der.forgelog.ui.input.SetEntryTextField
 import dev.happyc0der.forgelog.ui.input.rememberDurationInputUnit
+import dev.happyc0der.forgelog.ui.testing.TestTags
 import dev.happyc0der.forgelog.ui.util.label
 import dev.happyc0der.forgelog.ui.util.openHowToUrl
 import kotlinx.coroutines.launch
@@ -75,7 +82,8 @@ fun ActiveWorkoutScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    var abandonConfirm by remember { mutableStateOf(false) }
+    var abandonConfirm by rememberSaveable { mutableStateOf(false) }
+    var deletingSet by remember { mutableStateOf<SetLog?>(null) }
     val context = LocalContext.current
     val howToMissing = stringResource(R.string.exercise_how_to_missing_app)
     val scope = rememberCoroutineScope()
@@ -176,6 +184,7 @@ fun ActiveWorkoutScreen(
                             viewModel = viewModel,
                             durationUnit = durationUnit,
                             onDurationUnitChange = onDurationUnitChange,
+                            onDeleteSet = { deletingSet = it },
                             onExpand = { viewModel.expand(exerciseUi.item.exercise.id) },
                             onOpenHowTo = { url ->
                                 val normalized = HowToUrl.normalize(url).getOrNull()
@@ -187,9 +196,28 @@ fun ActiveWorkoutScreen(
                             },
                         )
                     }
+                    SessionFeedbackCard(
+                        feeling = uiState.detail?.session?.overallFeeling,
+                        notes = uiState.detail?.session?.overallNotes.orEmpty(),
+                        onFeelingChange = viewModel::onOverallFeeling,
+                        onNotesChange = viewModel::onOverallNotes,
+                    )
                 }
             }
         }
+    }
+
+    deletingSet?.let { set ->
+        ConfirmDialog(
+            title = stringResource(R.string.workout_delete_set_title),
+            message = stringResource(R.string.workout_delete_set_message, set.setNumber),
+            confirmLabel = stringResource(R.string.workout_delete_set),
+            onConfirm = {
+                viewModel.deleteSet(set.id)
+                deletingSet = null
+            },
+            onDismiss = { deletingSet = null },
+        )
     }
 
     if (abandonConfirm) {
@@ -212,6 +240,7 @@ private fun ExerciseLoggerCard(
     viewModel: ActiveWorkoutViewModel,
     durationUnit: DurationInputUnit,
     onDurationUnitChange: (DurationInputUnit) -> Unit,
+    onDeleteSet: (SetLog) -> Unit,
     onExpand: () -> Unit,
     onOpenHowTo: (String) -> Unit,
 ) {
@@ -300,6 +329,7 @@ private fun ExerciseLoggerCard(
                             viewModel = viewModel,
                             durationUnit = durationUnit,
                             onDurationUnitChange = onDurationUnitChange,
+                            onDeleteSet = onDeleteSet,
                         )
                     }
                 }
@@ -311,11 +341,23 @@ private fun ExerciseLoggerCard(
                         ),
                     )
                 }
-                Button(
-                    onClick = { viewModel.addSet(exercise.id) },
+                Row(
                     modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text(text = stringResource(R.string.workout_add_set))
+                    Button(
+                        onClick = { viewModel.addSet(exercise.id) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag(TestTags.ACTIVE_WORKOUT_ADD_SET),
+                    ) {
+                        Text(text = stringResource(R.string.workout_add_set))
+                    }
+                    // Rest that is not triggered by ticking a set: between exercises, or after a
+                    // set logged a while ago.
+                    OutlinedButton(onClick = { viewModel.startRestTimer(exercise.id) }) {
+                        Text(text = stringResource(R.string.workout_start_rest))
+                    }
                 }
             }
         }
@@ -330,6 +372,7 @@ private fun SetRow(
     viewModel: ActiveWorkoutViewModel,
     durationUnit: DurationInputUnit,
     onDurationUnitChange: (DurationInputUnit) -> Unit,
+    onDeleteSet: (SetLog) -> Unit,
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -349,6 +392,12 @@ private fun SetRow(
                 onCheckedChange = { viewModel.onSetCompleted(set, it) },
             )
             Text(text = stringResource(R.string.workout_set_completed))
+            IconButton(onClick = { onDeleteSet(set) }) {
+                Icon(
+                    imageVector = Icons.Outlined.Delete,
+                    contentDescription = stringResource(R.string.workout_delete_set),
+                )
+            }
         }
         EnumDropdown(
             label = stringResource(R.string.workout_set_type),
@@ -459,4 +508,46 @@ private fun NullableIntDropdown(
         optionLabel = { it?.toString() ?: "—" },
         onSelected = onSelected,
     )
+}
+
+/**
+ * How the whole session went, recorded while it is happening rather than remembered afterwards
+ * from the history screen.
+ */
+@Composable
+private fun SessionFeedbackCard(
+    feeling: Int?,
+    notes: String,
+    onFeelingChange: (Int?) -> Unit,
+    onNotesChange: (String) -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+        ),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.workout_session_feedback),
+                style = MaterialTheme.typography.titleSmall,
+            )
+            Text(
+                text = stringResource(R.string.session_detail_feeling),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            FeelingRow(feeling = feeling, onChange = onFeelingChange)
+            NotesField(
+                label = stringResource(R.string.session_detail_overall_notes),
+                initial = notes,
+                onCommit = onNotesChange,
+            )
+        }
+    }
 }

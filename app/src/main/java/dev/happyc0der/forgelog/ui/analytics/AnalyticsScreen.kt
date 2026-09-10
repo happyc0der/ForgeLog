@@ -1,5 +1,7 @@
 package dev.happyc0der.forgelog.ui.analytics
 
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -22,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -37,7 +40,9 @@ import dev.happyc0der.forgelog.domain.history.LoggedExercise
 import dev.happyc0der.forgelog.domain.model.ExerciseUnit
 import dev.happyc0der.forgelog.ui.components.BarChart
 import dev.happyc0der.forgelog.ui.components.BarDatum
+import dev.happyc0der.forgelog.domain.time.WeekBoundary
 import dev.happyc0der.forgelog.ui.components.CardHeader
+import dev.happyc0der.forgelog.ui.components.DateRangePickerDialog
 import dev.happyc0der.forgelog.ui.components.EmptyState
 import dev.happyc0der.forgelog.ui.components.ErrorState
 import dev.happyc0der.forgelog.ui.components.ForgeCard
@@ -51,6 +56,7 @@ import dev.happyc0der.forgelog.ui.format.Formatters
 import dev.happyc0der.forgelog.ui.testing.TestTags
 import dev.happyc0der.forgelog.ui.util.label
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -63,7 +69,21 @@ fun AnalyticsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val zone = remember { ZoneId.systemDefault() }
-    var showFormula by remember { mutableStateOf(false) }
+    var showFormula by rememberSaveable { mutableStateOf(false) }
+    var showRangePicker by rememberSaveable { mutableStateOf(false) }
+
+    if (showRangePicker) {
+        DateRangePickerDialog(
+            zone = zone,
+            initialFromEpochMs = uiState.currentRange?.start,
+            initialUntilEpochMs = uiState.currentRange?.endExclusive,
+            onConfirm = { from, until ->
+                viewModel.setCustomRange(from, until)
+                showRangePicker = false
+            },
+            onDismiss = { showRangePicker = false },
+        )
+    }
 
     if (showFormula) {
         AlertDialog(
@@ -108,7 +128,11 @@ fun AnalyticsScreen(
                         comparison = uiState.comparison,
                         offset = uiState.comparisonOffset,
                         weightUnit = uiState.weightUnit,
+                        isCustomRange = uiState.isCustomRange,
+                        currentRange = uiState.currentRange,
+                        zone = zone,
                         onOffsetChange = viewModel::setComparisonOffset,
+                        onPickRange = { showRangePicker = true },
                     )
                 }
                 item(key = "volume_by_day") {
@@ -148,28 +172,40 @@ private fun ComparisonCard(
     comparison: PeriodComparison?,
     offset: Int,
     weightUnit: ExerciseUnit,
+    isCustomRange: Boolean,
+    currentRange: WeekBoundary.Range?,
+    zone: ZoneId,
     onOffsetChange: (Int) -> Unit,
+    onPickRange: () -> Unit,
 ) {
     ForgeCard {
         CardHeader(
-            title = stringResource(
-                R.string.analytics_compare_title,
-                if (offset == 1) {
-                    stringResource(R.string.analytics_compare_last_week)
-                } else {
-                    stringResource(R.string.analytics_compare_weeks_ago, offset)
-                },
-            ),
+            title = if (isCustomRange && currentRange != null) {
+                stringResource(
+                    R.string.analytics_compare_custom_title,
+                    rangeLabel(currentRange, zone),
+                )
+            } else {
+                stringResource(
+                    R.string.analytics_compare_title,
+                    if (offset == 1) {
+                        stringResource(R.string.analytics_compare_last_week)
+                    } else {
+                        stringResource(R.string.analytics_compare_weeks_ago, offset)
+                    },
+                )
+            },
         )
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
                 .testTag(TestTags.ANALYTICS_RANGE_PICKER),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             listOf(1, 2, 4).forEach { weeks ->
                 FilterChip(
-                    selected = offset == weeks,
+                    selected = !isCustomRange && offset == weeks,
                     onClick = { onOffsetChange(weeks) },
                     label = {
                         Text(
@@ -183,6 +219,16 @@ private fun ComparisonCard(
                     },
                 )
             }
+            FilterChip(
+                selected = isCustomRange,
+                onClick = onPickRange,
+                label = {
+                    Text(
+                        text = stringResource(R.string.history_range_custom),
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                },
+            )
         }
         val current = comparison?.current ?: PeriodMetrics.EMPTY
         StatGrid(
@@ -395,4 +441,15 @@ private fun TrendWindow.labelRes(): Int = when (this) {
     TrendWindow.TWELVE_WEEKS -> R.string.analytics_trend_12_weeks
     TrendWindow.SIX_MONTHS -> R.string.analytics_trend_6_months
     TrendWindow.ONE_YEAR -> R.string.analytics_trend_1_year
+}
+
+/** A range as the two local dates it covers. The stored end is exclusive, so it names the day before. */
+@Composable
+private fun rangeLabel(range: WeekBoundary.Range, zone: ZoneId): String {
+    val today = LocalDate.now(zone)
+    return stringResource(
+        R.string.history_range_custom_selected,
+        Formatters.relativeDate(range.start, today, zone),
+        Formatters.relativeDate(range.endExclusive - 1, today, zone),
+    )
 }

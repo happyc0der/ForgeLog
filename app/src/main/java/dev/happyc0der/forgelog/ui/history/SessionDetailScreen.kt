@@ -47,17 +47,17 @@ import dev.happyc0der.forgelog.ui.components.CardHeader
 import dev.happyc0der.forgelog.ui.components.ConfirmDialog
 import dev.happyc0der.forgelog.ui.components.EmptyState
 import dev.happyc0der.forgelog.ui.components.ErrorState
+import dev.happyc0der.forgelog.ui.components.FeelingRow
 import dev.happyc0der.forgelog.ui.components.ForgeCard
 import dev.happyc0der.forgelog.ui.components.ForgeHeroCard
 import dev.happyc0der.forgelog.ui.components.LoadingState
+import dev.happyc0der.forgelog.ui.components.NotesField
 import dev.happyc0der.forgelog.ui.components.StatGrid
 import dev.happyc0der.forgelog.ui.format.Formatters
 import dev.happyc0der.forgelog.ui.testing.TestTags
 import dev.happyc0der.forgelog.ui.util.label
 import java.time.LocalDate
 import java.time.ZoneId
-
-private val FEELING_RANGE = 1..5
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -295,58 +295,6 @@ private fun SessionFeelingCard(
         } else if (!notes.isNullOrBlank()) {
             Text(text = notes, style = MaterialTheme.typography.bodyMedium)
         }
-    }
-}
-
-@Composable
-private fun FeelingRow(
-    feeling: Int?,
-    enabled: Boolean,
-    onChange: (Int?) -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        FEELING_RANGE.forEach { value ->
-            FilterChip(
-                selected = feeling == value,
-                enabled = enabled,
-                onClick = { onChange(if (feeling == value) null else value) },
-                label = { Text(text = value.toString()) },
-            )
-        }
-        if (feeling == null) {
-            Text(
-                text = stringResource(R.string.home_value_missing),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-/**
- * Notes are committed on focus loss rather than per keystroke, so a long note is one database write
- * instead of one per character.
- */
-@Composable
-private fun NotesField(
-    label: String,
-    initial: String,
-    onCommit: (String) -> Unit,
-) {
-    var draft by rememberSaveable(initial) { mutableStateOf(initial) }
-    OutlinedTextField(
-        value = draft,
-        onValueChange = { draft = it },
-        label = { Text(text = label) },
-        minLines = 2,
-        modifier = Modifier.fillMaxWidth(),
-    )
-    TextButton(onClick = { onCommit(draft) }) {
-        Text(text = stringResource(R.string.action_save))
     }
 }
 
