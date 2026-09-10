@@ -1,0 +1,25 @@
+# Gradle / build output
+.gradle/
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Kotlin
+.kotlin/
+
+# Local config — machine specific, never commit
+local.properties
+
+# Signing material — never commit
+*.jks
+*.keystore
+*.p12
+keystore.properties
+
+# IDE
+.idea/
+*.iml
+
+# OS
+.DS_Store

@@ -1,0 +1,272 @@
+package com.example.forgelog.ui.programs
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.forgelog.R
+import com.example.forgelog.domain.model.ProgramDay
+import com.example.forgelog.domain.model.ProgramDayDetail
+import com.example.forgelog.ui.components.ConfirmDialog
+import com.example.forgelog.ui.components.EmptyState
+import com.example.forgelog.ui.components.ErrorState
+import com.example.forgelog.ui.components.LoadingState
+import com.example.forgelog.ui.components.ReorderableColumn
+import com.example.forgelog.ui.components.TextInputDialog
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ProgramDetailScreen(
+    onBack: () -> Unit,
+    onOpenDay: (Long) -> Unit,
+    onStartDay: (Long) -> Unit,
+    viewModel: ProgramDetailViewModel = hiltViewModel(),
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+    var createDay by remember { mutableStateOf(false) }
+    var renameDay by remember { mutableStateOf<ProgramDay?>(null) }
+    var deleteDay by remember { mutableStateOf<ProgramDay?>(null) }
+    val requiredName = stringResource(R.string.program_day_name_required)
+
+    LaunchedEffect(Unit) {
+        viewModel.events.collect { event ->
+            when (event) {
+                is ProgramDetailEvent.Message -> snackbarHostState.showSnackbar(event.value)
+                is ProgramDetailEvent.OpenDay -> onOpenDay(event.dayId)
+            }
+        }
+    }
+
+    val detail = uiState.detail
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(text = detail?.program?.name ?: stringResource(R.string.programs_title)) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.action_back),
+                        )
+                    }
+                },
+            )
+        },
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        floatingActionButton = {
+            if (detail != null) {
+                FloatingActionButton(onClick = { createDay = true }) {
+                    Icon(
+                        imageVector = Icons.Filled.Add,
+                        contentDescription = stringResource(R.string.action_create_day),
+                    )
+                }
+            }
+        },
+    ) { innerPadding ->
+        when {
+            uiState.isLoading -> LoadingState(modifier = Modifier.padding(innerPadding))
+            uiState.errorMessage != null -> ErrorState(
+                message = uiState.errorMessage ?: stringResource(R.string.state_error_generic),
+                onRetry = onBack,
+                modifier = Modifier.padding(innerPadding),
+            )
+            detail == null -> ErrorState(
+                message = stringResource(R.string.program_missing),
+                onRetry = onBack,
+                modifier = Modifier.padding(innerPadding),
+            )
+            detail.days.isEmpty() -> EmptyState(
+                icon = Icons.Outlined.CalendarMonth,
+                title = stringResource(R.string.program_detail_empty_title),
+                message = stringResource(R.string.program_detail_empty_message),
+                modifier = Modifier.padding(innerPadding),
+            )
+            else -> {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
+                        .verticalScroll(rememberScrollState())
+                        .padding(bottom = 88.dp),
+                ) {
+                    detail.program.description?.takeIf { it.isNotBlank() }?.let { description ->
+                        Text(
+                            text = description,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        )
+                    }
+                    ReorderableColumn(
+                        items = detail.days,
+                        key = { it.day.id },
+                        onMove = viewModel::moveDay,
+                        onDragEnd = viewModel::persistDayOrder,
+                    ) { dayDetail, dragModifier ->
+                        ProgramDayRow(
+                            dayDetail = dayDetail,
+                            dragModifier = dragModifier,
+                            onClick = { onOpenDay(dayDetail.day.id) },
+                            onStart = { onStartDay(dayDetail.day.id) },
+                            onRename = { renameDay = dayDetail.day },
+                            onDuplicate = { viewModel.duplicateDay(dayDetail.day.id) },
+                            onDelete = { deleteDay = dayDetail.day },
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    if (createDay) {
+        TextInputDialog(
+            title = stringResource(R.string.program_day_create_title),
+            initialValue = "",
+            label = stringResource(R.string.program_day_field_name),
+            validator = { value -> if (value.isBlank()) requiredName else null },
+            onConfirm = {
+                viewModel.createDay(it)
+                createDay = false
+            },
+            onDismiss = { createDay = false },
+        )
+    }
+
+    renameDay?.let { day ->
+        TextInputDialog(
+            title = stringResource(R.string.program_day_rename_title),
+            initialValue = day.name,
+            label = stringResource(R.string.program_day_field_name),
+            validator = { value -> if (value.isBlank()) requiredName else null },
+            onConfirm = {
+                viewModel.renameDay(day, it)
+                renameDay = null
+            },
+            onDismiss = { renameDay = null },
+        )
+    }
+
+    deleteDay?.let { day ->
+        ConfirmDialog(
+            title = stringResource(R.string.program_day_delete_title),
+            message = stringResource(R.string.program_day_delete_message, day.name),
+            onConfirm = {
+                viewModel.deleteDay(day.id)
+                deleteDay = null
+            },
+            onDismiss = { deleteDay = null },
+        )
+    }
+}
+
+@Composable
+private fun ProgramDayRow(
+    dayDetail: ProgramDayDetail,
+    dragModifier: Modifier,
+    onClick: () -> Unit,
+    onStart: () -> Unit,
+    onRename: () -> Unit,
+    onDuplicate: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    var menuOpen by remember { mutableStateOf(false) }
+    val count = dayDetail.exercises.size
+    ListItem(
+        headlineContent = { Text(text = dayDetail.day.name) },
+        supportingContent = {
+            Text(
+                text = if (count == 1) {
+                    stringResource(R.string.program_day_exercise_count_one)
+                } else {
+                    stringResource(R.string.program_day_exercise_count, count)
+                },
+            )
+        },
+        leadingContent = {
+            Icon(
+                imageVector = Icons.Filled.DragHandle,
+                contentDescription = stringResource(R.string.action_drag_handle),
+                modifier = dragModifier,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        },
+        trailingContent = {
+            IconButton(onClick = { menuOpen = true }) {
+                Icon(
+                    imageVector = Icons.Filled.MoreVert,
+                    contentDescription = stringResource(R.string.action_more),
+                )
+            }
+            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                DropdownMenuItem(
+                    text = { Text(text = stringResource(R.string.workout_start_this_day)) },
+                    onClick = {
+                        menuOpen = false
+                        onStart()
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text(text = stringResource(R.string.action_rename)) },
+                    onClick = {
+                        menuOpen = false
+                        onRename()
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text(text = stringResource(R.string.action_duplicate)) },
+                    onClick = {
+                        menuOpen = false
+                        onDuplicate()
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text(text = stringResource(R.string.action_delete)) },
+                    onClick = {
+                        menuOpen = false
+                        onDelete()
+                    },
+                )
+            }
+        },
+        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+    )
+}
