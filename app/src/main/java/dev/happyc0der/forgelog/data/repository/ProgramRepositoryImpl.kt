@@ -141,6 +141,44 @@ class ProgramRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun createDayFromSession(
+        programId: Long,
+        sessionId: Long,
+        dayName: String,
+    ): Long = withContext(ioDispatcher) {
+        database.withTransaction {
+            val session = workoutSessionDao.getSessionDetail(sessionId)
+                ?: error("Session $sessionId was not found.")
+            programDao.getProgram(programId) ?: error("Program $programId was not found.")
+            val siblingCount = programDao.getProgramDetail(programId)?.days?.size ?: 0
+            val newDayId = programDao.insertDay(
+                ProgramDay(
+                    programId = programId,
+                    name = dayName,
+                    dayOrder = siblingCount,
+                    notes = null,
+                ).toEntity(),
+            )
+            // A program day references library exercises; a session only keeps name snapshots. An
+            // exercise deleted since the session was logged therefore cannot be carried over, and
+            // is skipped rather than silently inventing a new library entry.
+            session.exercises
+                .sortedBy { it.exercise.exerciseOrder }
+                .mapNotNull { logged -> logged.exercise.exerciseId }
+                .distinct()
+                .forEachIndexed { index, exerciseId ->
+                    programDao.insertProgramExercise(
+                        ProgramExercise(
+                            programDayId = newDayId,
+                            exerciseId = exerciseId,
+                            exerciseOrder = index,
+                        ).toEntity(),
+                    )
+                }
+            newDayId
+        }
+    }
+
     override suspend fun upsertDay(day: ProgramDay): Long = withContext(ioDispatcher) {
         programDao.upsertDay(day.toEntity())
     }

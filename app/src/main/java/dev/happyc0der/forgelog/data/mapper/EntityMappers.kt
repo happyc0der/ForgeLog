@@ -10,6 +10,7 @@ import dev.happyc0der.forgelog.data.local.entity.WorkoutSessionEntity
 import dev.happyc0der.forgelog.data.local.relation.ProgramDayDetailEntity
 import dev.happyc0der.forgelog.data.local.relation.ProgramDetailEntity
 import dev.happyc0der.forgelog.data.local.relation.ProgramExerciseDetailEntity
+import dev.happyc0der.forgelog.data.local.relation.LoggedExerciseEntity
 import dev.happyc0der.forgelog.data.local.relation.ProgramSummaryEntity
 import dev.happyc0der.forgelog.data.local.relation.SessionDetailEntity
 import dev.happyc0der.forgelog.data.local.relation.SessionExerciseWithSetsEntity
@@ -19,6 +20,7 @@ import dev.happyc0der.forgelog.domain.model.ProgramDayDetail
 import dev.happyc0der.forgelog.domain.model.ProgramDetail
 import dev.happyc0der.forgelog.domain.model.ProgramExercise
 import dev.happyc0der.forgelog.domain.model.ProgramExerciseDetail
+import dev.happyc0der.forgelog.domain.history.LoggedExercise
 import dev.happyc0der.forgelog.domain.model.ProgramSummary
 import dev.happyc0der.forgelog.domain.model.SessionDetail
 import dev.happyc0der.forgelog.domain.model.SessionExercise
@@ -223,9 +225,16 @@ fun SetLog.toEntity(): SetLogEntity = SetLogEntity(
     completedAt = completedAt,
 )
 
+fun LoggedExerciseEntity.toDomain(): LoggedExercise = LoggedExercise(
+    exerciseId = exerciseId,
+    displayName = displayName,
+)
+
 fun ProgramSummaryEntity.toDomain(): ProgramSummary = ProgramSummary(
     program = program.toDomain(),
     dayCount = dayCount,
+    lastPerformedAt = lastPerformedAt,
+    completedSessionCount = completedSessionCount,
 )
 
 fun ProgramExerciseDetailEntity.toDomain(): ProgramExerciseDetail = ProgramExerciseDetail(

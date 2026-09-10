@@ -15,6 +15,7 @@ import dev.happyc0der.forgelog.ui.analytics.AnalyticsScreen
 import dev.happyc0der.forgelog.ui.exercise.ExerciseEditorScreen
 import dev.happyc0der.forgelog.ui.exercise.ExerciseLibraryScreen
 import dev.happyc0der.forgelog.ui.history.HistoryScreen
+import dev.happyc0der.forgelog.ui.history.SessionDetailScreen
 import dev.happyc0der.forgelog.ui.home.HomeScreen
 import dev.happyc0der.forgelog.ui.programs.ProgramDayBuilderScreen
 import dev.happyc0der.forgelog.ui.programs.ProgramDayBuilderViewModel
@@ -63,6 +64,7 @@ fun ForgeLogNavHost(
                 onResumeWorkout = { sessionId -> openLogger(sessionId, popPlanner = false) },
                 onStartAdHoc = { navController.navigate(StartWorkoutRoute(adHoc = true)) },
                 onCreateProgram = { navController.navigate(ProgramsRoute) },
+                onOpenSession = { sessionId -> navController.navigate(SessionDetailRoute(sessionId)) },
             )
         }
         composable<ProgramsRoute> {
@@ -171,7 +173,16 @@ fun ForgeLogNavHost(
             )
         }
         composable<HistoryRoute> {
-            HistoryScreen()
+            HistoryScreen(
+                onOpenSession = { sessionId -> navController.navigate(SessionDetailRoute(sessionId)) },
+                onResumeWorkout = { sessionId -> openLogger(sessionId, popPlanner = false) },
+            )
+        }
+        composable<SessionDetailRoute> {
+            SessionDetailScreen(
+                onBack = { navController.popBackStack() },
+                onResumeWorkout = { sessionId -> openLogger(sessionId, popPlanner = false) },
+            )
         }
         composable<AnalyticsRoute> {
             AnalyticsScreen()

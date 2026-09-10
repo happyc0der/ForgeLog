@@ -63,6 +63,11 @@ data class StartWorkoutRoute(
 )
 
 @Serializable
+data class SessionDetailRoute(
+    val sessionId: Long,
+)
+
+@Serializable
 data class ActiveWorkoutRoute(
     val sessionId: Long,
 )

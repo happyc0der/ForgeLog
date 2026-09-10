@@ -14,6 +14,7 @@ import dev.happyc0der.forgelog.data.settings.SettingsRepositoryImpl
 import dev.happyc0der.forgelog.domain.time.TimeProvider
 import dev.happyc0der.forgelog.domain.time.ZoneProvider
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestDispatcher
@@ -44,7 +45,7 @@ class TestEnvironment(dispatcher: TestDispatcher) {
     private val context: Context = ApplicationProvider.getApplicationContext()
     private val io: CoroutineDispatcher = UnconfinedTestDispatcher(dispatcher.scheduler)
 
-    val database: ForgeLogDatabase = inMemoryDatabase()
+    val database: ForgeLogDatabase = inMemoryDatabase(executor = dispatcher.asExecutor())
     val time = FakeTimeProvider()
     val zone = FakeZoneProvider()
 

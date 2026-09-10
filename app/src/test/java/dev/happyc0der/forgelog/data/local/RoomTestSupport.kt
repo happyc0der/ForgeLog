@@ -15,19 +15,31 @@ import dev.happyc0der.forgelog.domain.model.ExerciseUnit
 import dev.happyc0der.forgelog.domain.model.RestTimerType
 import dev.happyc0der.forgelog.domain.model.SessionStatus
 import dev.happyc0der.forgelog.domain.model.SetType
+import java.util.concurrent.Executor
 
 /**
  * In-memory Room for unit tests.
  *
  * Running the real database under Robolectric rather than mocking the DAOs is the point: these
  * tests execute the actual SQL, the actual `@Relation` fetches and the actual type converters, which
- * is where the bugs live. `allowMainThreadQueries` is safe here because tests drive the dispatcher
- * themselves.
+ * is where the bugs live.
+ *
+ * Pass [executor] wherever a test advances virtual time. Room's suspend DAO functions hop to the
+ * database's own query and transaction executors, which are real background threads by default —
+ * outside the test scheduler entirely. That makes `advanceUntilIdle()` return before writes have
+ * landed, and turns every write-then-assert into a real race that passes or fails on timing. Handing
+ * Room the test dispatcher puts its work back under the scheduler's control.
  */
-internal fun inMemoryDatabase(): ForgeLogDatabase {
+internal fun inMemoryDatabase(executor: Executor? = null): ForgeLogDatabase {
     val context = ApplicationProvider.getApplicationContext<Context>()
     return Room.inMemoryDatabaseBuilder(context, ForgeLogDatabase::class.java)
         .allowMainThreadQueries()
+        .apply {
+            if (executor != null) {
+                setQueryExecutor(executor)
+                setTransactionExecutor(executor)
+            }
+        }
         .build()
 }
 

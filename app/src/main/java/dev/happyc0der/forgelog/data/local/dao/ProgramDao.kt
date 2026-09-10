@@ -27,7 +27,15 @@ interface ProgramDao {
     @Query(
         """
         SELECT p.*,
-            (SELECT COUNT(*) FROM program_days d WHERE d.programId = p.id) AS dayCount
+            (SELECT COUNT(*) FROM program_days d WHERE d.programId = p.id) AS dayCount,
+            (
+                SELECT MAX(s.completedAt) FROM workout_sessions s
+                WHERE s.programId = p.id AND s.status = 'completed'
+            ) AS lastPerformedAt,
+            (
+                SELECT COUNT(*) FROM workout_sessions s2
+                WHERE s2.programId = p.id AND s2.status = 'completed'
+            ) AS completedSessionCount
         FROM workout_programs p
         WHERE (:includeArchived = 1) OR p.isArchived = 0
         ORDER BY p.name COLLATE NOCASE ASC

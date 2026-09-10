@@ -8,6 +8,7 @@ import androidx.room.Upsert
 import dev.happyc0der.forgelog.data.local.entity.SessionExerciseEntity
 import dev.happyc0der.forgelog.data.local.entity.SetLogEntity
 import dev.happyc0der.forgelog.data.local.entity.WorkoutSessionEntity
+import dev.happyc0der.forgelog.data.local.relation.LoggedExerciseEntity
 import dev.happyc0der.forgelog.data.local.relation.SessionDetailEntity
 import dev.happyc0der.forgelog.domain.model.SessionStatus
 import kotlinx.coroutines.flow.Flow
@@ -103,6 +104,61 @@ interface WorkoutSessionDao {
         untilEpochMs: Long,
     ): Flow<List<SessionDetailEntity>>
 
+    /**
+     * History list, every filter optional.
+     *
+     * Each filter is written as `:param IS NULL OR ...` so one query serves every combination
+     * rather than assembling SQL by hand. Text search covers the session name and the exercise
+     * name *snapshots*, which is what makes searching old sessions reliable: renaming an exercise
+     * in the library never rewrites what a past workout was called.
+     *
+     * Ordered and filtered by `startedAt`, because "when did I train" is when the session began.
+     */
+    @Transaction
+    @Query(
+        """
+        SELECT s.* FROM workout_sessions s
+        WHERE (:status IS NULL OR s.status = :status)
+          AND (:programId IS NULL OR s.programId = :programId)
+          AND (:programDayId IS NULL OR s.programDayId = :programDayId)
+          AND (:fromEpochMs IS NULL OR s.startedAt >= :fromEpochMs)
+          AND (:untilEpochMs IS NULL OR s.startedAt < :untilEpochMs)
+          AND (
+            :exerciseId IS NULL OR EXISTS (
+                SELECT 1 FROM session_exercises e
+                WHERE e.sessionId = s.id AND e.exerciseId = :exerciseId
+            )
+          )
+          AND (
+            :query = '' OR s.sessionName LIKE '%' || :query || '%' OR EXISTS (
+                SELECT 1 FROM session_exercises e2
+                WHERE e2.sessionId = s.id AND e2.displayNameSnapshot LIKE '%' || :query || '%'
+            )
+          )
+        ORDER BY s.startedAt DESC
+        """,
+    )
+    fun observeSessionHistory(
+        query: String,
+        status: SessionStatus?,
+        programId: Long?,
+        programDayId: Long?,
+        exerciseId: Long?,
+        fromEpochMs: Long?,
+        untilEpochMs: Long?,
+    ): Flow<List<SessionDetailEntity>>
+
+    /** Distinct exercises that appear anywhere in history, for the history filter picker. */
+    @Query(
+        """
+        SELECT DISTINCT e.exerciseId AS exerciseId, e.displayNameSnapshot AS displayName
+        FROM session_exercises e
+        WHERE e.exerciseId IS NOT NULL
+        ORDER BY e.displayNameSnapshot COLLATE NOCASE ASC
+        """,
+    )
+    fun observeLoggedExercises(): Flow<List<LoggedExerciseEntity>>
+
     @Query("SELECT * FROM workout_sessions WHERE id = :id")
     suspend fun getSession(id: Long): WorkoutSessionEntity?
 
@@ -149,6 +205,27 @@ interface WorkoutSessionDao {
 
     @Upsert
     suspend fun upsertSetLog(entity: SetLogEntity): Long
+
+    /*
+     * Single-field edits are targeted UPDATEs rather than read-modify-write upserts.
+     *
+     * Reading a row, copying it and upserting it back is not atomic: setting a feeling and typing a
+     * note in quick succession had the second write holding a pre-feeling copy of the row, silently
+     * undoing the first. A statement that touches only the column being edited cannot lose a
+     * concurrent edit to a different column.
+     */
+
+    @Query("UPDATE workout_sessions SET overallFeeling = :feeling, updatedAt = :now WHERE id = :id")
+    suspend fun updateOverallFeeling(id: Long, feeling: Int?, now: Long)
+
+    @Query("UPDATE workout_sessions SET overallNotes = :notes, updatedAt = :now WHERE id = :id")
+    suspend fun updateOverallNotes(id: Long, notes: String?, now: Long)
+
+    @Query("UPDATE session_exercises SET feeling = :feeling WHERE id = :id")
+    suspend fun updateExerciseFeeling(id: Long, feeling: Int?)
+
+    @Query("UPDATE session_exercises SET exerciseNotes = :notes WHERE id = :id")
+    suspend fun updateExerciseNotes(id: Long, notes: String?)
 
     @Query("DELETE FROM workout_sessions WHERE id = :id")
     suspend fun deleteSession(id: Long)

@@ -31,4 +31,13 @@ interface ProgramRepository {
     suspend fun upsertProgramExercise(programExercise: ProgramExercise): Long
     suspend fun deleteProgramExercise(id: Long)
     suspend fun reorderProgramExercises(orderedProgramExerciseIds: List<Long>)
+
+    /**
+     * Creates a new day in [programId] from what was actually logged in [sessionId].
+     *
+     * Only exercises that still exist in the library can be carried over: a program day points at
+     * library exercises, while a session keeps name snapshots, so an exercise deleted since the
+     * session was logged has nothing to point at. Returns the new day id.
+     */
+    suspend fun createDayFromSession(programId: Long, sessionId: Long, dayName: String): Long
 }

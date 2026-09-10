@@ -6,6 +6,8 @@ import dev.happyc0der.forgelog.data.local.dao.WorkoutSessionDao
 import dev.happyc0der.forgelog.data.mapper.toDomain
 import dev.happyc0der.forgelog.data.mapper.toEntity
 import dev.happyc0der.forgelog.di.IoDispatcher
+import dev.happyc0der.forgelog.domain.history.HistoryFilter
+import dev.happyc0der.forgelog.domain.history.LoggedExercise
 import dev.happyc0der.forgelog.domain.model.SessionDetail
 import dev.happyc0der.forgelog.domain.model.SessionExercise
 import dev.happyc0der.forgelog.domain.model.SessionExerciseWithSets
@@ -65,6 +67,24 @@ class WorkoutSessionRepositoryImpl @Inject constructor(
     override fun observeLastCompletedSessionDetail(): Flow<SessionDetail?> =
         workoutSessionDao.observeLastCompletedSessionDetail()
             .map { it?.toDomain() }
+            .flowOn(ioDispatcher)
+
+    override fun observeSessionHistory(filter: HistoryFilter): Flow<List<SessionDetail>> =
+        workoutSessionDao.observeSessionHistory(
+            query = filter.normalizedQuery,
+            status = filter.status,
+            programId = filter.programId,
+            programDayId = filter.programDayId,
+            exerciseId = filter.exerciseId,
+            fromEpochMs = filter.fromEpochMs,
+            untilEpochMs = filter.untilEpochMs,
+        )
+            .map { details -> details.map { it.toDomain() } }
+            .flowOn(ioDispatcher)
+
+    override fun observeLoggedExercises(): Flow<List<LoggedExercise>> =
+        workoutSessionDao.observeLoggedExercises()
+            .map { rows -> rows.map { it.toDomain() } }
             .flowOn(ioDispatcher)
 
     override fun observeCompletedSessionDetailsBetween(
@@ -191,6 +211,72 @@ class WorkoutSessionRepositoryImpl @Inject constructor(
                 workoutSessionDao.upsertSession(session.toEntity())
             }
             sessionId
+        }
+    }
+
+    override suspend fun setOverallFeeling(sessionId: Long, feeling: Int?) =
+        withContext(ioDispatcher) {
+            workoutSessionDao.updateOverallFeeling(sessionId, feeling, timeProvider.nowEpochMs())
+        }
+
+    override suspend fun setOverallNotes(sessionId: Long, notes: String?) =
+        withContext(ioDispatcher) {
+            workoutSessionDao.updateOverallNotes(sessionId, notes, timeProvider.nowEpochMs())
+        }
+
+    override suspend fun setExerciseFeeling(sessionExerciseId: Long, feeling: Int?) =
+        withContext(ioDispatcher) {
+            workoutSessionDao.updateExerciseFeeling(sessionExerciseId, feeling)
+        }
+
+    override suspend fun setExerciseNotes(sessionExerciseId: Long, notes: String?) =
+        withContext(ioDispatcher) {
+            workoutSessionDao.updateExerciseNotes(sessionExerciseId, notes)
+        }
+
+    override suspend fun repeatSession(sessionId: Long): Long? = withContext(ioDispatcher) {
+        val source = workoutSessionDao.getSessionDetail(sessionId)?.toDomain()
+            ?: return@withContext null
+        database.withTransaction {
+            val now = timeProvider.nowEpochMs()
+            val newSessionId = workoutSessionDao.insertSession(
+                WorkoutSession(
+                    programDayId = source.session.programDayId,
+                    programId = source.session.programId,
+                    sessionName = source.session.sessionName,
+                    startedAt = now,
+                    status = SessionStatus.IN_PROGRESS,
+                    createdAt = now,
+                    updatedAt = now,
+                ).toEntity(),
+            )
+            source.exercises
+                .sortedBy { it.exercise.exerciseOrder }
+                .forEachIndexed { index, logged ->
+                    workoutSessionDao.insertSessionExercise(
+                        logged.exercise.copy(
+                            id = 0L,
+                            sessionId = newSessionId,
+                            exerciseOrder = index,
+                            startedAt = now,
+                            // Carried-over notes and feeling would describe the old session.
+                            exerciseNotes = null,
+                            feeling = null,
+                        ).toEntity(),
+                    )
+                }
+            // Open the first exercise so the logger does not start fully collapsed.
+            val created = workoutSessionDao.getSessionDetail(newSessionId)?.toDomain()
+            val firstId = created?.exercises?.firstOrNull()?.exercise?.id
+            if (created != null && firstId != null) {
+                workoutSessionDao.upsertSession(
+                    created.session.copy(
+                        expandedSessionExerciseId = firstId,
+                        updatedAt = now,
+                    ).toEntity(),
+                )
+            }
+            newSessionId
         }
     }
 
