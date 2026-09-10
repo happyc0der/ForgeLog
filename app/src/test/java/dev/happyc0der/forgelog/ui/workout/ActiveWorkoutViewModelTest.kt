@@ -19,9 +19,11 @@ import dev.happyc0der.forgelog.testing.TestEnvironment
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -293,6 +295,66 @@ class ActiveWorkoutViewModelTest {
      * The guard is real and still worth having; this setup simply cannot demonstrate it, and
      * saying so beats a test that passes for the wrong reason.
      */
+    /*
+     * A killed process rebuilds a running countdown from the last set's completedAt, which is a
+     * column. This is the ordinary case, not an exotic one: the phone is face down on the bench
+     * for two minutes, which is precisely when Android reclaims the app.
+     */
+
+    @Test
+    fun `a rest still running is picked back up by a fresh ViewModel`() = runTest {
+        val vm = viewModel()
+        vm.uiState.test {
+            awaitUntil { it.detail != null }
+            cancelAndIgnoreRemainingEvents()
+        }
+        vm.addSet(sessionExerciseId)
+        advanceUntilIdle()
+        val set = sets().single()
+        // runCurrent, not advanceUntilIdle: completing a set starts a countdown, and the fake
+        // clock never lets it finish, so advancing time would chase it forever.
+        vm.onSetCompleted(set, true)
+        runCurrent()
+        vm.viewModelScope.cancel()
+
+        // 30 seconds into a 120-second planned rest, the process dies and a new one starts.
+        env.time.now += 30_000L
+        val restarted = viewModel()
+
+        restarted.uiState.test {
+            val state = awaitUntil { it.restTimer.isActive }
+            assertEquals(120, state.restTimer.targetSeconds)
+            assertEquals("1:30", state.restTimer.remainingLabel)
+            cancelAndIgnoreRemainingEvents()
+        }
+        restarted.viewModelScope.cancel()
+    }
+
+    @Test
+    fun `a rest that already elapsed is not resurrected`() = runTest {
+        val vm = viewModel()
+        vm.uiState.test {
+            awaitUntil { it.detail != null }
+            cancelAndIgnoreRemainingEvents()
+        }
+        vm.addSet(sessionExerciseId)
+        advanceUntilIdle()
+        vm.onSetCompleted(sets().single(), true)
+        runCurrent()
+        vm.viewModelScope.cancel()
+
+        // Reopened the next morning.
+        env.time.now += 12L * 60L * 60L * 1000L
+        val restarted = viewModel()
+
+        restarted.uiState.test {
+            val state = awaitUntil { it.detail != null }
+            assertFalse("yesterday's rest must not come back", state.restTimer.isActive)
+            cancelAndIgnoreRemainingEvents()
+        }
+        restarted.viewModelScope.cancel()
+    }
+
 }
 
 private suspend fun <T> app.cash.turbine.ReceiveTurbine<T>.awaitUntil(predicate: (T) -> Boolean): T {

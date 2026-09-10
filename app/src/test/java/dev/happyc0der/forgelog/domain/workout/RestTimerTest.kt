@@ -1,6 +1,8 @@
 package dev.happyc0der.forgelog.domain.workout
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -134,5 +136,41 @@ class RestTimerTest {
         val state = RestTimer.start(0, start)
         assertEquals(0, RestTimer.remainingSeconds(state, start))
         assertTrue(RestTimer.hasFinished(state, start))
+    }
+
+    /*
+     * Restoring after the process was killed. The anchor is the last set's completedAt, which is a
+     * column, so a countdown can outlive the process -- and being killed mid-rest is the likely
+     * case, not the exotic one: the phone is on the bench and the app is in the background.
+     */
+
+    @Test
+    fun `a rest still running is restored with the time it has left`() {
+        val anchor = 1_000_000L
+        val state = RestTimer.restore(anchor, targetSeconds = 120, nowEpochMs = anchor + 30_000L)
+
+        assertNotNull(state)
+        assertEquals(90, RestTimer.remainingSeconds(state!!, anchor + 30_000L))
+        assertTrue(state.isActive)
+        assertFalse(state.isPaused)
+    }
+
+    @Test
+    fun `a rest that has already elapsed is not restored`() {
+        val anchor = 1_000_000L
+        // Yesterday's session. "Over by 3 hours" is worse than showing nothing.
+        assertNull(RestTimer.restore(anchor, targetSeconds = 120, nowEpochMs = anchor + 10_800_000L))
+    }
+
+    @Test
+    fun `a rest exactly at its target is not restored`() {
+        val anchor = 1_000_000L
+        assertNull(RestTimer.restore(anchor, targetSeconds = 120, nowEpochMs = anchor + 120_000L))
+    }
+
+    @Test
+    fun `a clock that has gone backwards does not restore a timer`() {
+        val anchor = 1_000_000L
+        assertNull(RestTimer.restore(anchor, targetSeconds = 120, nowEpochMs = anchor - 5_000L))
     }
 }

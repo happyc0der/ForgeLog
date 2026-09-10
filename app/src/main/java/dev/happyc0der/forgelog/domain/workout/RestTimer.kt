@@ -101,6 +101,23 @@ object RestTimer {
         anchorEpochMs = anchorEpochMs,
     )
 
+    /**
+     * Rebuilds a countdown that was already running, or null if it has nothing left to show.
+     *
+     * The anchor is the completion time of the set that started the rest, and that is a column in
+     * the database — so a countdown can survive the process being killed, which is exactly when it
+     * is most likely to happen: the phone goes down on the bench for two minutes and Android
+     * reclaims the app.
+     *
+     * Returns null once the rest has elapsed. Restoring a finished timer would greet the user with
+     * "over by 3 hours" from yesterday's session, which is worse than showing nothing.
+     */
+    fun restore(anchorEpochMs: Long, targetSeconds: Int, nowEpochMs: Long): RestTimerState? {
+        val elapsed = (nowEpochMs - anchorEpochMs) / 1000L
+        if (elapsed < 0 || elapsed >= targetSeconds) return null
+        return start(targetSeconds = targetSeconds, anchorEpochMs = anchorEpochMs)
+    }
+
     /** The rest to suggest: the plan's target if it has one, else the user's default. */
     fun suggestedTarget(plannedRestSeconds: Int?, defaultRestSeconds: Int): Int =
         (plannedRestSeconds ?: defaultRestSeconds)

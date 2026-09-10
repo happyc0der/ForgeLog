@@ -41,6 +41,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
@@ -222,6 +223,40 @@ class ActiveWorkoutViewModel @Inject constructor(
 
     init {
         observeRestCompletion()
+        restoreRestTimer()
+    }
+
+    /**
+     * Picks a running countdown back up after the process was killed.
+     *
+     * The timer itself is in memory, but everything needed to rebuild it is not: the anchor is the
+     * completion time of the last set, which is a column. Without this, putting the phone down for
+     * two minutes of rest — the moment Android is most likely to reclaim the app — lost the
+     * countdown entirely.
+     *
+     * Runs once, and only while nothing is already counting: a live timer, including a paused one,
+     * always wins over a reconstruction.
+     */
+    private fun restoreRestTimer() {
+        launchSafely(::reportAsMessage) {
+            val detail = workoutSessionRepository.observeSessionDetail(sessionId)
+                .filterNotNull()
+                .first()
+            if (restTimer.value != null) return@launchSafely
+            val lastCompleted = detail.exercises
+                .asSequence()
+                .flatMap { logged -> logged.sets.asSequence().map { logged to it } }
+                .filter { (_, set) -> set.completed && set.completedAt != null }
+                .maxByOrNull { (_, set) -> set.completedAt ?: 0L }
+                ?: return@launchSafely
+            val (logged, set) = lastCompleted
+            val anchor = set.completedAt ?: return@launchSafely
+            val target = RestTimer.suggestedTarget(
+                plannedRestSeconds = logged.exercise.targetRestSeconds,
+                defaultRestSeconds = settingsRepository.settings.first().defaultRestSeconds,
+            )
+            restTimer.value = RestTimer.restore(anchor, target, timeProvider.nowEpochMs())
+        }
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)

@@ -10,6 +10,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import dev.happyc0der.forgelog.MainActivity
@@ -36,6 +37,28 @@ class WorkoutForegroundService : LifecycleService() {
     private var tickerJob: Job? = null
     private var currentSession: WorkoutSession? = null
 
+    /**
+     * Whether this service has already entered the foreground.
+     *
+     * startForeground is for entering that state, once. Every later tick is an update and goes
+     * through NotificationManager.notify -- calling startForeground once a second instead meant
+     * 3,600 of them an hour, each rebuilding a PendingIntent, for a label that changes by one
+     * second.
+     */
+    private var inForeground = false
+
+    /** Rebuilt never: the intent is identical on every tick. */
+    private val contentIntent: PendingIntent by lazy {
+        PendingIntent.getActivity(
+            this,
+            0,
+            Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+    }
+
     override fun onCreate() {
         super.onCreate()
         createChannel()
@@ -46,6 +69,7 @@ class WorkoutForegroundService : LifecycleService() {
                 if (session == null) {
                     stopTicker()
                     stopForeground(STOP_FOREGROUND_REMOVE)
+                    inForeground = false
                     stopSelf()
                 } else {
                     postNotification(session)
@@ -91,11 +115,28 @@ class WorkoutForegroundService : LifecycleService() {
             sessionName = session.sessionName,
             elapsedLabel = formatElapsed(timeProvider.nowEpochMs() - session.startedAt),
         )
-        startInForeground(notification)
+        if (inForeground) {
+            updateNotification(notification)
+        } else {
+            startInForeground(notification)
+        }
+    }
+
+    /**
+     * A plain update to a notification already showing.
+     *
+     * Silently does nothing if the user declined notifications: the service still needs to run, and
+     * a missing permission is not a reason to crash a workout.
+     */
+    private fun updateNotification(notification: Notification) {
+        runCatching {
+            NotificationManagerCompat.from(this).notify(NOTIFICATION_ID, notification)
+        }
     }
 
     @SuppressLint("MissingPermission")
     private fun startInForeground(notification: Notification) {
+        inForeground = true
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(
                 NOTIFICATION_ID,
@@ -108,15 +149,6 @@ class WorkoutForegroundService : LifecycleService() {
     }
 
     private fun buildNotification(sessionName: String?, elapsedLabel: String): Notification {
-        val launchIntent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-        }
-        val pendingIntent = PendingIntent.getActivity(
-            this,
-            0,
-            launchIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
         val title = sessionName?.takeIf { it.isNotBlank() }
             ?: getString(R.string.workout_notification_title)
         return NotificationCompat.Builder(this, CHANNEL_ID)
@@ -125,7 +157,7 @@ class WorkoutForegroundService : LifecycleService() {
             .setContentText(getString(R.string.workout_notification_elapsed, elapsedLabel))
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-            .setContentIntent(pendingIntent)
+            .setContentIntent(contentIntent)
             .setCategory(NotificationCompat.CATEGORY_STOPWATCH)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .build()
