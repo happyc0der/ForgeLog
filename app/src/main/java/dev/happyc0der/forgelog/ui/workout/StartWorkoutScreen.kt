@@ -1,0 +1,342 @@
+package dev.happyc0der.forgelog.ui.workout
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material.icons.outlined.FitnessCenter
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.happyc0der.forgelog.R
+import dev.happyc0der.forgelog.domain.model.SessionExerciseWithSets
+import dev.happyc0der.forgelog.domain.model.SetLog
+import dev.happyc0der.forgelog.domain.workout.DurationInput
+import dev.happyc0der.forgelog.domain.workout.DurationInputUnit
+import dev.happyc0der.forgelog.ui.components.EmptyState
+import dev.happyc0der.forgelog.ui.components.ErrorState
+import dev.happyc0der.forgelog.ui.components.LoadingState
+import dev.happyc0der.forgelog.ui.components.ReorderableColumn
+import dev.happyc0der.forgelog.ui.input.DurationUnitToggle
+import dev.happyc0der.forgelog.ui.input.rememberDurationInputUnit
+import dev.happyc0der.forgelog.ui.util.label
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun StartWorkoutScreen(
+    onBack: () -> Unit,
+    onPickFromLibrary: () -> Unit,
+    onStarted: (Long) -> Unit,
+    viewModel: StartWorkoutViewModel = hiltViewModel(),
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val (durationUnit, onDurationUnitChange) = rememberDurationInputUnit()
+
+    LaunchedEffect(Unit) {
+        viewModel.events.collect { event ->
+            when (event) {
+                is StartWorkoutEvent.Message -> snackbarHostState.showSnackbar(event.value)
+                is StartWorkoutEvent.Started -> onStarted(event.sessionId)
+            }
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = uiState.dayName?.let { day ->
+                            listOfNotNull(uiState.programName, day).joinToString(" · ")
+                        } ?: stringResource(R.string.workout_start_title),
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.action_back),
+                        )
+                    }
+                },
+            )
+        },
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        floatingActionButton = {
+            if (!uiState.needsDaySelection && !uiState.isLoading) {
+                FloatingActionButton(onClick = onPickFromLibrary) {
+                    Icon(
+                        imageVector = Icons.Filled.Add,
+                        contentDescription = stringResource(R.string.workout_add_exercise),
+                    )
+                }
+            }
+        },
+    ) { innerPadding ->
+        when {
+            uiState.isLoading -> LoadingState(modifier = Modifier.padding(innerPadding))
+            uiState.errorMessage != null -> ErrorState(
+                message = uiState.errorMessage ?: stringResource(R.string.state_error_generic),
+                onRetry = onBack,
+                modifier = Modifier.padding(innerPadding),
+            )
+            uiState.needsDaySelection && uiState.dayChoices.isEmpty() -> EmptyState(
+                icon = Icons.Outlined.FitnessCenter,
+                title = stringResource(R.string.workout_pick_day_empty_title),
+                message = stringResource(R.string.workout_pick_day_empty_message),
+                modifier = Modifier.padding(innerPadding),
+            )
+            uiState.needsDaySelection -> DayPickerList(
+                choices = uiState.dayChoices,
+                onSelect = viewModel::selectDay,
+                modifier = Modifier.padding(innerPadding),
+            )
+            uiState.roster.isEmpty() -> EmptyState(
+                icon = Icons.Outlined.FitnessCenter,
+                title = stringResource(R.string.workout_roster_empty_title),
+                message = stringResource(R.string.workout_roster_empty_message),
+                modifier = Modifier.padding(innerPadding),
+            )
+            else -> {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp)
+                        .padding(bottom = 96.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    ReorderableColumn(
+                        items = uiState.roster,
+                        key = { it.localId },
+                        onMove = viewModel::moveExercise,
+                        onDragEnd = {},
+                    ) { item, dragModifier ->
+                        PlannedExerciseCard(
+                            item = item,
+                            dragModifier = dragModifier,
+                            durationUnit = durationUnit,
+                            onDurationUnitChange = onDurationUnitChange,
+                            onSkip = { viewModel.skipExercise(item.localId) },
+                        )
+                    }
+                    Button(
+                        onClick = viewModel::confirmStart,
+                        enabled = uiState.canConfirm,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(text = stringResource(R.string.workout_confirm_start))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DayPickerList(
+    choices: List<DayChoice>,
+    onSelect: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(bottom = 24.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.workout_pick_day_title),
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        )
+        Text(
+            text = stringResource(R.string.workout_pick_day_message),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        choices.forEach { choice ->
+            ListItem(
+                headlineContent = { Text(text = choice.day.name) },
+                supportingContent = {
+                    Text(
+                        text = if (choice.exerciseCount == 1) {
+                            "${choice.program.name} · " +
+                                stringResource(R.string.program_day_exercise_count_one)
+                        } else {
+                            "${choice.program.name} · " +
+                                stringResource(R.string.program_day_exercise_count, choice.exerciseCount)
+                        },
+                    )
+                },
+                colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onSelect(choice.day.id) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun PlannedExerciseCard(
+    item: PlannedExerciseItem,
+    dragModifier: Modifier,
+    durationUnit: DurationInputUnit,
+    onDurationUnitChange: (DurationInputUnit) -> Unit,
+    onSkip: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Icon(
+                    imageVector = Icons.Filled.DragHandle,
+                    contentDescription = stringResource(R.string.action_drag_handle),
+                    modifier = dragModifier.padding(top = 8.dp, end = 8.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = item.exercise.name, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        text = "${item.exercise.category.label()} · ${item.exercise.defaultUnit.label()}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            item.pointersOverride?.takeIf { it.isNotBlank() }?.let { pointers ->
+                Text(
+                    text = pointers,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            PreviousSessionPanel(
+                previous = item.previous,
+                durationUnit = durationUnit,
+                onDurationUnitChange = onDurationUnitChange,
+            )
+            OutlinedButton(onClick = onSkip, modifier = Modifier.fillMaxWidth()) {
+                Text(text = stringResource(R.string.workout_skip_exercise))
+            }
+        }
+    }
+}
+
+@Composable
+fun PreviousSessionPanel(
+    previous: SessionExerciseWithSets?,
+    durationUnit: DurationInputUnit,
+    onDurationUnitChange: (DurationInputUnit) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = stringResource(R.string.workout_previous_title),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.secondary,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 8.dp),
+            )
+            DurationUnitToggle(
+                unit = durationUnit,
+                onUnitChange = onDurationUnitChange,
+            )
+        }
+        if (previous == null || previous.sets.isEmpty()) {
+            Text(
+                text = stringResource(R.string.workout_previous_none),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            DurationInput.formatWithUnit(
+                previous.exercise.restBeforeExerciseSeconds,
+                durationUnit,
+            )?.let { restBefore ->
+                Text(
+                    text = stringResource(R.string.workout_previous_rest_before, restBefore),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            previous.sets.forEach { set ->
+                Text(
+                    text = stringResource(
+                        R.string.workout_previous_set,
+                        set.setNumber,
+                        previousSetSummary(set, durationUnit),
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun previousSetSummary(set: SetLog, durationUnit: DurationInputUnit): String {
+    val parts = buildList {
+        add(set.setType.label())
+        set.reps?.let { add("${it}r") }
+        set.weight?.let { add("$it ${set.weightUnit.label()}") }
+        DurationInput.formatWithUnit(set.durationSeconds, durationUnit)?.let { add(it) }
+        set.distanceMeters?.let { add("${it}m") }
+        DurationInput.formatWithUnit(set.restAfterSetSeconds, durationUnit)?.let { rest ->
+            add(stringResource(R.string.workout_previous_rest, rest))
+        }
+        set.rpe?.let { add("RPE $it") }
+        set.rir?.let { add("RIR $it") }
+    }
+    return parts.joinToString(" · ")
+}

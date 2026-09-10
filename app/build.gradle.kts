@@ -7,13 +7,13 @@ plugins {
 }
 
 android {
-    namespace = "com.example.forgelog"
+    namespace = "dev.happyc0der.forgelog"
     compileSdk {
         version = release(37)
     }
 
     defaultConfig {
-        applicationId = "com.example.forgelog"
+        applicationId = "dev.happyc0der.forgelog"
         minSdk = 26
         targetSdk = 37
         versionCode = 1
