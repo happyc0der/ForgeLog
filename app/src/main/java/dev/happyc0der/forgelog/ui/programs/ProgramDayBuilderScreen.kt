@@ -57,6 +57,7 @@ import dev.happyc0der.forgelog.ui.components.ConfirmDialog
 import dev.happyc0der.forgelog.ui.components.EmptyState
 import dev.happyc0der.forgelog.ui.components.ErrorState
 import dev.happyc0der.forgelog.ui.components.LoadingState
+import dev.happyc0der.forgelog.ui.components.DragHandle
 import dev.happyc0der.forgelog.ui.components.ReorderableColumn
 import dev.happyc0der.forgelog.ui.exercise.ExerciseForm
 import dev.happyc0der.forgelog.ui.exercise.ExerciseFormState
@@ -170,10 +171,10 @@ fun ProgramDayBuilderScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     ReorderableColumn(
-                        items = detail.exercises,
+                        items = uiState.exercises,
                         key = { it.programExercise.id },
                         onMove = viewModel::moveExercise,
-                        onDragEnd = {},
+                        onDragEnd = viewModel::persistExerciseOrder,
                     ) { item, dragModifier ->
                         ProgramExerciseCard(
                             item = item,

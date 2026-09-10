@@ -169,6 +169,20 @@ fun SettingsScreen(
                         onCsvRange = viewModel::setCsvRange,
                     )
                 }
+                if (uiState.debugToolsAvailable) {
+                    item(key = "debug") {
+                        ForgeCard {
+                            CardHeader(title = stringResource(R.string.settings_section_debug))
+                            ActionRow(
+                                label = stringResource(R.string.settings_seed),
+                                detail = stringResource(R.string.settings_seed_detail),
+                                enabled = !uiState.isWorking,
+                                testTag = "settings_seed",
+                                onClick = viewModel::seedSampleData,
+                            )
+                        }
+                    }
+                }
                 item(key = "danger") { DangerCard(onDelete = { confirmDelete = true }) }
                 item(key = "about") { AboutCard(uiState) }
             }

@@ -10,6 +10,7 @@ import dev.happyc0der.forgelog.domain.backup.BackupProblem
 import dev.happyc0der.forgelog.domain.backup.BackupRepository
 import dev.happyc0der.forgelog.domain.backup.DocumentHandle
 import dev.happyc0der.forgelog.domain.backup.DocumentStore
+import dev.happyc0der.forgelog.domain.debug.DebugTools
 import dev.happyc0der.forgelog.domain.model.ExerciseUnit
 import dev.happyc0der.forgelog.domain.settings.AppSettings
 import dev.happyc0der.forgelog.domain.settings.SettingsRepository
@@ -47,6 +48,8 @@ data class SettingsUiState(
     val isWorking: Boolean = false,
     val appVersion: String = BuildConfig.VERSION_NAME,
     val databaseVersion: Int = 0,
+    /** True only in builds that actually carry the sample-data code. */
+    val debugToolsAvailable: Boolean = false,
 )
 
 sealed interface SettingsEvent {
@@ -63,6 +66,7 @@ class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val backupRepository: BackupRepository,
     private val documentStore: DocumentStore,
+    private val debugTools: DebugTools,
     private val timeProvider: TimeProvider,
     private val zoneProvider: ZoneProvider,
 ) : ViewModel() {
@@ -90,6 +94,7 @@ class SettingsViewModel @Inject constructor(
             csvRange = range,
             isWorking = working,
             databaseVersion = DATABASE_VERSION,
+            debugToolsAvailable = debugTools.isAvailable,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -215,6 +220,20 @@ class SettingsViewModel @Inject constructor(
             try {
                 backupRepository.deleteAllData()
                 message(R.string.settings_delete_all_done)
+            } finally {
+                isWorking.value = false
+            }
+        }
+    }
+
+    /** Debug builds only; the release implementation does nothing. */
+    fun seedSampleData() {
+        if (!debugTools.isAvailable) return
+        launchSafely(::reportAsMessage) {
+            isWorking.value = true
+            try {
+                debugTools.seedSampleData()
+                message(R.string.settings_seed_done)
             } finally {
                 isWorking.value = false
             }

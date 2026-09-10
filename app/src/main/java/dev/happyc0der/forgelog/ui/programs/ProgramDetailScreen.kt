@@ -45,6 +45,7 @@ import dev.happyc0der.forgelog.ui.components.ConfirmDialog
 import dev.happyc0der.forgelog.ui.components.EmptyState
 import dev.happyc0der.forgelog.ui.components.ErrorState
 import dev.happyc0der.forgelog.ui.components.LoadingState
+import dev.happyc0der.forgelog.ui.components.DragHandle
 import dev.happyc0der.forgelog.ui.components.ReorderableColumn
 import dev.happyc0der.forgelog.ui.components.TextInputDialog
 
@@ -57,6 +58,7 @@ fun ProgramDetailScreen(
     viewModel: ProgramDetailViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val scrollState = rememberScrollState()
     val snackbarHostState = remember { SnackbarHostState() }
     var createDay by remember { mutableStateOf(false) }
     var renameDay by remember { mutableStateOf<ProgramDay?>(null) }
@@ -122,7 +124,7 @@ fun ProgramDetailScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(innerPadding)
-                        .verticalScroll(rememberScrollState())
+                        .verticalScroll(scrollState)
                         .padding(bottom = 88.dp),
                 ) {
                     detail.program.description?.takeIf { it.isNotBlank() }?.let { description ->
@@ -134,10 +136,17 @@ fun ProgramDetailScreen(
                         )
                     }
                     ReorderableColumn(
-                        items = detail.days,
+                        // uiState.days applies the in-flight drag order, so a row follows the finger
+                        // instead of waiting for a round trip through the database.
+                        items = uiState.days.mapNotNull { day ->
+                            detail.days.firstOrNull { it.day.id == day.id }
+                        },
                         key = { it.day.id },
                         onMove = viewModel::moveDay,
                         onDragEnd = viewModel::persistDayOrder,
+                        scrollState = scrollState,
+                        moveUpLabel = stringResource(R.string.action_move_up),
+                        moveDownLabel = stringResource(R.string.action_move_down),
                     ) { dayDetail, dragModifier ->
                         ProgramDayRow(
                             dayDetail = dayDetail,
@@ -219,12 +228,13 @@ private fun ProgramDayRow(
             )
         },
         leadingContent = {
-            Icon(
-                imageVector = Icons.Filled.DragHandle,
-                contentDescription = stringResource(R.string.action_drag_handle),
-                modifier = dragModifier,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            DragHandle(dragModifier = dragModifier) {
+                Icon(
+                    imageVector = Icons.Filled.DragHandle,
+                    contentDescription = stringResource(R.string.action_drag_handle),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         },
         trailingContent = {
             IconButton(onClick = { menuOpen = true }) {

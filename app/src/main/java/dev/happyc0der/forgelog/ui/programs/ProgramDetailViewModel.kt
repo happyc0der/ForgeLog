@@ -9,10 +9,14 @@ import dev.happyc0der.forgelog.R
 import dev.happyc0der.forgelog.domain.model.ProgramDay
 import dev.happyc0der.forgelog.domain.model.ProgramDetail
 import dev.happyc0der.forgelog.domain.repository.ProgramRepository
+import dev.happyc0der.forgelog.ui.common.launchSafely
+import dev.happyc0der.forgelog.ui.common.reportErrors
 import dev.happyc0der.forgelog.ui.navigation.ProgramDetailRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -24,7 +28,18 @@ data class ProgramDetailUiState(
     val isLoading: Boolean = true,
     val errorMessage: String? = null,
     val detail: ProgramDetail? = null,
-)
+    /** Day ids in the order being dragged, before it is committed. Null when not dragging. */
+    val draftOrder: List<Long>? = null,
+) {
+    /** Days in the order to display: the in-flight drag order if there is one, else the stored one. */
+    val days: List<ProgramDay>
+        get() {
+            val stored = detail?.days?.map { it.day }.orEmpty()
+            val order = draftOrder ?: return stored
+            val byId = stored.associateBy { it.id }
+            return order.mapNotNull(byId::get) + stored.filter { it.id !in order }
+        }
+}
 
 sealed interface ProgramDetailEvent {
     data class Message(val value: String) : ProgramDetailEvent
@@ -38,18 +53,24 @@ class ProgramDetailViewModel @Inject constructor(
     private val programRepository: ProgramRepository,
 ) : ViewModel() {
     private val programId = savedStateHandle.toRoute<ProgramDetailRoute>().programId
+    private val draftDayOrder = MutableStateFlow<List<Long>?>(null)
+    private val errorMessage = MutableStateFlow<String?>(null)
 
-    val uiState: StateFlow<ProgramDetailUiState> = programRepository.observeProgramDetail(programId)
-        .map { detail ->
-            if (detail == null) {
-                ProgramDetailUiState(
-                    isLoading = false,
-                    errorMessage = application.getString(R.string.program_missing),
-                )
-            } else {
-                ProgramDetailUiState(isLoading = false, detail = detail)
-            }
+    val uiState: StateFlow<ProgramDetailUiState> = combine(
+        programRepository.observeProgramDetail(programId)
+            .reportErrors(null) { reportError(it) },
+        draftDayOrder,
+        errorMessage,
+    ) { detail, draft, error ->
+        when {
+            error != null -> ProgramDetailUiState(isLoading = false, errorMessage = error)
+            detail == null -> ProgramDetailUiState(
+                isLoading = false,
+                errorMessage = application.getString(R.string.program_missing),
+            )
+            else -> ProgramDetailUiState(isLoading = false, detail = detail, draftOrder = draft)
         }
+    }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
@@ -58,6 +79,22 @@ class ProgramDetailViewModel @Inject constructor(
 
     private val eventsChannel = Channel<ProgramDetailEvent>(Channel.BUFFERED)
     val events = eventsChannel.receiveAsFlow()
+
+    private fun reportError(throwable: Throwable) {
+        errorMessage.value = throwable.message?.takeIf { it.isNotBlank() }
+            ?: application.getString(R.string.state_error_generic)
+    }
+
+    private fun reportAsMessage(throwable: Throwable) {
+        viewModelScope.launch {
+            eventsChannel.send(
+                ProgramDetailEvent.Message(
+                    throwable.message?.takeIf { it.isNotBlank() }
+                        ?: application.getString(R.string.state_error_generic),
+                ),
+            )
+        }
+    }
 
     fun createDay(name: String) {
         viewModelScope.launch {
@@ -94,14 +131,28 @@ class ProgramDetailViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Reorders a draft list only. The database is written once, by [persistDayOrder], when the drag
+     * ends.
+     *
+     * Writing inside the drag wrote N transactions for one gesture, and each one recomputed from a
+     * uiState that the previous write had already invalidated, so a fast drag could land in the wrong
+     * order. The draft is also what the UI reads while dragging, so the row follows the finger instead
+     * of waiting for a round trip through Room.
+     */
     fun moveDay(from: Int, to: Int) {
-        val days = uiState.value.detail?.days?.map { it.day } ?: return
-        if (from !in days.indices || to !in days.indices) return
-        val reordered = days.toMutableList().apply { add(to, removeAt(from)) }
-        viewModelScope.launch {
-            programRepository.reorderDays(reordered.map { it.id })
-        }
+        val current = draftDayOrder.value
+            ?: uiState.value.detail?.days?.map { it.day.id }
+            ?: return
+        if (from !in current.indices || to !in current.indices) return
+        draftDayOrder.value = current.toMutableList().apply { add(to, removeAt(from)) }
     }
 
-    fun persistDayOrder() = Unit
+    fun persistDayOrder() {
+        val order = draftDayOrder.value ?: return
+        launchSafely(::reportAsMessage) {
+            programRepository.reorderDays(order)
+            draftDayOrder.value = null
+        }
+    }
 }

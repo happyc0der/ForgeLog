@@ -10,6 +10,7 @@ import dev.happyc0der.forgelog.data.local.sessionExerciseEntity
 import dev.happyc0der.forgelog.data.local.setLogEntity
 import dev.happyc0der.forgelog.domain.backup.DocumentHandle
 import dev.happyc0der.forgelog.domain.backup.DocumentStore
+import dev.happyc0der.forgelog.domain.debug.DebugTools
 import dev.happyc0der.forgelog.domain.model.ExerciseUnit
 import dev.happyc0der.forgelog.domain.workout.DurationInputUnit
 import dev.happyc0der.forgelog.testing.MainDispatcherRule
@@ -30,6 +31,14 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.io.IOException
 import java.time.DayOfWeek
+
+/** Stands in for the debug-only seeder, which the release build does not carry at all. */
+private class FakeDebugTools(override val isAvailable: Boolean) : DebugTools {
+    var seeded = false
+    override suspend fun seedSampleData() {
+        seeded = true
+    }
+}
 
 /** Stands in for the Storage Access Framework: the test plays the part of the file picker. */
 private class FakeDocumentStore : DocumentStore {
@@ -91,11 +100,12 @@ class SettingsViewModelTest {
         dao.upsertSetLog(setLogEntity(sessionExerciseId = sessionExerciseId))
     }
 
-    private fun viewModel(): SettingsViewModel = SettingsViewModel(
+    private fun viewModel(debugAvailable: Boolean = false): SettingsViewModel = SettingsViewModel(
         application = ApplicationProvider.getApplicationContext<Application>(),
         settingsRepository = env.settingsRepository,
         backupRepository = env.backupRepository,
         documentStore = documents,
+        debugTools = FakeDebugTools(debugAvailable),
         timeProvider = env.time,
         zoneProvider = env.zone,
     ).also(created::add)
@@ -302,6 +312,31 @@ class SettingsViewModelTest {
         }
         assertEquals(0, env.database.backupDao().allSessions().size)
         assertEquals(0, env.database.backupDao().allExercises().size)
+    }
+
+    @Test
+    fun `sample data is not offered when the build does not carry it`() = runTest {
+        val vm = viewModel(debugAvailable = false)
+        vm.uiState.test {
+            var state = awaitItem()
+            while (state.isLoading) state = awaitItem()
+            assertTrue(!state.debugToolsAvailable)
+            cancelAndIgnoreRemainingEvents()
+        }
+        // Calling it anyway does nothing, so a stale UI cannot seed a release build.
+        vm.seedSampleData()
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `sample data is offered in a build that carries it`() = runTest {
+        val vm = viewModel(debugAvailable = true)
+        vm.uiState.test {
+            var state = awaitItem()
+            while (!state.debugToolsAvailable) state = awaitItem()
+            assertTrue(state.debugToolsAvailable)
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     @Test

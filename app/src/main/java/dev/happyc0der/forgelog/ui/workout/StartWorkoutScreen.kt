@@ -56,6 +56,7 @@ import dev.happyc0der.forgelog.ui.components.ConfirmDialog
 import dev.happyc0der.forgelog.ui.components.EmptyState
 import dev.happyc0der.forgelog.ui.components.ErrorState
 import dev.happyc0der.forgelog.ui.components.LoadingState
+import dev.happyc0der.forgelog.ui.components.DragHandle
 import dev.happyc0der.forgelog.ui.components.ReorderableColumn
 import dev.happyc0der.forgelog.ui.input.DurationUnitToggle
 import dev.happyc0der.forgelog.ui.input.rememberDurationInputUnit
@@ -188,7 +189,11 @@ fun StartWorkoutScreen(
                         items = uiState.roster,
                         key = { it.localId },
                         onMove = viewModel::moveExercise,
+                        // Legitimately empty here: the planner's roster is in-memory for this
+                        // session only, so there is nothing to persist on drop.
                         onDragEnd = {},
+                        moveUpLabel = stringResource(R.string.action_move_up),
+                        moveDownLabel = stringResource(R.string.action_move_down),
                     ) { item, dragModifier ->
                         PlannedExerciseCard(
                             item = item,
@@ -283,12 +288,13 @@ private fun PlannedExerciseCard(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Row(modifier = Modifier.fillMaxWidth()) {
-                Icon(
-                    imageVector = Icons.Filled.DragHandle,
-                    contentDescription = stringResource(R.string.action_drag_handle),
-                    modifier = dragModifier.padding(top = 8.dp, end = 8.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                DragHandle(dragModifier = dragModifier) {
+                    Icon(
+                        imageVector = Icons.Filled.DragHandle,
+                        contentDescription = stringResource(R.string.action_drag_handle),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(text = item.exercise.name, style = MaterialTheme.typography.titleMedium)
                     Text(

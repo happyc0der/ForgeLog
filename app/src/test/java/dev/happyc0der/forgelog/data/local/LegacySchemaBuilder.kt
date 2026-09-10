@@ -39,7 +39,11 @@ internal object LegacySchemaBuilder {
                 .name(databaseFile.absolutePath)
                 .callback(object : SupportSQLiteOpenHelper.Callback(version) {
                     override fun onCreate(db: SupportSQLiteDatabase) = Unit
-                    override fun onUpgrade(db: SupportSQLiteDatabase, old: Int, new: Int) = Unit
+                    override fun onUpgrade(
+                        db: SupportSQLiteDatabase,
+                        oldVersion: Int,
+                        newVersion: Int,
+                    ) = Unit
                 })
                 .build(),
         )

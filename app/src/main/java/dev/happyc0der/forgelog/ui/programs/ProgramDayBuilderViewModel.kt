@@ -9,6 +9,7 @@ import dev.happyc0der.forgelog.R
 import dev.happyc0der.forgelog.domain.library.HowToUrl
 import dev.happyc0der.forgelog.domain.model.Exercise
 import dev.happyc0der.forgelog.domain.model.ProgramDayDetail
+import dev.happyc0der.forgelog.domain.model.ProgramExerciseDetail
 import dev.happyc0der.forgelog.domain.model.ProgramExercise
 import dev.happyc0der.forgelog.domain.repository.ExerciseRepository
 import dev.happyc0der.forgelog.domain.repository.ProgramRepository
@@ -16,7 +17,9 @@ import dev.happyc0der.forgelog.ui.exercise.ExerciseFormState
 import dev.happyc0der.forgelog.ui.navigation.ProgramDayBuilderRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -28,7 +31,19 @@ data class ProgramDayBuilderUiState(
     val isLoading: Boolean = true,
     val errorMessage: String? = null,
     val detail: ProgramDayDetail? = null,
-)
+    /** Program-exercise ids in the order being dragged, before it is committed. */
+    val draftOrder: List<Long>? = null,
+) {
+    /** Exercises in display order: the in-flight drag order if there is one, else the stored one. */
+    val exercises: List<ProgramExerciseDetail>
+        get() {
+            val stored = detail?.exercises.orEmpty()
+            val order = draftOrder ?: return stored
+            val byId = stored.associateBy { it.programExercise.id }
+            return order.mapNotNull(byId::get) +
+                stored.filter { it.programExercise.id !in order }
+        }
+}
 
 sealed interface ProgramDayBuilderEvent {
     data class Message(val value: String) : ProgramDayBuilderEvent
@@ -43,18 +58,21 @@ class ProgramDayBuilderViewModel @Inject constructor(
     private val exerciseRepository: ExerciseRepository,
 ) : ViewModel() {
     private val dayId = savedStateHandle.toRoute<ProgramDayBuilderRoute>().dayId
+    private val draftExerciseOrder = MutableStateFlow<List<Long>?>(null)
 
-    val uiState: StateFlow<ProgramDayBuilderUiState> = programRepository.observeDayDetail(dayId)
-        .map { detail ->
-            if (detail == null) {
-                ProgramDayBuilderUiState(
-                    isLoading = false,
-                    errorMessage = application.getString(R.string.program_day_missing),
-                )
-            } else {
-                ProgramDayBuilderUiState(isLoading = false, detail = detail)
-            }
+    val uiState: StateFlow<ProgramDayBuilderUiState> = combine(
+        programRepository.observeDayDetail(dayId),
+        draftExerciseOrder,
+    ) { detail, draft ->
+        if (detail == null) {
+            ProgramDayBuilderUiState(
+                isLoading = false,
+                errorMessage = application.getString(R.string.program_day_missing),
+            )
+        } else {
+            ProgramDayBuilderUiState(isLoading = false, detail = detail, draftOrder = draft)
         }
+    }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
@@ -118,12 +136,28 @@ class ProgramDayBuilderViewModel @Inject constructor(
         }
     }
 
+    /** Reorders a draft list only; [persistExerciseOrder] writes once when the drag ends. */
     fun moveExercise(from: Int, to: Int) {
-        val exercises = uiState.value.detail?.exercises?.map { it.programExercise } ?: return
-        if (from !in exercises.indices || to !in exercises.indices) return
-        val reordered = exercises.toMutableList().apply { add(to, removeAt(from)) }
+        val current = draftExerciseOrder.value
+            ?: uiState.value.detail?.exercises?.map { it.programExercise.id }
+            ?: return
+        if (from !in current.indices || to !in current.indices) return
+        draftExerciseOrder.value = current.toMutableList().apply { add(to, removeAt(from)) }
+    }
+
+    fun persistExerciseOrder() {
+        val order = draftExerciseOrder.value ?: return
         viewModelScope.launch {
-            programRepository.reorderProgramExercises(reordered.map { it.id })
+            runCatching { programRepository.reorderProgramExercises(order) }
+                .onFailure { throwable ->
+                    eventsChannel.send(
+                        ProgramDayBuilderEvent.Message(
+                            throwable.message?.takeIf { it.isNotBlank() }
+                                ?: application.getString(R.string.state_error_generic),
+                        ),
+                    )
+                }
+            draftExerciseOrder.value = null
         }
     }
 
