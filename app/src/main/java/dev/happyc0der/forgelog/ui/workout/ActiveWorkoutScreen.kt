@@ -68,6 +68,7 @@ import dev.happyc0der.forgelog.ui.exercise.EnumDropdown
 import dev.happyc0der.forgelog.ui.input.DurationSecondsField
 import dev.happyc0der.forgelog.ui.input.SetEntryTextField
 import dev.happyc0der.forgelog.ui.input.rememberDurationInputUnit
+import dev.happyc0der.forgelog.ui.input.rememberRestInputUnit
 import dev.happyc0der.forgelog.ui.testing.TestTags
 import dev.happyc0der.forgelog.ui.util.label
 import dev.happyc0der.forgelog.ui.util.openHowToUrl
@@ -95,6 +96,7 @@ fun ActiveWorkoutScreen(
     val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
     val (durationUnit, onDurationUnitChange) = rememberDurationInputUnit()
+    val (restUnit, onRestUnitChange) = rememberRestInputUnit()
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
@@ -193,6 +195,8 @@ fun ActiveWorkoutScreen(
                             exerciseUi = exerciseUi,
                             viewModel = viewModel,
                             durationUnit = durationUnit,
+                            restUnit = restUnit,
+                            onRestUnitChange = onRestUnitChange,
                             onDurationUnitChange = onDurationUnitChange,
                             onDeleteSet = { deletingSetId = it.id },
                             onExpand = { viewModel.expand(exerciseUi.item.exercise.id) },
@@ -250,6 +254,8 @@ private fun ExerciseLoggerCard(
     viewModel: ActiveWorkoutViewModel,
     durationUnit: DurationInputUnit,
     onDurationUnitChange: (DurationInputUnit) -> Unit,
+    restUnit: DurationInputUnit,
+    onRestUnitChange: (DurationInputUnit) -> Unit,
     onDeleteSet: (SetLog) -> Unit,
     onExpand: () -> Unit,
     onOpenHowTo: (String) -> Unit,
@@ -322,6 +328,8 @@ private fun ExerciseLoggerCard(
                 PreviousSessionPanel(
                     previous = exerciseUi.previous,
                     durationUnit = durationUnit,
+                    restUnit = restUnit,
+                    onRestUnitChange = onRestUnitChange,
                     onDurationUnitChange = onDurationUnitChange,
                 )
                 SetEntryTextField(
@@ -341,6 +349,8 @@ private fun ExerciseLoggerCard(
                             revealed = exerciseUi.revealedFields,
                             viewModel = viewModel,
                             durationUnit = durationUnit,
+                            restUnit = restUnit,
+                            onRestUnitChange = onRestUnitChange,
                             onDurationUnitChange = onDurationUnitChange,
                             onDeleteSet = onDeleteSet,
                         )
@@ -385,6 +395,8 @@ private fun SetRow(
     viewModel: ActiveWorkoutViewModel,
     durationUnit: DurationInputUnit,
     onDurationUnitChange: (DurationInputUnit) -> Unit,
+    restUnit: DurationInputUnit,
+    onRestUnitChange: (DurationInputUnit) -> Unit,
     onDeleteSet: (SetLog) -> Unit,
 ) {
     Column(
@@ -478,8 +490,8 @@ private fun SetRow(
                 viewModel.onSetText(set, ActiveWorkoutViewModel.FIELD_REST, it)
             },
             label = stringResource(R.string.workout_field_rest),
-            unit = durationUnit,
-            onUnitChange = onDurationUnitChange,
+            unit = restUnit,
+            onUnitChange = onRestUnitChange,
             modifier = Modifier.fillMaxWidth(),
         )
         if (revealed.isNotEmpty()) {

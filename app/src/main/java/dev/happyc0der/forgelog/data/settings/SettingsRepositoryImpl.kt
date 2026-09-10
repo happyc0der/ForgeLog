@@ -41,6 +41,10 @@ class SettingsRepositoryImpl @Inject constructor(
         it[SettingsKeys.DURATION_INPUT_UNIT] = unit.name
     }
 
+    override suspend fun setRestInputUnit(unit: DurationInputUnit) = edit {
+        it[SettingsKeys.REST_INPUT_UNIT] = unit.name
+    }
+
     override suspend fun setWeekStartDay(day: DayOfWeek) = edit {
         it[SettingsKeys.WEEK_START_DAY] = day.name
     }
@@ -80,6 +84,9 @@ internal fun Preferences.toAppSettings(): AppSettings {
         durationInputUnit = this[SettingsKeys.DURATION_INPUT_UNIT]
             ?.let { stored -> DurationInputUnit.entries.firstOrNull { it.name == stored } }
             ?: defaults.durationInputUnit,
+        restInputUnit = this[SettingsKeys.REST_INPUT_UNIT]
+            ?.let { stored -> DurationInputUnit.entries.firstOrNull { it.name == stored } }
+            ?: defaults.restInputUnit,
         weekStartDay = this[SettingsKeys.WEEK_START_DAY]
             ?.let { stored -> DayOfWeek.entries.firstOrNull { it.name == stored } }
             ?: defaults.weekStartDay,

@@ -15,6 +15,9 @@ interface SettingsRepository {
     suspend fun setDefaultRestSeconds(seconds: Int)
 
     suspend fun setDurationInputUnit(unit: DurationInputUnit)
+
+    /** Rest is typed separately from an exercise's own duration; see [AppSettings.restInputUnit]. */
+    suspend fun setRestInputUnit(unit: DurationInputUnit)
     suspend fun setWeekStartDay(day: DayOfWeek)
     suspend fun setIncludeWarmupInVolume(include: Boolean)
     suspend fun setRestTimerVibration(enabled: Boolean)

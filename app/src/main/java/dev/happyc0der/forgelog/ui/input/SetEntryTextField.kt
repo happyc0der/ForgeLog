@@ -58,6 +58,26 @@ fun rememberDurationInputUnit(): Pair<DurationInputUnit, (DurationInputUnit) -> 
     return unit to { next -> scope.launch { repository.setDurationInputUnit(next) } }
 }
 
+/**
+ * The unit rest is typed in, kept separate from an exercise's own duration.
+ *
+ * A plank is 45 seconds and the rest after it is two minutes; one toggle for both meant choosing
+ * minutes rendered the hold as "0.75".
+ */
+@Composable
+fun rememberRestInputUnit(): Pair<DurationInputUnit, (DurationInputUnit) -> Unit> {
+    val context = LocalContext.current
+    val repository = remember(context) {
+        EntryPointAccessors
+            .fromApplication(context.applicationContext, SettingsEntryPoint::class.java)
+            .settingsRepository()
+    }
+    val settings by repository.settings.collectAsStateWithLifecycle(initialValue = null)
+    val scope = rememberCoroutineScope()
+    val unit = settings?.restInputUnit ?: DurationInputUnit.SECONDS
+    return unit to { next -> scope.launch { repository.setRestInputUnit(next) } }
+}
+
 fun Modifier.bringIntoViewWhenFocused(): Modifier = composed {
     val requester = remember { BringIntoViewRequester() }
     var focused by remember { mutableStateOf(false) }

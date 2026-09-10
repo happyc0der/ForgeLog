@@ -411,6 +411,7 @@
     <string name="settings_seed_done">Sample data written.</string>
 
     <string name="settings_default_weight_unit">Default weight unit</string>
+    <string name="settings_rest_unit">Rest entry</string>
     <string name="settings_duration_unit">Duration entry</string>
     <string name="settings_default_rest">Default rest</string>
     <string name="settings_default_rest_value">%1$d seconds</string>

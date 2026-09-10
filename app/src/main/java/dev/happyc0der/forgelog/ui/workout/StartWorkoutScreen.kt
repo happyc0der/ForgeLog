@@ -68,6 +68,7 @@ import dev.happyc0der.forgelog.ui.components.DragHandle
 import dev.happyc0der.forgelog.ui.components.ReorderableColumn
 import dev.happyc0der.forgelog.ui.input.DurationUnitToggle
 import dev.happyc0der.forgelog.ui.input.rememberDurationInputUnit
+import dev.happyc0der.forgelog.ui.input.rememberRestInputUnit
 import dev.happyc0der.forgelog.ui.testing.TestTags
 import dev.happyc0der.forgelog.ui.util.label
 import java.time.LocalDate
@@ -84,6 +85,7 @@ fun StartWorkoutScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val (durationUnit, onDurationUnitChange) = rememberDurationInputUnit()
+    val (restUnit, onRestUnitChange) = rememberRestInputUnit()
     var alreadyRunning by remember { mutableStateOf<StartWorkoutEvent.AlreadyInProgress?>(null) }
 
     LaunchedEffect(Unit) {
@@ -214,6 +216,8 @@ fun StartWorkoutScreen(
                             item = item,
                             dragModifier = dragModifier,
                             durationUnit = durationUnit,
+                            restUnit = restUnit,
+                            onRestUnitChange = onRestUnitChange,
                             onDurationUnitChange = onDurationUnitChange,
                             weightUnit = uiState.weightUnit,
                             onTargetChange = { field, value ->
@@ -290,6 +294,8 @@ private fun PlannedExerciseCard(
     dragModifier: Modifier,
     durationUnit: DurationInputUnit,
     onDurationUnitChange: (DurationInputUnit) -> Unit,
+    restUnit: DurationInputUnit,
+    onRestUnitChange: (DurationInputUnit) -> Unit,
     weightUnit: ExerciseUnit,
     onTargetChange: (TargetField, Double?) -> Unit,
     onSkip: () -> Unit,
@@ -334,6 +340,8 @@ private fun PlannedExerciseCard(
             PreviousSessionPanel(
                 previous = item.previous,
                 durationUnit = durationUnit,
+                restUnit = restUnit,
+                onRestUnitChange = onRestUnitChange,
                 onDurationUnitChange = onDurationUnitChange,
             )
             OutlinedButton(onClick = onSkip, modifier = Modifier.fillMaxWidth()) {
@@ -357,6 +365,8 @@ fun PreviousSessionPanel(
     previous: PreviousPerformance?,
     durationUnit: DurationInputUnit,
     onDurationUnitChange: (DurationInputUnit) -> Unit,
+    restUnit: DurationInputUnit,
+    onRestUnitChange: (DurationInputUnit) -> Unit,
 ) {
     val zone = remember { ZoneId.systemDefault() }
     val completedSets = previous?.completedSets.orEmpty()
@@ -403,7 +413,7 @@ fun PreviousSessionPanel(
                 text = stringResource(
                     R.string.workout_previous_set,
                     set.setNumber,
-                    previousSetSummary(set, durationUnit),
+                    previousSetSummary(set, durationUnit, restUnit),
                 ),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -434,7 +444,11 @@ fun PreviousSessionPanel(
 }
 
 @Composable
-private fun previousSetSummary(set: SetLog, durationUnit: DurationInputUnit): String {
+private fun previousSetSummary(
+    set: SetLog,
+    durationUnit: DurationInputUnit,
+    restUnit: DurationInputUnit,
+): String {
     val parts = buildList {
         add(set.setType.label())
         set.reps?.let { add(stringResource(R.string.workout_reps_short, it)) }
@@ -442,7 +456,8 @@ private fun previousSetSummary(set: SetLog, durationUnit: DurationInputUnit): St
         set.weight?.let { add(Formatters.weight(it, set.weightUnit)) }
         DurationInput.formatWithUnit(set.durationSeconds, durationUnit)?.let { add(it) }
         set.distanceMeters?.let { add(Formatters.distanceMeters(it)) }
-        DurationInput.formatWithUnit(set.restAfterSetSeconds, durationUnit)?.let { rest ->
+        // Rest reads in the rest unit, not the exercise's own duration unit.
+        DurationInput.formatWithUnit(set.restAfterSetSeconds, restUnit)?.let { rest ->
             add(stringResource(R.string.workout_previous_rest, rest))
         }
         set.rpe?.let { add("RPE $it") }

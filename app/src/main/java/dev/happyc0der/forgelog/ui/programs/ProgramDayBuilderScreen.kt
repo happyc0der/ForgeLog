@@ -77,6 +77,7 @@ import dev.happyc0der.forgelog.ui.exercise.ExerciseFormStateSaver
 import dev.happyc0der.forgelog.ui.input.DurationSecondsField
 import dev.happyc0der.forgelog.ui.input.bringIntoViewWhenFocused
 import dev.happyc0der.forgelog.ui.input.rememberDurationInputUnit
+import dev.happyc0der.forgelog.ui.input.rememberRestInputUnit
 import dev.happyc0der.forgelog.ui.util.label
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -97,6 +98,7 @@ fun ProgramDayBuilderScreen(
     val nameRequired = stringResource(R.string.exercise_name_required)
     val urlInvalid = stringResource(R.string.exercise_how_to_invalid)
     val (durationUnit, onDurationUnitChange) = rememberDurationInputUnit()
+    val (restUnit, onRestUnitChange) = rememberRestInputUnit()
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
@@ -218,6 +220,8 @@ fun ProgramDayBuilderScreen(
                             item = item,
                             dragModifier = dragModifier,
                             durationUnit = durationUnit,
+                            restUnit = restUnit,
+                            onRestUnitChange = onRestUnitChange,
                             onDurationUnitChange = onDurationUnitChange,
                             onSave = viewModel::saveProgramExercise,
                             onRemove = { pendingRemoveId = item.programExercise.id },
@@ -331,6 +335,8 @@ private fun ProgramExerciseCard(
     dragModifier: Modifier,
     durationUnit: DurationInputUnit,
     onDurationUnitChange: (DurationInputUnit) -> Unit,
+    restUnit: DurationInputUnit,
+    onRestUnitChange: (DurationInputUnit) -> Unit,
     onSave: (ProgramExercise) -> Unit,
     onRemove: () -> Unit,
 ) {
@@ -478,8 +484,8 @@ private fun ProgramExerciseCard(
                     secondsText = rest,
                     onSecondsTextChange = { rest = it; error = null },
                     label = stringResource(R.string.program_exercise_target_rest),
-                    unit = durationUnit,
-                    onUnitChange = onDurationUnitChange,
+                    unit = restUnit,
+                    onUnitChange = onRestUnitChange,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 8.dp),

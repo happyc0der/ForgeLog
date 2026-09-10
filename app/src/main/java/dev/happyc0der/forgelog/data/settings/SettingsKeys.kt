@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
  */
 internal object SettingsKeys {
     val DURATION_INPUT_UNIT = stringPreferencesKey("duration_input_unit")
+    val REST_INPUT_UNIT = stringPreferencesKey("rest_input_unit")
     val DEFAULT_WEIGHT_UNIT = stringPreferencesKey("default_weight_unit")
     val DEFAULT_REST_SECONDS = intPreferencesKey("default_rest_seconds")
     val WEEK_START_DAY = stringPreferencesKey("week_start_day")

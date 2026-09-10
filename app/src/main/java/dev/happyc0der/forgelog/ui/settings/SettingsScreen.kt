@@ -212,13 +212,30 @@ private fun UnitsCard(settings: AppSettings, viewModel: SettingsViewModel) {
             onSelect = { viewModel.setDefaultWeightUnit(it ?: ExerciseUnit.LB) },
             anyLabel = weightLabels.getValue(ExerciseUnit.LB),
         )
-        val durationLabels = DurationInputUnit.entries.associateWith { it.name.lowercase(Locale.US) }
+        // The same words the sec/min chips use. This dropdown used to say "seconds"/"minutes"
+        // while the chips said "sec"/"min", which read as two different settings.
+        val durationLabels = DurationInputUnit.entries.associateWith {
+            stringResource(
+                when (it) {
+                    DurationInputUnit.SECONDS -> R.string.duration_unit_seconds
+                    DurationInputUnit.MINUTES -> R.string.duration_unit_minutes
+                },
+            )
+        }
         OptionDropdown(
             label = stringResource(R.string.settings_duration_unit),
             selected = settings.durationInputUnit,
             options = DurationInputUnit.entries,
             optionLabel = { durationLabels.getValue(it) },
             onSelect = { viewModel.setDurationInputUnit(it ?: DurationInputUnit.SECONDS) },
+            anyLabel = durationLabels.getValue(DurationInputUnit.SECONDS),
+        )
+        OptionDropdown(
+            label = stringResource(R.string.settings_rest_unit),
+            selected = settings.restInputUnit,
+            options = DurationInputUnit.entries,
+            optionLabel = { durationLabels.getValue(it) },
+            onSelect = { viewModel.setRestInputUnit(it ?: DurationInputUnit.SECONDS) },
             anyLabel = durationLabels.getValue(DurationInputUnit.SECONDS),
         )
     }

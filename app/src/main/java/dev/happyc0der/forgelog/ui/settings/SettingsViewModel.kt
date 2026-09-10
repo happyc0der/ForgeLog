@@ -127,6 +127,9 @@ class SettingsViewModel @Inject constructor(
     fun setDurationInputUnit(unit: DurationInputUnit) =
         edit { settingsRepository.setDurationInputUnit(unit) }
 
+    fun setRestInputUnit(unit: DurationInputUnit) =
+        edit { settingsRepository.setRestInputUnit(unit) }
+
     fun setWeekStartDay(day: DayOfWeek) = edit { settingsRepository.setWeekStartDay(day) }
 
     fun setIncludeWarmupInVolume(include: Boolean) =

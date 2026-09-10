@@ -15,8 +15,16 @@ data class AppSettings(
     val defaultWeightUnit: ExerciseUnit = ExerciseUnit.LB,
     /** Fallback rest suggestion when a program exercise has no target rest. */
     val defaultRestSeconds: Int = DEFAULT_REST_SECONDS,
-    /** Whether duration fields are typed in seconds or minutes. */
+    /** Whether an exercise's own duration is typed in seconds or minutes. */
     val durationInputUnit: DurationInputUnit = DurationInputUnit.SECONDS,
+    /**
+     * Whether rest is typed in seconds or minutes, kept separate from [durationInputUnit].
+     *
+     * They are different quantities on the same screen: a plank is 45 seconds and the rest after it
+     * is two minutes. One shared toggle forced both into the same unit, so setting rest in minutes
+     * turned a 45-second hold into "0.75".
+     */
+    val restInputUnit: DurationInputUnit = DurationInputUnit.SECONDS,
     /** First day of the training week, used by history grouping and analytics. */
     val weekStartDay: DayOfWeek = DayOfWeek.MONDAY,
     /** Whether warmup sets count towards reported volume. Off matches most lifters' mental model. */

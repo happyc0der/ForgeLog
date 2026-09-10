@@ -171,4 +171,37 @@ class SettingsRepositoryImplTest {
         val after = repo.settings.first()
         assertTrue(!before.includeWarmupInVolume && after.includeWarmupInVolume)
     }
+
+    /*
+     * Rest and an exercise's own duration are different quantities that appear on the same screen:
+     * a plank is 45 seconds, the rest after it is two minutes. One shared toggle forced both into
+     * one unit, so choosing minutes rendered the hold as "0.75".
+     */
+
+    @Test
+    fun `rest and duration units are independent`() = runTest {
+        val repository = repository(dataStore())
+        repository.setDurationInputUnit(DurationInputUnit.SECONDS)
+        repository.setRestInputUnit(DurationInputUnit.MINUTES)
+
+        val settings = repository.settings.first()
+        assertEquals(DurationInputUnit.SECONDS, settings.durationInputUnit)
+        assertEquals(DurationInputUnit.MINUTES, settings.restInputUnit)
+
+        // Changing one must leave the other alone.
+        repository.setDurationInputUnit(DurationInputUnit.MINUTES)
+        val after = repository.settings.first()
+        assertEquals(DurationInputUnit.MINUTES, after.durationInputUnit)
+        assertEquals(DurationInputUnit.MINUTES, after.restInputUnit)
+
+        repository.setRestInputUnit(DurationInputUnit.SECONDS)
+        val last = repository.settings.first()
+        assertEquals(DurationInputUnit.MINUTES, last.durationInputUnit)
+        assertEquals(DurationInputUnit.SECONDS, last.restInputUnit)
+    }
+
+    @Test
+    fun `rest unit defaults to seconds on a fresh install`() = runTest {
+        assertEquals(DurationInputUnit.SECONDS, repository(dataStore()).settings.first().restInputUnit)
+    }
 }
