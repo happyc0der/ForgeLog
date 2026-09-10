@@ -37,8 +37,13 @@ Reuse before writing new: `VolumeCalculator`, `EstimatedOneRepMax`, `PreviousWor
 ```bash
 ./gradlew assembleDebug testDebugUnitTest   # build + unit tests — run after every phase
 ./gradlew installDebug                      # install on the connected phone
-./gradlew connectedDebugAndroidTest         # instrumented tests (migrations, DAOs, UI)
+./gradlew connectedDebugAndroidTest         # the same UI tests on a device (needs one attached)
 ```
+
+Compose UI tests live in `app/src/sharedTest/`, which is compiled into both the unit-test and
+instrumented source sets. They use `AndroidJUnit4`, so the same file runs under Robolectric on the
+JVM and on a real device — write UI tests there, not in `androidTest`, unless something genuinely
+needs a device.
 
 ## Room
 

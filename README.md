@@ -69,11 +69,13 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 ## Tests
 
-358 unit tests, all runnable on a laptop with no device attached. Room runs under Robolectric, so the DAO queries, the migrations and the backup round-trip are genuinely executed rather than mocked.
+419 tests, all runnable on a laptop with no device attached. Room runs under Robolectric, so the DAO queries, the migrations and the backup round-trip are genuinely executed rather than mocked — and so do the Compose UI tests, which drive the real screens.
+
+The UI tests live in `app/src/sharedTest/` and run twice from one source: on the JVM with `testDebugUnitTest`, and on a device with `connectedDebugAndroidTest`.
 
 ```bash
 ./gradlew testDebugUnitTest            # JVM unit tests
-./gradlew connectedDebugAndroidTest    # instrumented tests, needs a connected device
+./gradlew connectedDebugAndroidTest    # the same UI tests on a device, needs one attached
 ./gradlew assembleDebug testDebugUnitTest   # what to run after every change
 ```
 

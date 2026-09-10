@@ -47,8 +47,18 @@ android {
     // tests use LegacySchemaBuilder rather than MigrationTestHelper, which cannot read assets under
     // Robolectric; androidTest keeps the mount for when instrumented migration tests are added.)
     sourceSets {
-        getByName("test") { assets.directories.add("$projectDir/schemas") }
-        getByName("androidTest") { assets.directories.add("$projectDir/schemas") }
+        // Compose UI tests and their fixtures live in one place and run twice: on the JVM under
+        // Robolectric with `testDebugUnitTest`, and on a real device with
+        // `connectedDebugAndroidTest`. They use AndroidJUnit4, which resolves to whichever runner
+        // is present, so nothing in them is specific to either.
+        getByName("test") {
+            assets.directories.add("$projectDir/schemas")
+            kotlin.srcDir("src/sharedTest/java")
+        }
+        getByName("androidTest") {
+            assets.directories.add("$projectDir/schemas")
+            kotlin.srcDir("src/sharedTest/java")
+        }
     }
 }
 
@@ -92,11 +102,18 @@ dependencies {
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core.ktx)
     testImplementation(libs.androidx.room.testing)
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.compose.ui.test.junit4)
+    testImplementation(libs.androidx.junit)
+    testImplementation(libs.androidx.compose.ui.test.manifest)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.room.testing)
+    androidTestImplementation(libs.kotlinx.coroutines.test)
+    androidTestImplementation(libs.turbine)
+    androidTestImplementation(libs.androidx.test.core.ktx)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }
