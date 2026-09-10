@@ -72,9 +72,22 @@ fun ProgramsScreen(
     val zone = remember { ZoneId.systemDefault() }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    var editor by remember { mutableStateOf<ProgramEditorTarget?>(null) }
-    var pendingDelete by remember { mutableStateOf<WorkoutProgram?>(null) }
-    var historyWarning by remember { mutableStateOf<WorkoutProgram?>(null) }
+    /*
+     * All three dialogs are held by id rather than by value, so a rotation does not close them.
+     * For the editor that is not merely tidy: it carries a typed name, description and colour, and
+     * the fields inside it can only restore themselves if the dialog is still there to restore
+     * into. 0 means "creating a new program", which has no id to remember.
+     */
+    var editorProgramId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var pendingDeleteId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var historyWarningId by rememberSaveable { mutableStateOf<Long?>(null) }
+
+    fun programById(id: Long) = uiState.programs.firstOrNull { it.program.id == id }?.program
+    val editor = editorProgramId?.let { id ->
+        if (id == 0L) ProgramEditorTarget.Create else programById(id)?.let(ProgramEditorTarget::Rename)
+    }
+    val pendingDelete = pendingDeleteId?.let(::programById)
+    val historyWarning = historyWarningId?.let(::programById)
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
@@ -100,7 +113,7 @@ fun ProgramsScreen(
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         floatingActionButton = {
-            FloatingActionButton(onClick = { editor = ProgramEditorTarget.Create }) {
+            FloatingActionButton(onClick = { editorProgramId = 0L }) {
                 Icon(
                     imageVector = Icons.Filled.Add,
                     contentDescription = stringResource(R.string.action_create_program),
@@ -170,7 +183,7 @@ fun ProgramsScreen(
                                 summary = summary,
                                 zone = zone,
                                 onClick = { onOpenProgram(summary.program.id) },
-                                onRename = { editor = ProgramEditorTarget.Rename(summary.program) },
+                                onRename = { editorProgramId = summary.program.id },
                                 onDuplicate = { viewModel.duplicate(summary.program.id) },
                                 onArchive = {
                                     viewModel.setArchived(
@@ -181,9 +194,9 @@ fun ProgramsScreen(
                                 onDelete = {
                                     scope.launch {
                                         if (viewModel.hasSessionHistory(summary.program.id)) {
-                                            historyWarning = summary.program
+                                            historyWarningId = summary.program.id
                                         } else {
-                                            pendingDelete = summary.program
+                                            pendingDeleteId = summary.program.id
                                         }
                                     }
                                 },
@@ -198,7 +211,7 @@ fun ProgramsScreen(
     editor?.let { target ->
         ProgramEditorDialog(
             target = target,
-            onDismiss = { editor = null },
+            onDismiss = { editorProgramId = null },
             onConfirm = { name, description, color ->
                 when (target) {
                     ProgramEditorTarget.Create -> viewModel.createProgram(name, description, color)
@@ -209,7 +222,7 @@ fun ProgramsScreen(
                         color,
                     )
                 }
-                editor = null
+                editorProgramId = null
             },
         )
     }
@@ -220,9 +233,9 @@ fun ProgramsScreen(
             message = stringResource(R.string.program_delete_message, program.name),
             onConfirm = {
                 viewModel.delete(program.id)
-                pendingDelete = null
+                pendingDeleteId = null
             },
-            onDismiss = { pendingDelete = null },
+            onDismiss = { pendingDeleteId = null },
         )
     }
 
@@ -233,9 +246,9 @@ fun ProgramsScreen(
             confirmLabel = stringResource(R.string.action_delete),
             onConfirm = {
                 viewModel.delete(program.id)
-                historyWarning = null
+                historyWarningId = null
             },
-            onDismiss = { historyWarning = null },
+            onDismiss = { historyWarningId = null },
         )
     }
 }

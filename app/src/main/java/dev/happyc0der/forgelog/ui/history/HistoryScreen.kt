@@ -80,8 +80,14 @@ fun HistoryScreen(
     val zone = remember { ZoneId.systemDefault() }
     var showFilters by rememberSaveable { mutableStateOf(false) }
     var showRangePicker by rememberSaveable { mutableStateOf(false) }
-    var pendingDelete by remember { mutableStateOf<HistoryRow?>(null) }
-    var pendingSaveAsDay by remember { mutableStateOf<HistoryRow?>(null) }
+    var pendingDeleteId by rememberSaveable { mutableStateOf<Long?>(null) }
+    val pendingDelete = pendingDeleteId?.let { id ->
+        uiState.rows.firstOrNull { it.summary.sessionId == id }
+    }
+    var pendingSaveAsDayId by rememberSaveable { mutableStateOf<Long?>(null) }
+    val pendingSaveAsDay = pendingSaveAsDayId?.let { id ->
+        uiState.rows.firstOrNull { it.summary.sessionId == id }
+    }
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
@@ -111,9 +117,9 @@ fun HistoryScreen(
             message = stringResource(R.string.history_delete_message, row.summary.sessionName),
             onConfirm = {
                 viewModel.deleteSession(row.summary.sessionId)
-                pendingDelete = null
+                pendingDeleteId = null
             },
-            onDismiss = { pendingDelete = null },
+            onDismiss = { pendingDeleteId = null },
         )
     }
 
@@ -123,9 +129,9 @@ fun HistoryScreen(
             programs = uiState.programs.filterNot { it.isArchived },
             onConfirm = { programId, dayName ->
                 viewModel.saveAsProgramDay(row.summary.sessionId, programId, dayName)
-                pendingSaveAsDay = null
+                pendingSaveAsDayId = null
             },
-            onDismiss = { pendingSaveAsDay = null },
+            onDismiss = { pendingSaveAsDayId = null },
         )
     }
 
@@ -224,8 +230,8 @@ fun HistoryScreen(
                         zone = zone,
                         onOpen = onOpenSession,
                         onRepeat = { viewModel.repeatSession(it.summary.sessionId) },
-                        onSaveAsDay = { pendingSaveAsDay = it },
-                        onDelete = { pendingDelete = it },
+                        onSaveAsDay = { pendingSaveAsDayId = it.summary.sessionId },
+                        onDelete = { pendingDeleteId = it.summary.sessionId },
                     )
                 }
             }

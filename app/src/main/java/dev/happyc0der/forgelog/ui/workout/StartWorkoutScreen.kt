@@ -437,7 +437,7 @@ fun PreviousSessionPanel(
 private fun previousSetSummary(set: SetLog, durationUnit: DurationInputUnit): String {
     val parts = buildList {
         add(set.setType.label())
-        set.reps?.let { add("${it}r") }
+        set.reps?.let { add(stringResource(R.string.workout_reps_short, it)) }
         // Formatters.weight, not "$it": a Double renders 500 as "500.0".
         set.weight?.let { add(Formatters.weight(it, set.weightUnit)) }
         DurationInput.formatWithUnit(set.durationSeconds, durationUnit)?.let { add(it) }

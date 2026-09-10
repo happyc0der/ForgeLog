@@ -64,8 +64,10 @@ fun ProgramDetailScreen(
     val scrollState = rememberScrollState()
     val snackbarHostState = remember { SnackbarHostState() }
     var createDay by rememberSaveable { mutableStateOf(false) }
-    var renameDay by remember { mutableStateOf<ProgramDay?>(null) }
-    var deleteDay by remember { mutableStateOf<ProgramDay?>(null) }
+    var renameDayId by rememberSaveable { mutableStateOf<Long?>(null) }
+    val renameDay = renameDayId?.let { id -> uiState.days.firstOrNull { it.id == id } }
+    var deleteDayId by rememberSaveable { mutableStateOf<Long?>(null) }
+    val deleteDay = deleteDayId?.let { id -> uiState.days.firstOrNull { it.id == id } }
     val requiredName = stringResource(R.string.program_day_name_required)
 
     LaunchedEffect(Unit) {
@@ -157,9 +159,9 @@ fun ProgramDetailScreen(
                             dragModifier = dragModifier,
                             onClick = { onOpenDay(dayDetail.day.id) },
                             onStart = { onStartDay(dayDetail.day.id) },
-                            onRename = { renameDay = dayDetail.day },
+                            onRename = { renameDayId = dayDetail.day.id },
                             onDuplicate = { viewModel.duplicateDay(dayDetail.day.id) },
-                            onDelete = { deleteDay = dayDetail.day },
+                            onDelete = { deleteDayId = dayDetail.day.id },
                         )
                     }
                 }
@@ -189,9 +191,9 @@ fun ProgramDetailScreen(
             validator = { value -> if (value.isBlank()) requiredName else null },
             onConfirm = {
                 viewModel.renameDay(day, it)
-                renameDay = null
+                renameDayId = null
             },
-            onDismiss = { renameDay = null },
+            onDismiss = { renameDayId = null },
         )
     }
 
@@ -201,9 +203,9 @@ fun ProgramDetailScreen(
             message = stringResource(R.string.program_day_delete_message, day.name),
             onConfirm = {
                 viewModel.deleteDay(day.id)
-                deleteDay = null
+                deleteDayId = null
             },
-            onDismiss = { deleteDay = null },
+            onDismiss = { deleteDayId = null },
         )
     }
 }

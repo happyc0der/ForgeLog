@@ -71,7 +71,19 @@ fun SessionDetailScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val zone = remember { ZoneId.systemDefault() }
-    var editingSet by remember { mutableStateOf<SetLog?>(null) }
+    /*
+     * The set being edited is held by id, not by value.
+     *
+     * A SetLog is not saveable, so holding one here meant a rotation closed the dialog and threw
+     * away whatever had been typed into it -- the fields inside the dialog survive, but only if the
+     * dialog is still there to restore them into. An id survives, and the set is looked up again
+     * from state that the ViewModel has already reloaded.
+     */
+    var editingSetId by rememberSaveable { mutableStateOf<Long?>(null) }
+    val editingSet = editingSetId?.let { id ->
+        uiState.detail?.exercises?.asSequence()?.flatMap { it.sets.asSequence() }
+            ?.firstOrNull { it.id == id }
+    }
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -89,13 +101,13 @@ fun SessionDetailScreen(
             set = set,
             onSave = {
                 viewModel.saveSet(it)
-                editingSet = null
+                editingSetId = null
             },
             onDelete = {
                 viewModel.deleteSet(set.id)
-                editingSet = null
+                editingSetId = null
             },
-            onDismiss = { editingSet = null },
+            onDismiss = { editingSetId = null },
         )
     }
 
@@ -199,7 +211,7 @@ fun SessionDetailScreen(
                         logged = logged,
                         weightUnit = uiState.weightUnit,
                         isEditing = uiState.isEditing,
-                        onEditSet = { editingSet = it },
+                        onEditSet = { editingSetId = it.id },
                         onFeelingChange = { viewModel.setExerciseFeeling(logged.exercise.id, it) },
                         onNotesChange = { viewModel.setExerciseNotes(logged.exercise.id, it) },
                     )
@@ -397,13 +409,14 @@ private fun SetRow(
 private fun setSummary(set: SetLog): String {
     val parts = buildList {
         add(set.setType.label())
-        set.reps?.let { add("$it reps") }
-        set.weight?.let { add("$it ${set.weightUnit.label()}") }
-        set.durationSeconds?.let { add("${it}s") }
-        set.distanceMeters?.let { add("${it}m") }
-        set.rpe?.let { add("RPE $it") }
-        set.rir?.let { add("RIR $it") }
-        if (!set.completed) add(stringResource(R.string.session_detail_field_completed) + "?")
+        set.reps?.let { add(stringResource(R.string.session_detail_reps_value, it)) }
+        set.weight?.let { add(Formatters.weight(it, set.weightUnit)) }
+        set.durationSeconds?.let { add(Formatters.seconds(it)) }
+        set.distanceMeters?.let { add(Formatters.distanceMeters(it)) }
+        set.rpe?.let { add(stringResource(R.string.session_detail_rpe_value, it)) }
+        set.rir?.let { add(stringResource(R.string.session_detail_rir_value, it)) }
+        // "Completed?" read as a question about a set that simply was not done.
+        if (!set.completed) add(stringResource(R.string.session_detail_not_completed))
     }
     return parts.joinToString(" · ")
 }

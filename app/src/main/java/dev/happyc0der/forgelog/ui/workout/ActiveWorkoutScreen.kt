@@ -84,7 +84,12 @@ fun ActiveWorkoutScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var abandonConfirm by rememberSaveable { mutableStateOf(false) }
-    var deletingSet by remember { mutableStateOf<SetLog?>(null) }
+    // Held by id so a rotation does not silently close the confirmation.
+    var deletingSetId by rememberSaveable { mutableStateOf<Long?>(null) }
+    val deletingSet = deletingSetId?.let { id ->
+        uiState.exercises.asSequence().flatMap { it.item.sets.asSequence() }
+            .firstOrNull { it.id == id }
+    }
     val context = LocalContext.current
     val howToMissing = stringResource(R.string.exercise_how_to_missing_app)
     val scope = rememberCoroutineScope()
@@ -189,7 +194,7 @@ fun ActiveWorkoutScreen(
                             viewModel = viewModel,
                             durationUnit = durationUnit,
                             onDurationUnitChange = onDurationUnitChange,
-                            onDeleteSet = { deletingSet = it },
+                            onDeleteSet = { deletingSetId = it.id },
                             onExpand = { viewModel.expand(exerciseUi.item.exercise.id) },
                             onOpenHowTo = { url ->
                                 val normalized = HowToUrl.normalize(url).getOrNull()
@@ -219,9 +224,9 @@ fun ActiveWorkoutScreen(
             confirmLabel = stringResource(R.string.workout_delete_set),
             onConfirm = {
                 viewModel.deleteSet(set.id)
-                deletingSet = null
+                deletingSetId = null
             },
-            onDismiss = { deletingSet = null },
+            onDismiss = { deletingSetId = null },
         )
     }
 

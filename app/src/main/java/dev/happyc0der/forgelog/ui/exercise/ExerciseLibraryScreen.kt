@@ -70,7 +70,8 @@ fun ExerciseLibraryScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
-    var pendingDelete by remember { mutableStateOf<Exercise?>(null) }
+    var pendingDeleteId by rememberSaveable { mutableStateOf<Long?>(null) }
+    val pendingDelete = pendingDeleteId?.let { id -> uiState.exercises.firstOrNull { it.id == id } }
     val howToMissing = stringResource(R.string.exercise_how_to_missing_app)
 
     LaunchedEffect(Unit) {
@@ -210,7 +211,7 @@ fun ExerciseLibraryScreen(
                                     onEdit = { onEdit(exercise.id) },
                                     onOpenHowTo = { viewModel.onOpenHowTo(exercise) },
                                     onArchive = { viewModel.archive(exercise, !exercise.isArchived) },
-                                    onDelete = { pendingDelete = exercise },
+                                    onDelete = { pendingDeleteId = exercise.id },
                                 )
                             }
                         }
@@ -226,9 +227,9 @@ fun ExerciseLibraryScreen(
             message = stringResource(R.string.exercise_delete_message, exercise.name),
             onConfirm = {
                 viewModel.delete(exercise)
-                pendingDelete = null
+                pendingDeleteId = null
             },
-            onDismiss = { pendingDelete = null },
+            onDismiss = { pendingDeleteId = null },
         )
     }
 }

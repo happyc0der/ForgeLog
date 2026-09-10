@@ -93,7 +93,7 @@ fun ProgramDayBuilderScreen(
     var showAddMenu by rememberSaveable { mutableStateOf(false) }
     var addChoiceExpanded by rememberSaveable { mutableStateOf(false) }
     var showCreateSheet by rememberSaveable { mutableStateOf(false) }
-    var pendingRemove by remember { mutableStateOf<ProgramExerciseDetail?>(null) }
+    var pendingRemoveId by rememberSaveable { mutableStateOf<Long?>(null) }
     val nameRequired = stringResource(R.string.exercise_name_required)
     val urlInvalid = stringResource(R.string.exercise_how_to_invalid)
     val (durationUnit, onDurationUnitChange) = rememberDurationInputUnit()
@@ -108,6 +108,10 @@ fun ProgramDayBuilderScreen(
     }
 
     val detail = uiState.detail
+    // Held by id so a rotation does not silently close the confirmation.
+    val pendingRemove = pendingRemoveId?.let { id ->
+        detail?.exercises?.firstOrNull { it.programExercise.id == id }
+    }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -216,7 +220,7 @@ fun ProgramDayBuilderScreen(
                             durationUnit = durationUnit,
                             onDurationUnitChange = onDurationUnitChange,
                             onSave = viewModel::saveProgramExercise,
-                            onRemove = { pendingRemove = item },
+                            onRemove = { pendingRemoveId = item.programExercise.id },
                         )
                     }
                 }
@@ -314,9 +318,9 @@ fun ProgramDayBuilderScreen(
             confirmLabel = stringResource(R.string.action_remove),
             onConfirm = {
                 viewModel.removeProgramExercise(item.programExercise.id)
-                pendingRemove = null
+                pendingRemoveId = null
             },
-            onDismiss = { pendingRemove = null },
+            onDismiss = { pendingRemoveId = null },
         )
     }
 }
