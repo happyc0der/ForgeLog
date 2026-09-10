@@ -16,6 +16,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.NavigationRailItemDefaults
@@ -149,8 +151,17 @@ private fun ForgeLogNavigationRail(
     currentDestination: NavDestination?,
     onNavigate: (TopLevelDestination) -> Unit,
 ) {
+    /*
+     * The rail scrolls.
+     *
+     * Five destinations plus the header do not fit the short side of a 20:9 phone in landscape, and
+     * a NavigationRail does not scroll on its own -- Settings fell off the bottom and could not be
+     * reached at all until the phone was turned back.
+     */
     NavigationRail(
-        modifier = Modifier.fillMaxHeight(),
+        modifier = Modifier
+            .fillMaxHeight()
+            .verticalScroll(rememberScrollState()),
         containerColor = MaterialTheme.colorScheme.surface,
         contentColor = MaterialTheme.colorScheme.onSurface,
         header = {
