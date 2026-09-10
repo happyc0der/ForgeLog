@@ -1,19 +1,27 @@
-<?xml version="1.0" encoding="utf-8"?><!--
-   Sample data extraction rules file; uncomment and customize as necessary.
-   See https://developer.android.com/about/versions/12/backup-restore#xml-changes
-   for details.
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    API 31+. What may leave the device, and by which route.
+
+    Cloud backup is excluded outright. ForgeLog's promise is that training data stays on the phone
+    unless the user exports it, and Google's auto-backup would quietly copy the database to their
+    servers, which is exactly the thing the app says it does not do. Export from Settings is the
+    supported way off the device: a file the user picks and can see.
+
+    Device-to-device transfer is allowed. Setting up a new phone from the old one is a direct
+    transfer that never leaves the user's possession, so keeping training history through it costs
+    nothing the app promised.
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
-        -->
+        <exclude domain="root" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="external" path="." />
     </cloud-backup>
-    <!--
     <device-transfer>
-        <include .../>
-        <exclude .../>
+        <include domain="database" path="." />
+        <include domain="file" path="." />
+        <include domain="sharedpref" path="." />
     </device-transfer>
-    -->
 </data-extraction-rules>

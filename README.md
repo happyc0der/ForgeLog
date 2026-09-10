@@ -93,7 +93,19 @@ Everything goes through Android's Storage Access Framework, so ForgeLog holds no
 
 Worth doing once before you start logging anything you care about: export, then restore, and confirm your data comes back. That round-trip is also covered by automated tests (`BackupRoundTripTest`).
 
-Note that `android:allowBackup="true"` is still set in the manifest, so Google's auto-backup may also include the database. That is not something to rely on, and it is under review.
+Android's own auto-backup is configured to match: **nothing goes to Google's cloud**, so the database is never copied to their servers. A direct phone-to-phone transfer when setting up a new device *is* allowed, since that never leaves your possession. Either way, your own export is the copy to rely on.
+
+## Release builds
+
+Release builds are shrunk and obfuscated by R8. `app/proguard-rules.pro` keeps what
+kotlinx-serialization reaches reflectively, so exports and imports survive shrinking, and the route
+classes keep their names. Signing is picked up from a gitignored `keystore.properties` at the repo
+root (`storeFile`, `storePassword`, `keyAlias`, `keyPassword`); without it the release variant builds
+unsigned.
+
+Before publishing a release build, run the backup round-trip on it by hand — export, reinstall,
+import. R8 breaking reflective serialization is the classic failure, and it does not show up in a
+debug build.
 
 ## Architecture
 

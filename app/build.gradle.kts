@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -22,11 +24,41 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    /**
+     * A signing config only if `keystore.properties` exists.
+     *
+     * The file is gitignored along with the keystores themselves, so a checkout without it still
+     * builds -- the release variant just comes out unsigned, which is the right failure for anyone
+     * who is not the person publishing.
+     */
+    val keystoreProperties = Properties().apply {
+        val file = rootProject.file("keystore.properties")
+        if (file.exists()) file.inputStream().use { load(it) }
+    }
+
+    signingConfigs {
+        if (keystoreProperties.getProperty("storeFile") != null) {
+            create("release") {
+                storeFile = rootProject.file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            optimization {
-                enable = false
-            }
+            // R8 on. kotlinx-serialization finds serializers reflectively and so looks like dead
+            // code to the shrinker; proguard-rules.pro keeps them, and a release build must be
+            // exercised by hand -- export, import, restart -- before it is published.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
+            signingConfig = signingConfigs.findByName("release")
         }
     }
     compileOptions {
@@ -53,11 +85,11 @@ android {
         // is present, so nothing in them is specific to either.
         getByName("test") {
             assets.directories.add("$projectDir/schemas")
-            kotlin.srcDir("src/sharedTest/java")
+            kotlin.directories.add("src/sharedTest/java")
         }
         getByName("androidTest") {
             assets.directories.add("$projectDir/schemas")
-            kotlin.srcDir("src/sharedTest/java")
+            kotlin.directories.add("src/sharedTest/java")
         }
     }
 }
