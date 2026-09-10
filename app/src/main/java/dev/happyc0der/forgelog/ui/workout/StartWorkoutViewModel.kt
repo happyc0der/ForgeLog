@@ -52,6 +52,7 @@ data class PlannedExerciseItem(
 data class StartWorkoutUiState(
     val isLoading: Boolean = true,
     val errorMessage: String? = null,
+    val isAdHoc: Boolean = false,
     val needsDaySelection: Boolean = false,
     val dayChoices: List<DayChoice> = emptyList(),
     val programName: String? = null,
@@ -63,6 +64,12 @@ data class StartWorkoutUiState(
 sealed interface StartWorkoutEvent {
     data class Message(val value: String) : StartWorkoutEvent
     data class Started(val sessionId: Long) : StartWorkoutEvent
+
+    /**
+     * Another session is already running. Raised instead of silently navigating into it: the user
+     * just arranged a roster, and throwing that away with no explanation looked like a bug.
+     */
+    data class AlreadyInProgress(val sessionId: Long, val sessionName: String) : StartWorkoutEvent
 }
 
 private data class StartWorkoutPartial(
@@ -81,7 +88,9 @@ class StartWorkoutViewModel @Inject constructor(
     private val exerciseRepository: ExerciseRepository,
     private val workoutSessionRepository: WorkoutSessionRepository,
 ) : ViewModel() {
-    private val routeDayId = savedStateHandle.toRoute<StartWorkoutRoute>().programDayId
+    private val route = savedStateHandle.toRoute<StartWorkoutRoute>()
+    private val routeDayId = route.programDayId
+    private val isAdHoc = route.adHoc
     private val selectedDayId = MutableStateFlow(routeDayId.takeIf { it > 0L })
     private val roster = MutableStateFlow<List<PlannedExerciseItem>>(emptyList())
     private val programName = MutableStateFlow<String?>(null)
@@ -129,17 +138,23 @@ class StartWorkoutViewModel @Inject constructor(
         StartWorkoutUiState(
             isLoading = partial.selectedDayId != null && loading,
             errorMessage = error,
-            needsDaySelection = partial.selectedDayId == null && error == null,
+            isAdHoc = isAdHoc,
+            needsDaySelection = !isAdHoc && partial.selectedDayId == null && error == null,
             dayChoices = partial.dayChoices,
             programName = partial.programName,
             dayName = partial.dayName,
             roster = partial.roster,
-            canConfirm = partial.roster.isNotEmpty() && partial.selectedDayId != null,
+            canConfirm = partial.roster.isNotEmpty() &&
+                (isAdHoc || partial.selectedDayId != null),
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = StartWorkoutUiState(isLoading = routeDayId > 0L, needsDaySelection = routeDayId <= 0L),
+        initialValue = StartWorkoutUiState(
+            isLoading = routeDayId > 0L,
+            isAdHoc = isAdHoc,
+            needsDaySelection = !isAdHoc && routeDayId <= 0L,
+        ),
     )
 
     private val eventsChannel = Channel<StartWorkoutEvent>(Channel.BUFFERED)
@@ -200,7 +215,7 @@ class StartWorkoutViewModel @Inject constructor(
         launchSafely(::reportAsMessage) {
             val dayId = selectedDayId.value
             val items = roster.value
-            if (dayId == null || items.isEmpty()) {
+            if (items.isEmpty() || (!isAdHoc && dayId == null)) {
                 eventsChannel.send(
                     StartWorkoutEvent.Message(application.getString(R.string.workout_need_exercises)),
                 )
@@ -208,13 +223,25 @@ class StartWorkoutViewModel @Inject constructor(
             }
             val existing = workoutSessionRepository.getInProgressSession()
             if (existing != null) {
-                eventsChannel.send(StartWorkoutEvent.Started(existing.id))
+                eventsChannel.send(
+                    StartWorkoutEvent.AlreadyInProgress(
+                        sessionId = existing.id,
+                        sessionName = existing.sessionName.ifBlank {
+                            application.getString(R.string.workout_active_title)
+                        },
+                    ),
+                )
                 return@launchSafely
             }
+            val sessionName = if (isAdHoc) {
+                application.getString(R.string.workout_adhoc_name)
+            } else {
+                listOfNotNull(programName.value, dayName.value).joinToString(" · ")
+            }
             val sessionId = workoutSessionRepository.startSession(
-                programId = programId.value,
-                programDayId = dayId,
-                sessionName = listOfNotNull(programName.value, dayName.value).joinToString(" · "),
+                programId = if (isAdHoc) null else programId.value,
+                programDayId = if (isAdHoc) null else dayId,
+                sessionName = sessionName,
                 exercises = items.map { item ->
                     SessionStartExercise(
                         exercise = item.exercise,

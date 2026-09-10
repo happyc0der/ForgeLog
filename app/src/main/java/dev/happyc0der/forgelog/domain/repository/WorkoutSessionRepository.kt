@@ -15,6 +15,13 @@ interface WorkoutSessionRepository {
     fun observeSession(id: Long): Flow<WorkoutSession?>
     fun observeSessionDetail(id: Long): Flow<SessionDetail?>
     fun observeInProgressSession(): Flow<WorkoutSession?>
+    fun observeLastCompletedSessionDetail(): Flow<SessionDetail?>
+
+    /** Completed sessions in the half-open window `[fromEpochMs, untilEpochMs)`. */
+    fun observeCompletedSessionDetailsBetween(
+        fromEpochMs: Long,
+        untilEpochMs: Long,
+    ): Flow<List<SessionDetail>>
     fun observeInProgressSessionDetail(): Flow<SessionDetail?>
     fun observeSessionExercises(sessionId: Long): Flow<List<SessionExercise>>
     fun observeSetLogs(sessionExerciseId: Long): Flow<List<SetLog>>

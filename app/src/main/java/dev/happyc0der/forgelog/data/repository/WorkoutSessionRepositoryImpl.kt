@@ -62,6 +62,19 @@ class WorkoutSessionRepositoryImpl @Inject constructor(
             .map { it?.toDomain() }
             .flowOn(ioDispatcher)
 
+    override fun observeLastCompletedSessionDetail(): Flow<SessionDetail?> =
+        workoutSessionDao.observeLastCompletedSessionDetail()
+            .map { it?.toDomain() }
+            .flowOn(ioDispatcher)
+
+    override fun observeCompletedSessionDetailsBetween(
+        fromEpochMs: Long,
+        untilEpochMs: Long,
+    ): Flow<List<SessionDetail>> =
+        workoutSessionDao.observeCompletedSessionDetailsBetween(fromEpochMs, untilEpochMs)
+            .map { details -> details.map { it.toDomain() } }
+            .flowOn(ioDispatcher)
+
     override fun observeSessionExercises(sessionId: Long): Flow<List<SessionExercise>> =
         workoutSessionDao.observeSessionExercises(sessionId)
             .map { entities -> entities.map { it.toDomain() } }

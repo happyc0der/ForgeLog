@@ -20,7 +20,7 @@ import dev.happyc0der.forgelog.domain.workout.SetFieldVisibility
 import dev.happyc0der.forgelog.domain.workout.SetInputField
 import dev.happyc0der.forgelog.domain.workout.SetPrefill
 import dev.happyc0der.forgelog.domain.workout.formatElapsed
-import dev.happyc0der.forgelog.ui.home.ticker
+import dev.happyc0der.forgelog.ui.common.ticker
 import dev.happyc0der.forgelog.ui.navigation.ActiveWorkoutRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi

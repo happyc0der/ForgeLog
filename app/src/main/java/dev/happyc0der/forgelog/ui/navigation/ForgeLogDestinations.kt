@@ -51,9 +51,15 @@ data class ProgramDayBuilderRoute(
     val dayId: Long,
 )
 
+/**
+ * [adHoc] starts a session with no program day at all, so the planner skips the day picker and
+ * opens with an empty roster. A session created this way has null programId and programDayId,
+ * which the schema has always allowed.
+ */
 @Serializable
 data class StartWorkoutRoute(
     val programDayId: Long = -1L,
+    val adHoc: Boolean = false,
 )
 
 @Serializable

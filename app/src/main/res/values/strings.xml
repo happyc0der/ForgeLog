@@ -15,6 +15,38 @@
     <string name="home_resume_message">%1$s is still running. Resume logging or finish it from the workout screen.</string>
     <string name="home_resume_workout">Resume Workout</string>
     <string name="home_elapsed">Elapsed %1$s</string>
+    <string name="home_greeting_morning">Good morning</string>
+    <string name="home_greeting_afternoon">Good afternoon</string>
+    <string name="home_greeting_evening">Good evening</string>
+    <string name="home_greeting_night">Still up</string>
+    <string name="home_last_workout_title">Last workout</string>
+    <string name="home_last_workout_none_title">No workouts yet</string>
+    <string name="home_last_workout_none_message">Finish a session and its summary shows up here.</string>
+    <string name="home_week_title">This week</string>
+    <string name="home_week_empty">Nothing logged yet this week.</string>
+    <string name="home_stat_sessions">Sessions</string>
+    <string name="home_stat_sets">Sets</string>
+    <string name="home_stat_volume">Volume</string>
+    <string name="home_stat_time">Time</string>
+    <string name="home_stat_duration">Duration</string>
+    <string name="home_stat_exercises">Exercises</string>
+    <string name="home_stat_feeling">Feeling</string>
+    <string name="home_quick_actions">Quick actions</string>
+    <string name="home_action_adhoc">Ad-hoc workout</string>
+    <string name="home_action_create_program">Create program</string>
+    <string name="home_no_programs_title">No programs yet</string>
+    <string name="home_no_programs_message">Build a program to train from, or start an ad-hoc session and add lifts as you go.</string>
+    <string name="home_value_missing">\u2014</string>
+    <string name="home_feeling_value">%1$d/5</string>
+
+    <string name="history_view_session">View full log</string>
+
+    <string name="workout_adhoc_name">Ad-hoc workout</string>
+    <string name="workout_adhoc_empty_title">Ad-hoc session</string>
+    <string name="workout_adhoc_empty_message">Add the lifts you are training today. Nothing is saved to a program.</string>
+    <string name="workout_in_progress_title">Finish the current workout?</string>
+    <string name="workout_in_progress_message">%1$s is still running. ForgeLog keeps one session at a time, so resume that one or finish it before starting another.</string>
+    <string name="workout_in_progress_resume">Resume it</string>
 
     <string name="workout_start_title">Start workout</string>
     <string name="workout_start_this_day">Start this day</string>

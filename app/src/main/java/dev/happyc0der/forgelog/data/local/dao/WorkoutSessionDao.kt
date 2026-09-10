@@ -72,6 +72,37 @@ interface WorkoutSessionDao {
     )
     fun observeSetLogs(sessionExerciseId: Long): Flow<List<SetLogEntity>>
 
+    @Transaction
+    @Query(
+        """
+        SELECT * FROM workout_sessions
+        WHERE status = 'completed'
+        ORDER BY completedAt DESC
+        LIMIT 1
+        """,
+    )
+    fun observeLastCompletedSessionDetail(): Flow<SessionDetailEntity?>
+
+    /**
+     * Completed sessions in a half-open window, `[from, until)`, matching
+     * [dev.happyc0der.forgelog.domain.time.WeekBoundary.Range] so adjacent weeks cannot
+     * double-count a session logged exactly on a boundary.
+     */
+    @Transaction
+    @Query(
+        """
+        SELECT * FROM workout_sessions
+        WHERE status = 'completed'
+          AND completedAt >= :fromEpochMs
+          AND completedAt < :untilEpochMs
+        ORDER BY completedAt DESC
+        """,
+    )
+    fun observeCompletedSessionDetailsBetween(
+        fromEpochMs: Long,
+        untilEpochMs: Long,
+    ): Flow<List<SessionDetailEntity>>
+
     @Query("SELECT * FROM workout_sessions WHERE id = :id")
     suspend fun getSession(id: Long): WorkoutSessionEntity?
 

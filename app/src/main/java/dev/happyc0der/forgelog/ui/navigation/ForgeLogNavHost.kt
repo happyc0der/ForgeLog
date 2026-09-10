@@ -61,6 +61,8 @@ fun ForgeLogNavHost(
             HomeScreen(
                 onStartWorkout = { navController.navigate(StartWorkoutRoute()) },
                 onResumeWorkout = { sessionId -> openLogger(sessionId, popPlanner = false) },
+                onStartAdHoc = { navController.navigate(StartWorkoutRoute(adHoc = true)) },
+                onCreateProgram = { navController.navigate(ProgramsRoute) },
             )
         }
         composable<ProgramsRoute> {

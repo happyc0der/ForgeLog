@@ -35,9 +35,12 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -47,12 +50,14 @@ import dev.happyc0der.forgelog.domain.model.SessionExerciseWithSets
 import dev.happyc0der.forgelog.domain.model.SetLog
 import dev.happyc0der.forgelog.domain.workout.DurationInput
 import dev.happyc0der.forgelog.domain.workout.DurationInputUnit
+import dev.happyc0der.forgelog.ui.components.ConfirmDialog
 import dev.happyc0der.forgelog.ui.components.EmptyState
 import dev.happyc0der.forgelog.ui.components.ErrorState
 import dev.happyc0der.forgelog.ui.components.LoadingState
 import dev.happyc0der.forgelog.ui.components.ReorderableColumn
 import dev.happyc0der.forgelog.ui.input.DurationUnitToggle
 import dev.happyc0der.forgelog.ui.input.rememberDurationInputUnit
+import dev.happyc0der.forgelog.ui.testing.TestTags
 import dev.happyc0der.forgelog.ui.util.label
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -66,14 +71,29 @@ fun StartWorkoutScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val (durationUnit, onDurationUnitChange) = rememberDurationInputUnit()
+    var alreadyRunning by remember { mutableStateOf<StartWorkoutEvent.AlreadyInProgress?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
             when (event) {
                 is StartWorkoutEvent.Message -> snackbarHostState.showSnackbar(event.value)
                 is StartWorkoutEvent.Started -> onStarted(event.sessionId)
+                is StartWorkoutEvent.AlreadyInProgress -> alreadyRunning = event
             }
         }
+    }
+
+    alreadyRunning?.let { running ->
+        ConfirmDialog(
+            title = stringResource(R.string.workout_in_progress_title),
+            message = stringResource(R.string.workout_in_progress_message, running.sessionName),
+            confirmLabel = stringResource(R.string.workout_in_progress_resume),
+            onConfirm = {
+                alreadyRunning = null
+                onStarted(running.sessionId)
+            },
+            onDismiss = { alreadyRunning = null },
+        )
     }
 
     Scaffold(
@@ -83,7 +103,13 @@ fun StartWorkoutScreen(
                     Text(
                         text = uiState.dayName?.let { day ->
                             listOfNotNull(uiState.programName, day).joinToString(" · ")
-                        } ?: stringResource(R.string.workout_start_title),
+                        } ?: stringResource(
+                            if (uiState.isAdHoc) {
+                                R.string.workout_adhoc_name
+                            } else {
+                                R.string.workout_start_title
+                            },
+                        ),
                     )
                 },
                 navigationIcon = {
@@ -128,8 +154,20 @@ fun StartWorkoutScreen(
             )
             uiState.roster.isEmpty() -> EmptyState(
                 icon = Icons.Outlined.FitnessCenter,
-                title = stringResource(R.string.workout_roster_empty_title),
-                message = stringResource(R.string.workout_roster_empty_message),
+                title = stringResource(
+                    if (uiState.isAdHoc) {
+                        R.string.workout_adhoc_empty_title
+                    } else {
+                        R.string.workout_roster_empty_title
+                    },
+                ),
+                message = stringResource(
+                    if (uiState.isAdHoc) {
+                        R.string.workout_adhoc_empty_message
+                    } else {
+                        R.string.workout_roster_empty_message
+                    },
+                ),
                 modifier = Modifier.padding(innerPadding),
             )
             else -> {
@@ -159,7 +197,9 @@ fun StartWorkoutScreen(
                     Button(
                         onClick = viewModel::confirmStart,
                         enabled = uiState.canConfirm,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag(TestTags.START_WORKOUT_CONFIRM),
                     ) {
                         Text(text = stringResource(R.string.workout_confirm_start))
                     }
