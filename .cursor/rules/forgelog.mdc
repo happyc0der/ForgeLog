@@ -1,0 +1,79 @@
+---
+description: ForgeLog — native Android offline gym workout tracker. Stack, design system, device target, and working method.
+globs:
+alwaysApply: true
+---
+
+# ForgeLog project rules
+
+ForgeLog is a **personal-use, native Android** gym workout tracker. One user, one phone, no server.
+
+## Stack — non-negotiable
+
+- Kotlin only. No Java sources.
+- Jetpack Compose with Material 3. No XML layouts, no Views, no Fragments.
+- Room for all persistent workout data, with **KSP** (never kapt). Schema export stays on; every schema change ships a hand-written `Migration` and its committed schema JSON.
+- Hilt for dependency injection.
+- Navigation Compose with `@Serializable` typed routes.
+- Kotlin coroutines and Flow. `StateFlow` for UI state, sealed interfaces for one-shot UI events.
+- Gradle Kotlin DSL with the version catalog in `gradle/libs.versions.toml`. Never hardcode a dependency version in a build file.
+- MVVM with a repository layer: `ui/` → ViewModel → `domain/repository` interface → `data/repository` implementation → DAO.
+- Database work never runs on the main thread; repositories use the injected IO dispatcher.
+
+## Offline by construction
+
+- The app must remain **fully functional with no network**. No accounts, no cloud backend, no analytics, no ads, no social features, no subscription or paywall.
+- There is no `INTERNET` permission in the manifest, and adding one is a deliberate, discussed decision — not an implementation detail.
+- Any future sync (Garmin, Strava) is an **isolated, opt-in module that core never depends on**. Core talks to it only through a port interface in `domain/sync/`. File import through the Storage Access Framework is preferred over any network API.
+- Data leaves the device only when the user explicitly exports it.
+
+## Architecture boundaries
+
+- `domain/` is pure Kotlin: no Android imports, and it never imports from `data/` or `ui/`.
+- Business rules (volume, estimated 1RM, week boundaries, PR detection, previous-workout matching, rest math) live in `domain/` as pure functions so they are unit-testable without Android.
+- Snapshot fields on session entities (`displayNameSnapshot`, `pointersSnapshot`, `howToUrlSnapshot`) exist so editing an exercise never rewrites history. Never resolve historical data through a live foreign key.
+- All timestamps are stored as UTC epoch millis and rendered in the device zone through the injected `TimeProvider` / `ZoneProvider`. Never call `System.currentTimeMillis()` or `ZoneId.systemDefault()` directly in app code.
+
+## Design system
+
+Dark theme only, forced — no light scheme, no dynamic color, no `isSystemInDarkTheme()`.
+
+| Token | Value |
+|---|---|
+| Background | `#0B0B0F` |
+| Surface | `#15151D` |
+| Surface elevated | `#1E1B2E` |
+| Primary purple | `#A855F7` |
+| Bright accent | `#C084FC` |
+| Secondary accent | `#7C3AED` |
+| Text | `#F5F3FF` |
+| Muted text | `#A1A1AA` |
+| Success | `#22C55E` |
+| Warning | `#F59E0B` |
+| Error | `#EF4444` |
+
+- Card radius 16–20dp, taken from `MaterialTheme.shapes`, never a hardcoded `RoundedCornerShape`.
+- Every interactive target is at least 48dp. Wrap bare icons in a sized touch target.
+- Dense but not cramped. Clear hierarchy. Subtle purple gradients, elevated cards, progress bars, clean charts.
+- Do not overuse icons or animations.
+- Bottom navigation: Home, Programs, History, Analytics, Settings. Landscape uses the navigation rail.
+
+## Device target
+
+Primary device is a **Redmi Note 12 Pro**: 6.67", 1080×2400, 20:9, portrait. Design portrait-first for compact width, use responsive Compose layouts rather than fixed sizes, and make landscape work gracefully rather than perfectly.
+
+## Quality bar
+
+- Every requested feature ships complete. No pseudocode, no placeholder UI, no fake buttons, no `TODO` left behind in a feature the user asked for.
+- Every screen handles loading, empty, and error states, and every error state is actually reachable — if a ViewModel never assigns its error field, that branch is a bug.
+- Destructive actions confirm first. Repository calls that can throw are wrapped; a failed operation surfaces a message instead of crashing.
+- Accessibility labels on meaningful controls; `contentDescription = null` only for genuinely decorative icons.
+- Test tags on key UI elements, from `ui/testing/TestTags.kt`.
+- Unit tests for analytics calculations, date and week boundaries, volume, previous-workout matching, PR detection, and backup/import validation. Prefer hand-written fakes over a mocking framework — the repositories are already interfaces.
+- Seed data is debug-only and off by default.
+
+## Working method
+
+- **Build after every implementation phase and fix compilation errors before moving on**: `./gradlew assembleDebug testDebugUnitTest`.
+- Keep work incremental. Small, logical commits, each one explained briefly before it is applied.
+- Explain a change before making it, not after.
