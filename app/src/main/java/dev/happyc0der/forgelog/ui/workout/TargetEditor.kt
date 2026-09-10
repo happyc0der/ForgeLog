@@ -25,6 +25,7 @@ import dev.happyc0der.forgelog.domain.model.ExerciseTargets
 import dev.happyc0der.forgelog.domain.model.ExerciseUnit
 import dev.happyc0der.forgelog.domain.model.hasTargets
 import dev.happyc0der.forgelog.ui.format.Formatters
+import dev.happyc0der.forgelog.ui.input.bringIntoViewWhenFocused
 
 /**
  * Shows what the program asks for today, and lets it be changed for this session only.
@@ -152,7 +153,7 @@ private fun TargetField(
         keyboardOptions = KeyboardOptions(
             keyboardType = if (decimal) KeyboardType.Decimal else KeyboardType.Number,
         ),
-        modifier = modifier,
+        modifier = modifier.bringIntoViewWhenFocused(),
     )
 }
 

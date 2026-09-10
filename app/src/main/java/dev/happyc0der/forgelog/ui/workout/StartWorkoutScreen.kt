@@ -1,6 +1,13 @@
 package dev.happyc0der.forgelog.ui.workout
 
 import androidx.compose.foundation.clickable
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -66,7 +73,7 @@ import dev.happyc0der.forgelog.ui.util.label
 import java.time.LocalDate
 import java.time.ZoneId
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun StartWorkoutScreen(
     onBack: () -> Unit,
@@ -130,7 +137,10 @@ fun StartWorkoutScreen(
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         floatingActionButton = {
-            if (!uiState.needsDaySelection && !uiState.isLoading) {
+            // Hidden while the keyboard is up, where it would float over the target fields being
+            // typed into and is not what anyone is reaching for anyway.
+            val showFab = !uiState.needsDaySelection && !uiState.isLoading && !WindowInsets.isImeVisible
+            AnimatedVisibility(visible = showFab, enter = fadeIn(), exit = fadeOut()) {
                 FloatingActionButton(onClick = onPickFromLibrary) {
                     Icon(
                         imageVector = Icons.Filled.Add,
@@ -182,8 +192,11 @@ fun StartWorkoutScreen(
                         .fillMaxSize()
                         .testTag(TestTags.START_WORKOUT_SCREEN)
                         .padding(innerPadding)
+                        // Before verticalScroll: it must shrink the viewport, not the content.
+                        .imePadding()
                         .verticalScroll(rememberScrollState())
                         .padding(horizontal = 16.dp)
+                        // Clearance for the floating action button, which sits over this content.
                         .padding(bottom = 96.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {

@@ -1,8 +1,15 @@
 package dev.happyc0der.forgelog.ui.programs
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -68,10 +75,11 @@ import dev.happyc0der.forgelog.ui.exercise.ExerciseForm
 import dev.happyc0der.forgelog.ui.exercise.ExerciseFormState
 import dev.happyc0der.forgelog.ui.exercise.ExerciseFormStateSaver
 import dev.happyc0der.forgelog.ui.input.DurationSecondsField
+import dev.happyc0der.forgelog.ui.input.bringIntoViewWhenFocused
 import dev.happyc0der.forgelog.ui.input.rememberDurationInputUnit
 import dev.happyc0der.forgelog.ui.util.label
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ProgramDayBuilderScreen(
     onBack: () -> Unit,
@@ -140,11 +148,19 @@ fun ProgramDayBuilderScreen(
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         floatingActionButton = {
-            FloatingActionButton(onClick = { addChoiceExpanded = true }) {
-                Icon(
-                    imageVector = Icons.Filled.Add,
-                    contentDescription = stringResource(R.string.day_builder_add_exercise),
-                )
+            // Hidden while the keyboard is up: "Add exercise" is not what anyone is reaching for
+            // mid-typing, and it otherwise floats over the last fields of the exercise editor.
+            AnimatedVisibility(
+                visible = !WindowInsets.isImeVisible,
+                enter = fadeIn(),
+                exit = fadeOut(),
+            ) {
+                FloatingActionButton(onClick = { addChoiceExpanded = true }) {
+                    Icon(
+                        imageVector = Icons.Filled.Add,
+                        contentDescription = stringResource(R.string.day_builder_add_exercise),
+                    )
+                }
             }
         },
     ) { innerPadding ->
@@ -172,8 +188,13 @@ fun ProgramDayBuilderScreen(
                         .fillMaxSize()
                         .testTag(TestTags.PROGRAM_DAY_BUILDER_SCREEN)
                         .padding(innerPadding)
+                        // Before verticalScroll, not after: this has to shrink the scroll
+                        // *viewport*, or the visible area still runs behind the keyboard and
+                        // bringIntoView believes a field it is covering is already on screen.
+                        .imePadding()
                         .verticalScroll(rememberScrollState())
                         .padding(horizontal = 16.dp)
+                        // Clearance for the floating action button, which sits over this content.
                         .padding(bottom = 88.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
@@ -462,13 +483,17 @@ private fun ProgramExerciseCard(
                 OutlinedTextField(
                     value = pointers,
                     onValueChange = { pointers = it },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .bringIntoViewWhenFocused(),
                     label = { Text(text = stringResource(R.string.program_exercise_pointers)) },
                 )
                 OutlinedTextField(
                     value = notes,
                     onValueChange = { notes = it },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .bringIntoViewWhenFocused(),
                     label = { Text(text = stringResource(R.string.program_exercise_notes)) },
                 )
                 error?.let {
@@ -504,7 +529,8 @@ private fun NumberField(
         onValueChange = onValueChange,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 8.dp),
+            .padding(top = 8.dp)
+            .bringIntoViewWhenFocused(),
         label = { Text(text = stringResource(labelRes)) },
         singleLine = true,
         // These fields only ever take numbers, and the full keyboard made entering a target weight
