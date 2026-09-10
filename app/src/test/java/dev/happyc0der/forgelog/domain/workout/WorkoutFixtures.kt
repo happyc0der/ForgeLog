@@ -20,6 +20,9 @@ internal fun setLog(
     durationSeconds: Int? = null,
     distanceMeters: Double? = null,
     restAfterSetSeconds: Int? = null,
+    rpe: Int? = null,
+    rir: Int? = null,
+    notes: String? = null,
     completed: Boolean = true,
     completedAt: Long? = 1_000L,
 ): SetLog = SetLog(
@@ -33,6 +36,9 @@ internal fun setLog(
     durationSeconds = durationSeconds,
     distanceMeters = distanceMeters,
     restAfterSetSeconds = restAfterSetSeconds,
+    rpe = rpe,
+    rir = rir,
+    notes = notes,
     completed = completed,
     completedAt = completedAt,
 )

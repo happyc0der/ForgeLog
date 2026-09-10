@@ -38,7 +38,10 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
@@ -76,12 +79,17 @@ data class ActiveWorkoutUiState(
     val sinceLastSetLabel: String? = null,
     val drafts: Map<String, String> = emptyMap(),
     val restTimer: RestTimerUi = RestTimerUi(),
+    val vibrateOnRestEnd: Boolean = true,
+    val soundOnRestEnd: Boolean = false,
 )
 
 sealed interface ActiveWorkoutEvent {
     data class Message(val value: String) : ActiveWorkoutEvent
     data object Finished : ActiveWorkoutEvent
     data object Abandoned : ActiveWorkoutEvent
+
+    /** Rest reached zero. Raised once per timer, not once per tick. */
+    data object RestFinished : ActiveWorkoutEvent
 }
 
 @HiltViewModel
@@ -179,6 +187,8 @@ class ActiveWorkoutViewModel @Inject constructor(
                 sinceLastSetLabel = sinceLastSetMs?.let(::formatElapsed),
                 drafts = partial.drafts,
                 restTimer = timer.toUi(partial.now),
+                vibrateOnRestEnd = settings.restTimerVibration,
+                soundOnRestEnd = settings.restTimerSound,
             )
         }
     }.stateIn(
@@ -189,6 +199,35 @@ class ActiveWorkoutViewModel @Inject constructor(
 
     private val eventsChannel = Channel<ActiveWorkoutEvent>(Channel.BUFFERED)
     val events = eventsChannel.receiveAsFlow()
+
+    init {
+        observeRestCompletion()
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private fun observeRestCompletion() {
+        /*
+         * Announces the end of rest exactly once per timer.
+         *
+         * distinctUntilChanged on the finished flag is what keeps it to one event: the countdown is
+         * recomputed every second, so a naive check would fire continuously for as long as the timer
+         * sat at zero. The ticker only runs while a timer is actually active.
+         */
+        viewModelScope.launch {
+            restTimer
+                .flatMapLatest { state ->
+                    if (state == null || !state.isActive) {
+                        flowOf(false)
+                    } else {
+                        ticker(timeProvider).map { now -> RestTimer.hasFinished(state, now) }
+                    }
+                }
+                .distinctUntilChanged()
+                .collect { finished ->
+                    if (finished) eventsChannel.send(ActiveWorkoutEvent.RestFinished)
+                }
+        }
+    }
 
     fun expand(sessionExerciseId: Long) {
         viewModelScope.launch {

@@ -31,16 +31,31 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import dev.happyc0der.forgelog.R
 import dev.happyc0der.forgelog.domain.workout.DurationInput
+import dev.happyc0der.forgelog.di.SettingsEntryPoint
 import dev.happyc0der.forgelog.domain.workout.DurationInputUnit
+import dagger.hilt.android.EntryPointAccessors
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 
+/**
+ * The duration input unit, shared with Settings through the one settings store.
+ *
+ * It used to keep its own SharedPreferences key, which meant this toggle and the Settings screen
+ * could disagree about the same preference.
+ */
 @Composable
 fun rememberDurationInputUnit(): Pair<DurationInputUnit, (DurationInputUnit) -> Unit> {
     val context = LocalContext.current
-    var unit by remember { mutableStateOf(DurationUnitPreference.read(context)) }
-    return unit to { next ->
-        unit = next
-        DurationUnitPreference.write(context, next)
+    val repository = remember(context) {
+        EntryPointAccessors
+            .fromApplication(context.applicationContext, SettingsEntryPoint::class.java)
+            .settingsRepository()
     }
+    val settings by repository.settings.collectAsStateWithLifecycle(initialValue = null)
+    val scope = rememberCoroutineScope()
+    val unit = settings?.durationInputUnit ?: DurationInputUnit.SECONDS
+    return unit to { next -> scope.launch { repository.setDurationInputUnit(next) } }
 }
 
 fun Modifier.bringIntoViewWhenFocused(): Modifier = composed {

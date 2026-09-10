@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.room.Room
 import dev.happyc0der.forgelog.data.local.ForgeLogDatabase
 import dev.happyc0der.forgelog.data.local.ForgeLogMigrations
+import dev.happyc0der.forgelog.BuildConfig
+import dev.happyc0der.forgelog.data.local.dao.BackupDao
 import dev.happyc0der.forgelog.data.local.dao.ExerciseDao
 import dev.happyc0der.forgelog.data.local.dao.ProgramDao
 import dev.happyc0der.forgelog.data.local.dao.WorkoutSessionDao
@@ -42,6 +44,17 @@ object DatabaseModule {
     @Provides
     fun provideWorkoutSessionDao(database: ForgeLogDatabase): WorkoutSessionDao =
         database.workoutSessionDao()
+
+    @Provides
+    fun provideBackupDao(database: ForgeLogDatabase): BackupDao = database.backupDao()
+
+    /**
+     * Stamped into every backup file so a file can be traced to the build that wrote it, which is
+     * the first thing worth knowing when a restore misbehaves.
+     */
+    @Provides
+    @AppVersion
+    fun provideAppVersion(): String = BuildConfig.VERSION_NAME
 
     @Provides
     @Singleton

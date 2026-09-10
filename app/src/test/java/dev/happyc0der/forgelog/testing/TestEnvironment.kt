@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.test.core.app.ApplicationProvider
 import dev.happyc0der.forgelog.data.local.ForgeLogDatabase
 import dev.happyc0der.forgelog.data.local.inMemoryDatabase
+import dev.happyc0der.forgelog.data.backup.BackupRepositoryImpl
 import dev.happyc0der.forgelog.data.repository.ExerciseRepositoryImpl
 import dev.happyc0der.forgelog.data.repository.ProgramRepositoryImpl
 import dev.happyc0der.forgelog.data.repository.WorkoutSessionRepositoryImpl
@@ -71,6 +72,15 @@ class TestEnvironment(dispatcher: TestDispatcher) {
         programDao = database.programDao(),
         workoutSessionDao = database.workoutSessionDao(),
         timeProvider = time,
+        ioDispatcher = io,
+    )
+
+    val backupRepository = BackupRepositoryImpl(
+        database = database,
+        backupDao = database.backupDao(),
+        timeProvider = time,
+        zoneProvider = zone,
+        appVersion = "test",
         ioDispatcher = io,
     )
 

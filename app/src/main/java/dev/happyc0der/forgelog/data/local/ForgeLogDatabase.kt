@@ -4,6 +4,7 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import dev.happyc0der.forgelog.data.local.converter.ForgeLogTypeConverters
+import dev.happyc0der.forgelog.data.local.dao.BackupDao
 import dev.happyc0der.forgelog.data.local.dao.ExerciseDao
 import dev.happyc0der.forgelog.data.local.dao.ProgramDao
 import dev.happyc0der.forgelog.data.local.dao.WorkoutSessionDao
@@ -33,4 +34,5 @@ abstract class ForgeLogDatabase : RoomDatabase() {
     abstract fun exerciseDao(): ExerciseDao
     abstract fun programDao(): ProgramDao
     abstract fun workoutSessionDao(): WorkoutSessionDao
+    abstract fun backupDao(): BackupDao
 }

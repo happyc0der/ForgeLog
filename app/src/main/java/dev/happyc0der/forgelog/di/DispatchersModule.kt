@@ -36,3 +36,8 @@ object DispatchersModule {
     @MainDispatcher
     fun provideMainDispatcher(): CoroutineDispatcher = Dispatchers.Main
 }
+
+/** Qualifies the app's own version string, so it is not confused with any other injected String. */
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class AppVersion

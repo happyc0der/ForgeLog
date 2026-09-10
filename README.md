@@ -17,8 +17,8 @@ Honest state of the app, so nobody goes looking for a screen that isn't there ye
 | Home dashboard | Placeholder — see the build plan |
 | History | Placeholder |
 | Analytics | Placeholder |
-| Settings | Placeholder |
-| Backup / export / import | Not implemented yet |
+| Backup / export / import | Working |
+| Settings | Working |
 
 ## Prerequisites
 
@@ -81,12 +81,19 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 ## Backup and restore
 
-**Not implemented yet.** Until the backup phase lands, training data exists only in the app's private Room database and there is no supported way to get it off the device or move it to another phone. Two consequences worth knowing now:
+Everything goes through Android's Storage Access Framework, so ForgeLog holds no storage permission and only ever reads or writes a file you picked yourself.
 
-- Uninstalling the app, clearing its data, or changing its application id destroys the database.
-- `android:allowBackup="true"` is currently set in the manifest, so Google's auto-backup may include the database. That is not a feature anyone should rely on, and it is under review.
+**Export a full backup** — Settings → *Export everything (JSON)*. Choose any location (Drive, Downloads, an SD card). The file contains every exercise, program, day, session, logged set and note, and is named `forgelog-backup-<date>.json`.
 
-When the feature lands it will use the Storage Access Framework: a JSON export of everything, a validated JSON import behind a confirmation, and a CSV export for a chosen date range — all user-initiated, all to a location you pick.
+**Restore** — Settings → *Restore from JSON*. The file is validated in full before anything is written: wrong format version, dangling references, unknown enum values, duplicate ids and empty documents are all refused, and a refused file leaves your existing data untouched. A successful restore **replaces** everything currently in the app, so export first if the current data matters.
+
+**Export sets to CSV** — Settings → pick a range, then *Export sets (CSV)*. One row per logged set, RFC 4180 quoted, ready for a spreadsheet.
+
+**Delete everything** — Settings → *Delete all data*, which requires typing `DELETE`. There is no copy unless you exported one.
+
+Worth doing once before you start logging anything you care about: export, then restore, and confirm your data comes back. That round-trip is also covered by automated tests (`BackupRoundTripTest`).
+
+Note that `android:allowBackup="true"` is still set in the manifest, so Google's auto-backup may also include the database. That is not something to rely on, and it is under review.
 
 ## Architecture
 

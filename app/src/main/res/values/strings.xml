@@ -197,7 +197,6 @@
     <string name="analytics_message">Charts and progress stats will appear after you log workouts.</string>
 
     <string name="settings_title">Settings</string>
-    <string name="settings_message">App preferences will live here. ForgeLog stays fully offline on this device.</string>
 
     <string name="action_save">Save</string>
     <string name="action_cancel">Cancel</string>
@@ -323,4 +322,59 @@
     <string name="program_exercise_number_invalid">Enter a valid number.</string>
     <string name="program_exercise_added">Exercise added.</string>
     <string name="program_exercise_removed">Exercise removed.</string>
+
+    <string name="settings_section_units">Units and defaults</string>
+    <string name="settings_section_rest">Rest timer</string>
+    <string name="settings_section_week">Week and volume</string>
+    <string name="settings_section_backup">Backup and export</string>
+    <string name="settings_section_danger">Danger zone</string>
+    <string name="settings_section_about">About</string>
+
+    <string name="settings_default_weight_unit">Default weight unit</string>
+    <string name="settings_duration_unit">Duration entry</string>
+    <string name="settings_default_rest">Default rest</string>
+    <string name="settings_default_rest_value">%1$d seconds</string>
+    <string name="settings_rest_vibration">Vibrate when rest ends</string>
+    <string name="settings_rest_sound">Sound when rest ends</string>
+    <string name="settings_week_start">Week starts on</string>
+    <string name="settings_include_warmup">Count warmup sets in volume</string>
+    <string name="settings_include_warmup_detail">Off by default, which matches how most lifters think about working volume.</string>
+
+    <string name="settings_export_json">Export everything (JSON)</string>
+    <string name="settings_export_json_detail">A complete backup you can restore onto any device.</string>
+    <string name="settings_import_json">Restore from JSON</string>
+    <string name="settings_import_json_detail">Replaces everything currently in the app.</string>
+    <string name="settings_export_csv">Export sets (CSV)</string>
+    <string name="settings_export_csv_detail">One row per logged set, for a spreadsheet.</string>
+    <string name="settings_csv_range">CSV range</string>
+    <string name="settings_csv_range_all">All time</string>
+    <string name="settings_csv_range_week">This week</string>
+    <string name="settings_csv_range_4_weeks">Last 4 weeks</string>
+    <string name="settings_csv_range_year">Last year</string>
+    <string name="settings_export_done">Export written.</string>
+    <string name="settings_import_done">Restored %1$d sessions and %2$d sets.</string>
+
+    <string name="settings_import_confirm_title">Replace everything?</string>
+    <string name="settings_import_confirm_message">Restoring replaces every program, exercise and logged workout currently in ForgeLog with the contents of the file. This cannot be undone.</string>
+    <string name="settings_import_confirm_action">Choose a file</string>
+    <string name="settings_import_unreadable">That file could not be read: %1$s</string>
+    <string name="settings_import_newer">That backup was written by a newer ForgeLog (format %1$d, this build reads %2$d).</string>
+    <string name="settings_import_dangling">That backup is incomplete: %1$s refers to a %2$s (%3$d) that is not in the file.</string>
+    <string name="settings_import_invalid">That backup has an invalid %1$s in %2$s: %3$s</string>
+    <string name="settings_import_duplicate">That backup has two rows in %1$s sharing id %2$d.</string>
+    <string name="settings_import_empty">That file contains no ForgeLog data.</string>
+
+    <string name="settings_delete_all">Delete all data</string>
+    <string name="settings_delete_all_detail">Removes every program, exercise and logged workout from this device.</string>
+    <string name="settings_delete_all_title">Delete everything?</string>
+    <string name="settings_delete_all_message">This removes every program, exercise and logged workout. It cannot be undone, and there is no copy unless you exported one.</string>
+    <string name="settings_delete_all_keyword">DELETE</string>
+    <string name="settings_delete_all_hint">Type DELETE to confirm</string>
+    <string name="settings_delete_all_done">All local data deleted.</string>
+
+    <string name="settings_privacy_title">Privacy</string>
+    <string name="settings_privacy">All data stays on this device unless you choose to export it. ForgeLog has no account, makes no network calls, and contains no analytics.</string>
+    <string name="settings_version">Version %1$s</string>
+    <string name="settings_database_version">Database schema v%1$d</string>
+    <string name="settings_working">Working…</string>
 </resources>

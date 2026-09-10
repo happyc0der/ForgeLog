@@ -88,6 +88,11 @@ fun ActiveWorkoutScreen(
                 ActiveWorkoutEvent.Finished,
                 ActiveWorkoutEvent.Abandoned,
                 -> onLeave()
+                ActiveWorkoutEvent.RestFinished -> RestTimerFeedback.signal(
+                    context = context,
+                    vibrate = uiState.vibrateOnRestEnd,
+                    sound = uiState.soundOnRestEnd,
+                )
             }
         }
     }
