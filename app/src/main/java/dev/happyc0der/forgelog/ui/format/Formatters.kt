@@ -1,5 +1,8 @@
 package dev.happyc0der.forgelog.ui.format
 
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
+import dev.happyc0der.forgelog.R
 import dev.happyc0der.forgelog.domain.model.ExerciseUnit
 import dev.happyc0der.forgelog.domain.workout.KG_TO_LB
 import java.time.Instant
@@ -91,12 +94,24 @@ object Formatters {
     fun fullDate(date: LocalDate): String =
         date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM", Locale.getDefault()))
 
-    /** "Today" / "Yesterday" / a date, for history and last-workout labels. */
-    fun relativeDate(epochMs: Long, today: LocalDate, zone: ZoneId): String {
+    /**
+     * "Today" / "Yesterday" / a date, for history and last-workout labels.
+     *
+     * The two words are passed in rather than written here: this object has no resources, and
+     * hardcoding them put untranslatable English on four screens. Screens call the composable
+     * [relativeDate] wrapper instead of this directly.
+     */
+    fun relativeDate(
+        epochMs: Long,
+        today: LocalDate,
+        zone: ZoneId,
+        todayLabel: String,
+        yesterdayLabel: String,
+    ): String {
         val date = LocalDate.ofInstant(Instant.ofEpochMilli(epochMs), zone)
         return when (date) {
-            today -> "Today"
-            today.minusDays(1) -> "Yesterday"
+            today -> todayLabel
+            today.minusDays(1) -> yesterdayLabel
             else -> {
                 val pattern = if (date.year == today.year) "d MMM" else "d MMM yyyy"
                 date.format(DateTimeFormatter.ofPattern(pattern, Locale.getDefault()))
@@ -108,3 +123,13 @@ object Formatters {
         DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault())
             .format(Instant.ofEpochMilli(epochMs).atZone(zone))
 }
+
+/** [Formatters.relativeDate] with its two words resolved from resources. */
+@Composable
+fun relativeDate(epochMs: Long, today: LocalDate, zone: ZoneId): String = Formatters.relativeDate(
+    epochMs = epochMs,
+    today = today,
+    zone = zone,
+    todayLabel = stringResource(R.string.date_today),
+    yesterdayLabel = stringResource(R.string.date_yesterday),
+)

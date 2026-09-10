@@ -37,6 +37,7 @@ import dev.happyc0der.forgelog.ui.components.ForgeCard
 import dev.happyc0der.forgelog.ui.components.ForgeHeroCard
 import dev.happyc0der.forgelog.ui.components.StatGrid
 import dev.happyc0der.forgelog.ui.format.Formatters
+import dev.happyc0der.forgelog.ui.format.relativeDate
 import dev.happyc0der.forgelog.ui.testing.TestTags
 import java.time.LocalDate
 import java.time.ZoneId
@@ -178,7 +179,7 @@ internal fun LastWorkoutCard(
             trailing = {
                 if (summary?.completedAt != null && today != null) {
                     Text(
-                        text = Formatters.relativeDate(summary.completedAt, today, zone),
+                        text = relativeDate(summary.completedAt, today, zone),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.secondary,
                     )

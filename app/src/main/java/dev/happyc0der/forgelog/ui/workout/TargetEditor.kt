@@ -127,7 +127,15 @@ private fun TargetField(
     modifier: Modifier = Modifier,
     decimal: Boolean = false,
 ) {
-    var draft by rememberSaveable(value) { mutableStateOf(value.orEmpty()) }
+    /*
+     * The draft is the field's own state and is NOT re-keyed on [value].
+     *
+     * Keying it on [value] fed the field its own output: typing "1" stored 1.0, which came back as
+     * "1.0", which changed the key, which reset the draft — so "12" was entered as "1.02". The
+     * roster this edits is in-memory and the user is its only writer, so there is nothing to
+     * re-sync from. [value] is the initial text and nothing more.
+     */
+    var draft by rememberSaveable { mutableStateOf(value.orEmpty()) }
     OutlinedTextField(
         value = draft,
         onValueChange = { input ->

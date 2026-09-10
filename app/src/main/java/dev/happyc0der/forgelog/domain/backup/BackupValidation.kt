@@ -18,6 +18,15 @@ sealed interface BackupProblem {
     /** Two rows in the same table share an id. */
     data class DuplicateId(val table: String, val id: Long) : BackupProblem
 
+    /**
+     * Two rows collide on a uniqueness rule the database enforces.
+     *
+     * Caught here so a bad file is refused with an explanation, rather than reaching the insert and
+     * throwing a constraint violation out of the import as an unhandled failure.
+     */
+    data class DuplicateKey(val table: String, val field: String, val value: String) :
+        BackupProblem
+
     data object Empty : BackupProblem
 }
 

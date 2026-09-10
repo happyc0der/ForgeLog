@@ -32,6 +32,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -60,7 +61,7 @@ fun ProgramDetailScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val scrollState = rememberScrollState()
     val snackbarHostState = remember { SnackbarHostState() }
-    var createDay by remember { mutableStateOf(false) }
+    var createDay by rememberSaveable { mutableStateOf(false) }
     var renameDay by remember { mutableStateOf<ProgramDay?>(null) }
     var deleteDay by remember { mutableStateOf<ProgramDay?>(null) }
     val requiredName = stringResource(R.string.program_day_name_required)
@@ -214,7 +215,7 @@ private fun ProgramDayRow(
     onDuplicate: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    var menuOpen by remember { mutableStateOf(false) }
+    var menuOpen by rememberSaveable { mutableStateOf(false) }
     val count = dayDetail.exercises.size
     ListItem(
         headlineContent = { Text(text = dayDetail.day.name) },

@@ -63,6 +63,7 @@ import dev.happyc0der.forgelog.ui.components.DragHandle
 import dev.happyc0der.forgelog.ui.components.ReorderableColumn
 import dev.happyc0der.forgelog.ui.exercise.ExerciseForm
 import dev.happyc0der.forgelog.ui.exercise.ExerciseFormState
+import dev.happyc0der.forgelog.ui.exercise.ExerciseFormStateSaver
 import dev.happyc0der.forgelog.ui.input.DurationSecondsField
 import dev.happyc0der.forgelog.ui.input.rememberDurationInputUnit
 import dev.happyc0der.forgelog.ui.util.label
@@ -78,9 +79,9 @@ fun ProgramDayBuilderScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    var showAddMenu by remember { mutableStateOf(false) }
-    var addChoiceExpanded by remember { mutableStateOf(false) }
-    var showCreateSheet by remember { mutableStateOf(false) }
+    var showAddMenu by rememberSaveable { mutableStateOf(false) }
+    var addChoiceExpanded by rememberSaveable { mutableStateOf(false) }
+    var showCreateSheet by rememberSaveable { mutableStateOf(false) }
     var pendingRemove by remember { mutableStateOf<ProgramExerciseDetail?>(null) }
     val nameRequired = stringResource(R.string.exercise_name_required)
     val urlInvalid = stringResource(R.string.exercise_how_to_invalid)
@@ -233,7 +234,7 @@ fun ProgramDayBuilderScreen(
     }
 
     if (showCreateSheet) {
-        var form by remember { mutableStateOf(ExerciseFormState()) }
+        var form by rememberSaveable(stateSaver = ExerciseFormStateSaver) { mutableStateOf(ExerciseFormState()) }
         ModalBottomSheet(
             onDismissRequest = { showCreateSheet = false },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -339,12 +340,13 @@ private fun ProgramExerciseCard(
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(modifier = Modifier.fillMaxWidth()) {
-                Icon(
-                    imageVector = Icons.Filled.DragHandle,
-                    contentDescription = stringResource(R.string.action_drag_handle),
-                    modifier = dragModifier.padding(top = 8.dp, end = 8.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                DragHandle(dragModifier = dragModifier) {
+                    Icon(
+                        imageVector = Icons.Filled.DragHandle,
+                        contentDescription = stringResource(R.string.action_drag_handle),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(text = item.exercise.name, style = MaterialTheme.typography.titleMedium)
                     Text(

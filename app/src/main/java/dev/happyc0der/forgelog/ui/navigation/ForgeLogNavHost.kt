@@ -49,9 +49,17 @@ fun ForgeLogNavHost(
         }
     }
 
+    /**
+     * Leaves the logger for wherever the user came from, falling back to Home.
+     *
+     * Always popping to Home threw away the History or Session-detail screen a resumed session was
+     * opened from, which reads as the app losing the user's place.
+     */
     fun leaveLogger() {
         WorkoutForegroundService.stop(context)
-        navController.popBackStack(HomeRoute, inclusive = false)
+        if (!navController.popBackStack()) {
+            navController.popBackStack(HomeRoute, inclusive = false)
+        }
     }
 
     /**
@@ -73,20 +81,20 @@ fun ForgeLogNavHost(
     ) {
         composable<HomeRoute> {
             HomeScreen(
-                onStartWorkout = { navController.navigate(StartWorkoutRoute()) },
+                onStartWorkout = { navController.navigate(StartWorkoutRoute()) { launchSingleTop = true } },
                 onResumeWorkout = { sessionId -> openLogger(sessionId, popPlanner = false) },
-                onStartAdHoc = { navController.navigate(StartWorkoutRoute(adHoc = true)) },
-                onCreateProgram = { navController.navigate(ProgramsRoute) },
-                onOpenSession = { sessionId -> navController.navigate(SessionDetailRoute(sessionId)) },
+                onStartAdHoc = { navController.navigate(StartWorkoutRoute(adHoc = true)) { launchSingleTop = true } },
+                onCreateProgram = { navController.navigate(ProgramsRoute) { launchSingleTop = true } },
+                onOpenSession = { sessionId -> navController.navigate(SessionDetailRoute(sessionId)) { launchSingleTop = true } },
             )
         }
         composable<ProgramsRoute> {
             ProgramsScreen(
                 onOpenProgram = { programId ->
-                    navController.navigate(ProgramDetailRoute(programId))
+                    navController.navigate(ProgramDetailRoute(programId)) { launchSingleTop = true }
                 },
                 onOpenExerciseLibrary = {
-                    navController.navigate(ExerciseLibraryRoute())
+                    navController.navigate(ExerciseLibraryRoute()) { launchSingleTop = true }
                 },
             )
         }
@@ -94,10 +102,10 @@ fun ForgeLogNavHost(
             ProgramDetailScreen(
                 onBack = { navController.popBackStack() },
                 onOpenDay = { dayId ->
-                    navController.navigate(ProgramDayBuilderRoute(dayId))
+                    navController.navigate(ProgramDayBuilderRoute(dayId)) { launchSingleTop = true }
                 },
                 onStartDay = { dayId ->
-                    navController.navigate(StartWorkoutRoute(programDayId = dayId))
+                    navController.navigate(StartWorkoutRoute(programDayId = dayId)) { launchSingleTop = true }
                 },
             )
         }
@@ -114,14 +122,14 @@ fun ForgeLogNavHost(
             ProgramDayBuilderScreen(
                 onBack = { navController.popBackStack() },
                 onPickFromLibrary = {
-                    navController.navigate(ExerciseLibraryRoute(picker = true))
+                    navController.navigate(ExerciseLibraryRoute(picker = true)) { launchSingleTop = true }
                 },
                 onDayDuplicated = { dayId ->
                     navController.popBackStack()
-                    navController.navigate(ProgramDayBuilderRoute(dayId))
+                    navController.navigate(ProgramDayBuilderRoute(dayId)) { launchSingleTop = true }
                 },
                 onStartDay = { dayId ->
-                    navController.navigate(StartWorkoutRoute(programDayId = dayId))
+                    navController.navigate(StartWorkoutRoute(programDayId = dayId)) { launchSingleTop = true }
                 },
                 viewModel = viewModel,
             )
@@ -139,7 +147,7 @@ fun ForgeLogNavHost(
             StartWorkoutScreen(
                 onBack = { navController.popBackStack() },
                 onPickFromLibrary = {
-                    navController.navigate(ExerciseLibraryRoute(picker = true))
+                    navController.navigate(ExerciseLibraryRoute(picker = true)) { launchSingleTop = true }
                 },
                 onStarted = { sessionId -> openLogger(sessionId, popPlanner = true) },
                 viewModel = viewModel,
@@ -166,9 +174,9 @@ fun ForgeLogNavHost(
             ExerciseLibraryScreen(
                 picker = picker,
                 onBack = { navController.popBackStack() },
-                onCreate = { navController.navigate(ExerciseEditorRoute()) },
+                onCreate = { navController.navigate(ExerciseEditorRoute()) { launchSingleTop = true } },
                 onEdit = { exerciseId ->
-                    navController.navigate(ExerciseEditorRoute(exerciseId))
+                    navController.navigate(ExerciseEditorRoute(exerciseId)) { launchSingleTop = true }
                 },
                 onPicked = { exerciseId ->
                     navController.previousBackStackEntry
@@ -197,7 +205,7 @@ fun ForgeLogNavHost(
         }
         composable<HistoryRoute> {
             HistoryScreen(
-                onOpenSession = { sessionId -> navController.navigate(SessionDetailRoute(sessionId)) },
+                onOpenSession = { sessionId -> navController.navigate(SessionDetailRoute(sessionId)) { launchSingleTop = true } },
                 onResumeWorkout = { sessionId -> openLogger(sessionId, popPlanner = false) },
             )
         }

@@ -37,6 +37,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -51,6 +52,7 @@ import dev.happyc0der.forgelog.domain.model.WorkoutProgram
 import dev.happyc0der.forgelog.ui.components.ConfirmDialog
 import dev.happyc0der.forgelog.ui.components.EmptyState
 import dev.happyc0der.forgelog.ui.format.Formatters
+import dev.happyc0der.forgelog.ui.format.relativeDate
 import java.time.LocalDate
 import java.time.ZoneId
 import dev.happyc0der.forgelog.ui.components.ErrorState
@@ -245,7 +247,7 @@ private fun ProgramRow(
     onArchive: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    var menuOpen by remember { mutableStateOf(false) }
+    var menuOpen by rememberSaveable { mutableStateOf(false) }
     val color = runCatching { Color(android.graphics.Color.parseColor(summary.program.color)) }
         .getOrDefault(MaterialTheme.colorScheme.primary)
     ListItem(
@@ -277,7 +279,7 @@ private fun ProgramRow(
                     text = summary.lastPerformedAt?.let { stamp ->
                         stringResource(
                             R.string.programs_last_performed,
-                            Formatters.relativeDate(stamp, LocalDate.now(zone), zone),
+                            relativeDate(stamp, LocalDate.now(zone), zone),
                         )
                     } ?: stringResource(R.string.programs_never_performed),
                     style = MaterialTheme.typography.labelMedium,

@@ -30,6 +30,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,8 +63,8 @@ fun SettingsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    var confirmDelete by remember { mutableStateOf(false) }
-    var confirmImport by remember { mutableStateOf(false) }
+    var confirmDelete by rememberSaveable { mutableStateOf(false) }
+    var confirmImport by rememberSaveable { mutableStateOf(false) }
     // Storage Access Framework: the user picks the destination, so ForgeLog needs no storage
     // permission at all and never writes anywhere the user did not choose.
     //
@@ -435,7 +436,7 @@ private fun DeleteEverythingDialog(
     onDismiss: () -> Unit,
 ) {
     val keyword = stringResource(R.string.settings_delete_all_keyword)
-    var typed by remember { mutableStateOf("") }
+    var typed by rememberSaveable { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(text = stringResource(R.string.settings_delete_all_title)) },

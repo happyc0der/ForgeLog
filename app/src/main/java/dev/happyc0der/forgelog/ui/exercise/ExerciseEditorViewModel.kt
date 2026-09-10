@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import dev.happyc0der.forgelog.R
 import dev.happyc0der.forgelog.domain.library.HowToUrl
+import dev.happyc0der.forgelog.ui.common.launchSafely
 import dev.happyc0der.forgelog.domain.model.Exercise
 import dev.happyc0der.forgelog.domain.model.ExerciseCategory
 import dev.happyc0der.forgelog.domain.model.ExerciseUnit
@@ -44,6 +45,7 @@ class ExerciseEditorViewModel @Inject constructor(
     private val exerciseId = savedStateHandle.toRoute<ExerciseEditorRoute>().exerciseId
         .takeIf { it > 0L }
     private var duplicateCheckJob: Job? = null
+    private var saveJob: Job? = null
 
     private val _uiState = MutableStateFlow(ExerciseEditorUiState(isCreate = exerciseId == null))
     val uiState: StateFlow<ExerciseEditorUiState> = _uiState.asStateFlow()
@@ -134,6 +136,10 @@ class ExerciseEditorViewModel @Inject constructor(
     }
 
     fun save() {
+        // Guarded before the coroutine, not inside it: isSaving was previously set after the first
+        // suspension point, so two taps in one frame both got past the button's enabled check and
+        // created two exercises.
+        if (_uiState.value.isSaving || saveJob?.isActive == true) return
         val current = _uiState.value.form
         val name = current.name.trim()
         if (name.isEmpty()) {
@@ -154,8 +160,8 @@ class ExerciseEditorViewModel @Inject constructor(
             }
             return
         }
-        viewModelScope.launch {
-            _uiState.update { it.copy(isSaving = true) }
+        _uiState.update { it.copy(isSaving = true) }
+        saveJob = launchSafely(::reportSaveFailure) {
             val existing = exerciseId?.let { exerciseRepository.getExercise(it) }
             val savedId = exerciseRepository.upsert(
                 Exercise(
@@ -172,6 +178,17 @@ class ExerciseEditorViewModel @Inject constructor(
             )
             _uiState.update { it.copy(isSaving = false) }
             eventsChannel.send(ExerciseEditorEvent.Saved(exerciseId ?: savedId))
+        }
+    }
+
+    /** Releases the guard, or a failed save would leave the button disabled for good. */
+    private fun reportSaveFailure(throwable: Throwable) {
+        _uiState.update {
+            it.copy(
+                isSaving = false,
+                errorMessage = throwable.message?.takeIf { message -> message.isNotBlank() }
+                    ?: application.getString(R.string.state_error_generic),
+            )
         }
     }
 }

@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,18 +46,23 @@ internal fun SetEditorDialog(
     onDelete: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var reps by remember { mutableStateOf(set.reps?.toString().orEmpty()) }
-    var weight by remember { mutableStateOf(set.weight?.toString().orEmpty()) }
-    var unit by remember { mutableStateOf(set.weightUnit) }
-    var duration by remember { mutableStateOf(set.durationSeconds?.toString().orEmpty()) }
-    var distance by remember { mutableStateOf(set.distanceMeters?.toString().orEmpty()) }
-    var rest by remember { mutableStateOf(set.restAfterSetSeconds?.toString().orEmpty()) }
-    var rpe by remember { mutableStateOf(set.rpe?.toString().orEmpty()) }
-    var rir by remember { mutableStateOf(set.rir?.toString().orEmpty()) }
-    var notes by remember { mutableStateOf(set.notes.orEmpty()) }
-    var setType by remember { mutableStateOf(set.setType) }
-    var completed by remember { mutableStateOf(set.completed) }
-    var error by remember { mutableStateOf<Int?>(null) }
+    // rememberSaveable throughout: eleven fields of hand-entered corrections, and rotating the
+    // phone mid-edit used to discard every one of them. Enums are stored by name, which survives
+    // process death where the enum instance would not.
+    var reps by rememberSaveable { mutableStateOf(set.reps?.toString().orEmpty()) }
+    var weight by rememberSaveable { mutableStateOf(set.weight?.toString().orEmpty()) }
+    var unitName by rememberSaveable { mutableStateOf(set.weightUnit.name) }
+    var duration by rememberSaveable { mutableStateOf(set.durationSeconds?.toString().orEmpty()) }
+    var distance by rememberSaveable { mutableStateOf(set.distanceMeters?.toString().orEmpty()) }
+    var rest by rememberSaveable { mutableStateOf(set.restAfterSetSeconds?.toString().orEmpty()) }
+    var rpe by rememberSaveable { mutableStateOf(set.rpe?.toString().orEmpty()) }
+    var rir by rememberSaveable { mutableStateOf(set.rir?.toString().orEmpty()) }
+    var notes by rememberSaveable { mutableStateOf(set.notes.orEmpty()) }
+    var setTypeName by rememberSaveable { mutableStateOf(set.setType.name) }
+    var completed by rememberSaveable { mutableStateOf(set.completed) }
+    var error by rememberSaveable { mutableStateOf<Int?>(null) }
+    val unit = ExerciseUnit.valueOf(unitName)
+    val setType = SetType.valueOf(setTypeName)
 
     fun attemptSave() {
         val parsedReps = reps.optionalInt() ?: return run { error = R.string.session_detail_invalid_number }
@@ -109,7 +115,7 @@ internal fun SetEditorDialog(
                     selected = setType,
                     options = SetType.entries,
                     optionLabel = { setTypeLabels.getValue(it) },
-                    onSelect = { setType = it ?: SetType.WORKING },
+                    onSelect = { setTypeName = (it ?: SetType.WORKING).name },
                     anyLabel = setTypeLabels.getValue(SetType.WORKING),
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -133,7 +139,7 @@ internal fun SetEditorDialog(
                     selected = unit,
                     options = ExerciseUnit.entries,
                     optionLabel = { unitLabels.getValue(it) },
-                    onSelect = { unit = it ?: ExerciseUnit.LB },
+                    onSelect = { unitName = (it ?: ExerciseUnit.LB).name },
                     anyLabel = unitLabels.getValue(ExerciseUnit.LB),
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

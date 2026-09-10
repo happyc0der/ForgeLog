@@ -192,6 +192,14 @@
     <string name="workout_start_rest">Rest</string>
     <string name="workout_session_feedback">How did this session go?</string>
 
+    <string name="program_color_purple">Purple</string>
+    <string name="program_color_green">Green</string>
+    <string name="program_color_amber">Amber</string>
+    <string name="program_color_red">Red</string>
+    <string name="program_color_light_purple">Light purple</string>
+    <string name="program_color_deep_purple">Deep purple</string>
+    <string name="program_color_other">Colour</string>
+
     <string name="summary_title">Workout complete</string>
     <string name="summary_subtitle">%1$s · %2$s</string>
     <string name="summary_breakdown_title">What you did</string>
@@ -304,6 +312,8 @@
     <string name="category_mobility">Mobility</string>
     <string name="category_other">Other</string>
 
+    <string name="date_today">Today</string>
+    <string name="date_yesterday">Yesterday</string>
     <string name="unit_lb">lb</string>
     <string name="unit_kg">kg</string>
     <string name="unit_bodyweight">Bodyweight</string>
@@ -443,6 +453,7 @@
     <string name="settings_import_dangling">That backup is incomplete: %1$s refers to a %2$s (%3$d) that is not in the file.</string>
     <string name="settings_import_invalid">That backup has an invalid %1$s in %2$s: %3$s</string>
     <string name="settings_import_duplicate">That backup has two rows in %1$s sharing id %2$d.</string>
+    <string name="settings_import_duplicate_key">Two rows in %2$s share the same %1$s (%3$s). The file cannot be restored as it stands.</string>
     <string name="settings_import_empty">That file contains no ForgeLog data.</string>
 
     <string name="settings_delete_all">Delete all data</string>

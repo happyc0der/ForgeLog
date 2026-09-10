@@ -1,6 +1,9 @@
 package dev.happyc0der.forgelog.data.backup
 
 import dev.happyc0der.forgelog.domain.model.SessionDetail
+import java.math.BigDecimal
+import java.math.RoundingMode
+import kotlin.math.abs
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -95,10 +98,10 @@ object CsvExporter {
                                     set.setNumber.toString(),
                                     set.setType.storageValue,
                                     set.reps?.toString().orEmpty(),
-                                    set.weight?.toString().orEmpty(),
+                                    set.weight?.toCsv().orEmpty(),
                                     set.weightUnit.storageValue,
                                     set.durationSeconds?.toString().orEmpty(),
-                                    set.distanceMeters?.toString().orEmpty(),
+                                    set.distanceMeters?.toCsv().orEmpty(),
                                     set.restAfterSetSeconds?.toString().orEmpty(),
                                     set.rpe?.toString().orEmpty(),
                                     set.rir?.toString().orEmpty(),
@@ -133,10 +136,31 @@ object CsvExporter {
         append("\r\n")
     }
 
-    /** Quoted only when it has to be, and embedded quotes are doubled, per RFC 4180. */
+    /**
+     * Quoted only when it has to be, and embedded quotes are doubled, per RFC 4180.
+     *
+     * A leading `= + - @` is also quoted and prefixed with an apostrophe. Spreadsheets treat such a
+     * value as a formula on open, and exercise names and notes are free text the file is meant to
+     * be shared from — a note beginning "=" should read as a note, not run as a calculation.
+     */
     private fun escape(value: String): String {
-        val needsQuoting = value.any { it == ',' || it == '"' || it == '\n' || it == '\r' }
-        if (!needsQuoting) return value
-        return "\"" + value.replace("\"", "\"\"") + "\""
+        val guarded = if (value.firstOrNull() in FORMULA_LEADS) "'" + value else value
+        val needsQuoting = guarded !== value ||
+            guarded.any { it == ',' || it == '"' || it == '\n' || it == '\r' }
+        if (!needsQuoting) return guarded
+        return "\"" + guarded.replace("\"", "\"\"") + "\""
     }
+
+    /**
+     * A number as a spreadsheet will read it: no scientific notation past 10 million, no trailing
+     * `.0` on a whole number, and a decimal point rather than whatever the device locale uses.
+     */
+    private fun Double.toCsv(): String =
+        if (this % 1.0 == 0.0 && abs(this) < 1e15) {
+            String.format(Locale.US, "%.0f", this)
+        } else {
+            String.format(Locale.US, "%s", BigDecimal(this).setScale(6, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString())
+        }
+
+    private val FORMULA_LEADS = setOf('=', '+', '-', '@')
 }

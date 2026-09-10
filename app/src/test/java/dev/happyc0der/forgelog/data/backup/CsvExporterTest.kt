@@ -8,6 +8,7 @@ import dev.happyc0der.forgelog.domain.workout.sessionExercise
 import dev.happyc0der.forgelog.domain.workout.setLog
 import dev.happyc0der.forgelog.domain.workout.workoutSession
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.ZoneId
@@ -125,8 +126,58 @@ class CsvExporterTest {
     fun `kilogram sets keep their own unit rather than being converted`() {
         val csv = exportOf(sets = listOf(setLog(weight = 60.0, weightUnit = ExerciseUnit.KG)))
         val dataRow = rows(csv)[1]
-        assertTrue(dataRow.contains("60.0"))
+        // 60, not 132: the unit travels with the number rather than the number being converted.
+        assertTrue("expected 60 in: $dataRow", dataRow.contains(",60,"))
         assertTrue(dataRow.contains("kg"))
+    }
+
+    @Test
+    fun `whole weights are written without a trailing decimal`() {
+        val csv = exportOf(sets = listOf(setLog(weight = 225.0)))
+        val dataRow = rows(csv)[1]
+        assertTrue("expected 225 in: $dataRow", dataRow.contains(",225,"))
+        assertFalse("225.0 imports as text in some locales: $dataRow", dataRow.contains("225.0"))
+    }
+
+    @Test
+    fun `fractional weights keep their decimal`() {
+        val csv = exportOf(sets = listOf(setLog(weight = 62.5)))
+        assertTrue(rows(csv)[1].contains("62.5"))
+    }
+
+    @Test
+    fun `a large distance is not written in scientific notation`() {
+        val csv = exportOf(sets = listOf(setLog(distanceMeters = 12_000_000.0)))
+        val dataRow = rows(csv)[1]
+        assertTrue("expected plain digits in: $dataRow", dataRow.contains("12000000"))
+        assertFalse("a spreadsheet reads 1.2E7 as text: $dataRow", dataRow.contains("E7"))
+    }
+
+    /*
+     * A note is free text, and the file is meant to be opened in a spreadsheet and shared. A value
+     * beginning = + - or @ is executed as a formula on open, so it is quoted and prefixed.
+     */
+
+    @Test
+    fun `a note that looks like a formula is neutralised`() {
+        val csv = exportOf(sets = listOf(setLog(notes = "=HYPERLINK(\"http://example.com\",\"x\")")))
+        val dataRow = rows(csv).drop(1).joinToString("\n")
+        assertFalse("must not start a field with =: $dataRow", dataRow.contains(",=HYPERLINK"))
+        assertTrue(dataRow.contains("'=HYPERLINK"))
+    }
+
+    @Test
+    fun `a leading minus is neutralised too`() {
+        val csv = exportOf(sets = listOf(setLog(notes = "-2+3")))
+        assertTrue(rows(csv).drop(1).joinToString("\n").contains("'-2+3"))
+    }
+
+    @Test
+    fun `ordinary notes are left exactly as written`() {
+        val csv = exportOf(sets = listOf(setLog(notes = "felt easy")))
+        val dataRow = rows(csv).drop(1).joinToString("\n")
+        assertTrue(dataRow.contains("felt easy"))
+        assertFalse(dataRow.contains("'felt easy"))
     }
 
     @Test

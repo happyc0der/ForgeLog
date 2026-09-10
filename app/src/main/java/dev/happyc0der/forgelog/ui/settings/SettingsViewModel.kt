@@ -21,12 +21,15 @@ import dev.happyc0der.forgelog.domain.workout.DurationInputUnit
 import dev.happyc0der.forgelog.ui.common.launchSafely
 import dev.happyc0der.forgelog.ui.common.reportErrors
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
@@ -75,14 +78,27 @@ class SettingsViewModel @Inject constructor(
     private val isWorking = MutableStateFlow(false)
     private val errorMessage = MutableStateFlow<String?>(null)
 
+    /**
+     * Bumped by [retry] to re-subscribe the settings flow.
+     *
+     * reportErrors uses `catch`, which ends the upstream, so clearing the message alone left the
+     * screen showing default settings forever with a Retry button that did nothing.
+     */
+    private val retryToken = MutableStateFlow(0)
+
     /** What a pending export will write, once the user has chosen where it goes. */
     private var pendingExport: String? = null
 
     private val eventsChannel = Channel<SettingsEvent>(Channel.BUFFERED)
     val events = eventsChannel.receiveAsFlow()
 
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val settings = retryToken.flatMapLatest {
+        settingsRepository.settings.reportErrors(AppSettings()) { reportError(it) }
+    }
+
     val uiState: StateFlow<SettingsUiState> = combine(
-        settingsRepository.settings.reportErrors(AppSettings()) { reportError(it) },
+        settings,
         csvRange,
         isWorking,
         errorMessage,
@@ -242,6 +258,7 @@ class SettingsViewModel @Inject constructor(
 
     fun retry() {
         errorMessage.value = null
+        retryToken.update { it + 1 }
     }
 
     /** Every problem gets a sentence that says what is wrong with the file, not just "failed". */
@@ -256,6 +273,8 @@ class SettingsViewModel @Inject constructor(
             application.getString(R.string.settings_import_invalid, field, table, value)
         is BackupProblem.DuplicateId ->
             application.getString(R.string.settings_import_duplicate, table, id)
+        is BackupProblem.DuplicateKey ->
+            application.getString(R.string.settings_import_duplicate_key, field, table, value)
         BackupProblem.Empty -> application.getString(R.string.settings_import_empty)
     }
 

@@ -14,6 +14,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -25,6 +27,40 @@ import dev.happyc0der.forgelog.domain.model.ExerciseCategory
 import dev.happyc0der.forgelog.domain.model.ExerciseUnit
 import dev.happyc0der.forgelog.ui.input.bringIntoViewWhenFocused
 import dev.happyc0der.forgelog.ui.util.label
+
+/**
+ * Lets a half-typed exercise survive a rotation.
+ *
+ * The state is all strings and enums, so a flat list is enough; enums are stored by name because an
+ * enum instance does not survive process death. Without this the whole form — name, category, URL,
+ * cues — was discarded by turning the phone, inside a sheet that also closed itself.
+ */
+val ExerciseFormStateSaver: Saver<ExerciseFormState, Any> = listSaver(
+    save = {
+        listOf(
+            it.name,
+            it.category.name,
+            it.defaultUnit.name,
+            it.howToUrl,
+            it.defaultPointers,
+            it.nameError.orEmpty(),
+            it.duplicateNameWarning.orEmpty(),
+            it.howToUrlError.orEmpty(),
+        )
+    },
+    restore = {
+        ExerciseFormState(
+            name = it[0],
+            category = ExerciseCategory.valueOf(it[1]),
+            defaultUnit = ExerciseUnit.valueOf(it[2]),
+            howToUrl = it[3],
+            defaultPointers = it[4],
+            nameError = it[5].ifEmpty { null },
+            duplicateNameWarning = it[6].ifEmpty { null },
+            howToUrlError = it[7].ifEmpty { null },
+        )
+    },
+)
 
 data class ExerciseFormState(
     val name: String = "",

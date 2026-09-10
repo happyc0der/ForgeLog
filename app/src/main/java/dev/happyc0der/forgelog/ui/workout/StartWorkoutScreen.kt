@@ -52,6 +52,7 @@ import dev.happyc0der.forgelog.domain.workout.DurationInput
 import dev.happyc0der.forgelog.domain.workout.DurationInputUnit
 import dev.happyc0der.forgelog.domain.workout.PreviousPerformance
 import dev.happyc0der.forgelog.ui.format.Formatters
+import dev.happyc0der.forgelog.ui.format.relativeDate
 import dev.happyc0der.forgelog.ui.components.ConfirmDialog
 import dev.happyc0der.forgelog.ui.components.EmptyState
 import dev.happyc0der.forgelog.ui.components.ErrorState
@@ -356,7 +357,7 @@ fun PreviousSessionPanel(
                     val stamp = performance.session.completedAt ?: performance.session.startedAt
                     stringResource(
                         R.string.workout_previous_title_dated,
-                        Formatters.relativeDate(stamp, LocalDate.now(zone), zone),
+                        relativeDate(stamp, LocalDate.now(zone), zone),
                     )
                 } ?: stringResource(R.string.workout_previous_title),
                 style = MaterialTheme.typography.titleSmall,

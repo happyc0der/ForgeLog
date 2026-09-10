@@ -23,8 +23,19 @@ data class HistoryFilter(
             programDayId != null || exerciseId != null ||
             fromEpochMs != null || untilEpochMs != null
 
-    /** Trimmed once here so the SQL never sees stray whitespace as a search term. */
-    val normalizedQuery: String get() = query.trim()
+    /**
+     * Trimmed once here so the SQL never sees stray whitespace as a search term, and with `LIKE`'s
+     * wildcards escaped so they are searched for rather than obeyed.
+     *
+     * Unescaped, "50%" matched any session containing "50", and a lone "_" matched everything.
+     * The escape character is a backslash, matching the `ESCAPE '\'` the query declares; it has to
+     * be escaped first or it would escape the escapes.
+     */
+    val normalizedQuery: String
+        get() = query.trim()
+            .replace("\\", "\\\\")
+            .replace("%", "\\%")
+            .replace("_", "\\_")
 }
 
 /** An exercise that appears somewhere in logged history. */

@@ -113,6 +113,10 @@ interface WorkoutSessionDao {
      * in the library never rewrites what a past workout was called.
      *
      * Ordered and filtered by `startedAt`, because "when did I train" is when the session began.
+     *
+     * The text search declares `ESCAPE '\'` and the repository escapes the term before it gets
+     * here. Without it a search for "50%" matched any session containing "50", and a search for
+     * "_" matched everything with at least one character.
      */
     @Transaction
     @Query(
@@ -130,9 +134,10 @@ interface WorkoutSessionDao {
             )
           )
           AND (
-            :query = '' OR s.sessionName LIKE '%' || :query || '%' OR EXISTS (
+            :query = '' OR s.sessionName LIKE '%' || :query || '%' ESCAPE '\' OR EXISTS (
                 SELECT 1 FROM session_exercises e2
-                WHERE e2.sessionId = s.id AND e2.displayNameSnapshot LIKE '%' || :query || '%'
+                WHERE e2.sessionId = s.id
+                  AND e2.displayNameSnapshot LIKE '%' || :query || '%' ESCAPE '\'
             )
           )
         ORDER BY s.startedAt DESC

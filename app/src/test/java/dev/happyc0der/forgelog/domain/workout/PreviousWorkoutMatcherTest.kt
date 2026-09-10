@@ -282,4 +282,75 @@ class PreviousPerformanceTest {
             PreviousWorkoutMatcher.findPreviousExercise(session, current, history),
         )
     }
+
+    /*
+     * Recency outranks context.
+     *
+     * Ranking by program day first meant a six-week-old session from the matching day beat
+     * yesterday's, so "last time" showed weights the user had moved past — and SetPrefill filled
+     * today's first set from it.
+     */
+
+    @Test
+    fun `yesterday beats a much older session from the matching program day`() {
+        val current = workoutSession(id = 100L, startedAt = day(40), programId = 1L, programDayId = 7L)
+        val exercise = sessionExercise(id = 1000L, sessionId = 100L, exerciseId = 5L, displayName = "Bench")
+
+        val history = listOf(
+            // Same program day, six weeks ago.
+            sessionDetail(
+                workoutSession(id = 1L, startedAt = day(1), completedAt = day(1), programId = 1L, programDayId = 7L),
+                SessionExerciseWithSets(
+                    exercise = sessionExercise(id = 11L, sessionId = 1L, exerciseId = 5L, displayName = "Bench"),
+                    sets = listOf(setLog(id = 111L, weight = 135.0)),
+                ),
+            ),
+            // Ad-hoc, yesterday.
+            sessionDetail(
+                workoutSession(id = 2L, startedAt = day(39), completedAt = day(39)),
+                SessionExerciseWithSets(
+                    exercise = sessionExercise(id = 22L, sessionId = 2L, exerciseId = 5L, displayName = "Bench"),
+                    sets = listOf(setLog(id = 222L, weight = 205.0)),
+                ),
+            ),
+        )
+
+        val match = PreviousWorkoutMatcher.findPrevious(current, exercise, history)
+        assertEquals(2L, match?.session?.id)
+    }
+
+    @Test
+    fun `among sessions on the same day the matching program day wins`() {
+        val current = workoutSession(id = 100L, startedAt = day(40), programId = 1L, programDayId = 7L)
+        val exercise = sessionExercise(id = 1000L, sessionId = 100L, exerciseId = 5L, displayName = "Bench")
+
+        val sameDay = day(39)
+        val history = listOf(
+            sessionDetail(
+                workoutSession(id = 3L, startedAt = sameDay, completedAt = sameDay),
+                SessionExerciseWithSets(
+                    exercise = sessionExercise(id = 33L, sessionId = 3L, exerciseId = 5L, displayName = "Bench"),
+                    sets = listOf(setLog(id = 333L, weight = 155.0)),
+                ),
+            ),
+            sessionDetail(
+                workoutSession(
+                    id = 4L,
+                    startedAt = sameDay + 3_600_000L,
+                    completedAt = sameDay + 3_600_000L,
+                    programId = 1L,
+                    programDayId = 7L,
+                ),
+                SessionExerciseWithSets(
+                    exercise = sessionExercise(id = 44L, sessionId = 4L, exerciseId = 5L, displayName = "Bench"),
+                    sets = listOf(setLog(id = 444L, weight = 185.0)),
+                ),
+            ),
+        )
+
+        val match = PreviousWorkoutMatcher.findPrevious(current, exercise, history)
+        assertEquals(4L, match?.session?.id)
+    }
+
+    private fun day(n: Long): Long = n * 24L * 60L * 60L * 1000L
 }

@@ -39,6 +39,7 @@ import dev.happyc0der.forgelog.ui.components.ForgeHeroCard
 import dev.happyc0der.forgelog.ui.components.LoadingState
 import dev.happyc0der.forgelog.ui.components.StatGrid
 import dev.happyc0der.forgelog.ui.format.Formatters
+import dev.happyc0der.forgelog.ui.format.relativeDate
 import java.time.LocalDate
 import dev.happyc0der.forgelog.ui.testing.TestTags
 import dev.happyc0der.forgelog.ui.theme.forgeLogColors
@@ -127,7 +128,7 @@ private fun HeadlineCard(
             Text(
                 text = stringResource(
                     R.string.summary_subtitle,
-                    Formatters.relativeDate(completedAt, LocalDate.now(zone), zone),
+                    relativeDate(completedAt, LocalDate.now(zone), zone),
                     Formatters.timeOfDay(completedAt, zone),
                 ),
                 style = MaterialTheme.typography.bodySmall,

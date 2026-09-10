@@ -13,14 +13,20 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -93,18 +99,32 @@ fun ProgramEditorDialog(
                         val parsed = runCatching {
                             Color(android.graphics.Color.parseColor(swatch))
                         }.getOrDefault(MaterialTheme.colorScheme.primary)
-                        Surface(
+                        val isSelected = swatch.equals(color, ignoreCase = true)
+                        val swatchName = stringResource(swatch.colorNameRes())
+                        // The dot stays 36dp; the target around it is 48dp. Selection is announced
+                        // rather than only drawn, since a border is invisible to a screen reader.
+                        Box(
                             modifier = Modifier
-                                .size(36.dp)
-                                .clickable { color = swatch },
-                            shape = CircleShape,
-                            color = parsed,
-                            border = if (swatch.equals(color, ignoreCase = true)) {
-                                BorderStroke(3.dp, MaterialTheme.colorScheme.onBackground)
-                            } else {
-                                null
-                            },
-                        ) {}
+                                .size(48.dp)
+                                .selectable(
+                                    selected = isSelected,
+                                    role = Role.RadioButton,
+                                    onClick = { color = swatch },
+                                )
+                                .semantics { contentDescription = swatchName },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Surface(
+                                modifier = Modifier.size(36.dp),
+                                shape = CircleShape,
+                                color = parsed,
+                                border = if (isSelected) {
+                                    BorderStroke(3.dp, MaterialTheme.colorScheme.onBackground)
+                                } else {
+                                    null
+                                },
+                            ) {}
+                        }
                     }
                 }
             }
@@ -145,3 +165,14 @@ private val PROGRAM_COLORS = listOf(
     "#F59E0B",
     "#EF4444",
 )
+
+/** A name for each swatch, so the picker is usable without seeing it. */
+private fun String.colorNameRes(): Int = when (lowercase()) {
+    "#a855f7" -> R.string.program_color_purple
+    "#c084fc" -> R.string.program_color_light_purple
+    "#7c3aed" -> R.string.program_color_deep_purple
+    "#22c55e" -> R.string.program_color_green
+    "#f59e0b" -> R.string.program_color_amber
+    "#ef4444" -> R.string.program_color_red
+    else -> R.string.program_color_other
+}

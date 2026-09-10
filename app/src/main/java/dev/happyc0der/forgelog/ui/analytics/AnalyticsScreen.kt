@@ -53,6 +53,7 @@ import dev.happyc0der.forgelog.ui.components.OptionDropdown
 import dev.happyc0der.forgelog.ui.components.ProportionBars
 import dev.happyc0der.forgelog.ui.components.StatGrid
 import dev.happyc0der.forgelog.ui.format.Formatters
+import dev.happyc0der.forgelog.ui.format.relativeDate
 import dev.happyc0der.forgelog.ui.testing.TestTags
 import dev.happyc0der.forgelog.ui.util.label
 import java.time.Instant
@@ -449,7 +450,7 @@ private fun rangeLabel(range: WeekBoundary.Range, zone: ZoneId): String {
     val today = LocalDate.now(zone)
     return stringResource(
         R.string.history_range_custom_selected,
-        Formatters.relativeDate(range.start, today, zone),
-        Formatters.relativeDate(range.endExclusive - 1, today, zone),
+        relativeDate(range.start, today, zone),
+        relativeDate(range.endExclusive - 1, today, zone),
     )
 }

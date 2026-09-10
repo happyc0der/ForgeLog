@@ -46,14 +46,24 @@ object PreviousWorkoutMatcher {
                     ?: return@mapNotNull null
                 RankedMatch(detail.session, match)
             }
+            /*
+             * Recency first, then how well the session matches.
+             *
+             * The other way round — program day, then program, then date — meant a six-week-old
+             * session from the matching day outranked yesterday's, and "last time" showed weights
+             * the user had long since moved past. Worse, SetPrefill filled today's first set from
+             * it. Matching context only breaks ties now: among sessions from the same day, the one
+             * from the same program day wins.
+             */
             .sortedWith(
-                compareByDescending<RankedMatch> { match ->
-                    sameId(match.session.programDayId, currentSession.programDayId)
-                }.thenByDescending { match ->
-                    sameId(match.session.programId, currentSession.programId)
-                }.thenByDescending { match ->
-                    match.session.completedAt ?: match.session.startedAt
-                },
+                compareByDescending<RankedMatch> { match -> match.dayBucket(zoneDaysMs) }
+                    .thenByDescending { match ->
+                        sameId(match.session.programDayId, currentSession.programDayId)
+                    }
+                    .thenByDescending { match ->
+                        sameId(match.session.programId, currentSession.programId)
+                    }
+                    .thenByDescending { match -> match.performedAt },
             )
             .toList()
 
@@ -80,5 +90,24 @@ object PreviousWorkoutMatcher {
     private data class RankedMatch(
         val session: WorkoutSession,
         val exercise: SessionExerciseWithSets,
-    )
+    ) {
+        val performedAt: Long get() = session.completedAt ?: session.startedAt
+
+        /**
+         * Which day this happened on, as a whole number of [bucketMs].
+         *
+         * Bucketing rather than comparing timestamps is what lets context break ties: two sessions
+         * on the same day rank equal here, so the one from the matching program day wins.
+         */
+        fun dayBucket(bucketMs: Long): Long = Math.floorDiv(performedAt, bucketMs)
+    }
+
+    /**
+     * A fixed 24 hours, deliberately not a calendar day.
+     *
+     * This is a tie-break bucket, not a date shown to anyone: a session landing in the neighbouring
+     * bucket around a DST change picks a different one of two same-day sessions, which is not worth
+     * a time zone dependency in the matcher.
+     */
+    private const val zoneDaysMs = 24L * 60L * 60L * 1000L
 }

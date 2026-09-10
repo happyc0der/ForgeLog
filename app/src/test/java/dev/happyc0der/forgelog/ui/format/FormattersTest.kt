@@ -66,15 +66,15 @@ class FormattersTest {
     @Test
     fun `relative date names today and yesterday`() {
         val today = LocalDate.of(2026, 3, 10)
-        assertEquals("Today", Formatters.relativeDate(epochOf(2026, 3, 10), today, zone))
-        assertEquals("Yesterday", Formatters.relativeDate(epochOf(2026, 3, 9), today, zone))
+        assertEquals("Today", Formatters.relativeDate(epochOf(2026, 3, 10), today, zone, "Today", "Yesterday"))
+        assertEquals("Yesterday", Formatters.relativeDate(epochOf(2026, 3, 9), today, zone, "Today", "Yesterday"))
     }
 
     @Test
     fun `relative date omits the year within the same year and includes it otherwise`() {
         val today = LocalDate.of(2026, 3, 10)
-        val sameYear = Formatters.relativeDate(epochOf(2026, 1, 5), today, zone)
-        val priorYear = Formatters.relativeDate(epochOf(2025, 12, 30), today, zone)
+        val sameYear = Formatters.relativeDate(epochOf(2026, 1, 5), today, zone, "Today", "Yesterday")
+        val priorYear = Formatters.relativeDate(epochOf(2025, 12, 30), today, zone, "Today", "Yesterday")
         assertEquals(false, sameYear.contains("2026"))
         assertEquals(true, priorYear.contains("2025"))
     }
@@ -83,11 +83,30 @@ class FormattersTest {
     fun `relative date uses the given zone, not UTC`() {
         // 00:30 on the 10th in Kolkata is still the 9th in UTC; the label must follow the zone.
         val today = LocalDate.of(2026, 3, 10)
-        assertEquals("Today", Formatters.relativeDate(epochOf(2026, 3, 10, hour = 0), today, zone))
+        assertEquals("Today", Formatters.relativeDate(epochOf(2026, 3, 10, hour = 0), today, zone, "Today", "Yesterday"))
     }
 
     @Test
     fun `time of day is rendered in the given zone`() {
         assertEquals("18:00", Formatters.timeOfDay(epochOf(2026, 3, 10, hour = 18), zone))
+    }
+
+    @Test
+    fun `short spans keep their seconds instead of rounding to a minute`() {
+        // compactDuration renders anything under a minute as "< 1m", which is useless for rest.
+        assertEquals("45s", Formatters.seconds(45))
+        assertEquals("2m", Formatters.seconds(120))
+        assertEquals("2m 30s", Formatters.seconds(150))
+        assertEquals("0s", Formatters.seconds(0))
+        assertEquals("0s", Formatters.seconds(-5))
+    }
+
+    @Test
+    fun `load converts a pounds value for display, weight does not`() {
+        // A personal record is held in pounds; a logged set is held in its own unit. Confusing the
+        // two showed pounds under a kilogram label.
+        assertEquals("100 lb", Formatters.load(100.0, ExerciseUnit.LB))
+        assertEquals("45.4 kg", Formatters.load(100.0, ExerciseUnit.KG))
+        assertEquals("100 kg", Formatters.weight(100.0, ExerciseUnit.KG))
     }
 }

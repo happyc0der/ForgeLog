@@ -32,7 +32,12 @@ object BackupSerializer {
     fun decode(raw: String): BackupCheck<BackupEnvelope> {
         val envelope = try {
             json.decodeFromString<BackupEnvelope>(raw)
-        } catch (error: Exception) {
+        } catch (cancellation: kotlin.coroutines.cancellation.CancellationException) {
+            throw cancellation
+        } catch (error: Throwable) {
+            // Throwable, not Exception: a huge or deeply nested file fails with OutOfMemoryError or
+            // StackOverflowError, and those escaping as a crash is exactly what this returns
+            // instead. The one thing not swallowed is cancellation.
             return BackupCheck.Invalid(
                 BackupProblem.Unreadable(error.message ?: "Not a ForgeLog backup"),
             )
@@ -52,6 +57,7 @@ object BackupSerializer {
         if (envelope.totalRows == 0) return BackupCheck.Invalid(BackupProblem.Empty)
 
         duplicateIds(envelope)?.let { return BackupCheck.Invalid(it) }
+        duplicateExternalIds(envelope)?.let { return BackupCheck.Invalid(it) }
         invalidValues(envelope)?.let { return BackupCheck.Invalid(it) }
         danglingReferences(envelope)?.let { return BackupCheck.Invalid(it) }
 
@@ -73,6 +79,22 @@ object BackupSerializer {
             ?: check("sessions", envelope.sessions.map { it.id })
             ?: check("session_exercises", envelope.sessionExercises.map { it.id })
             ?: check("set_logs", envelope.setLogs.map { it.id })
+    }
+
+    /**
+     * Sessions carry a unique index on `(externalSource, externalId)`, the dedup key for imported
+     * activities. A file with two rows sharing one would be refused by SQLite mid-transaction.
+     */
+    private fun duplicateExternalIds(envelope: BackupEnvelope): BackupProblem? {
+        val seen = mutableSetOf<Pair<String, String>>()
+        envelope.sessions.forEach { session ->
+            val source = session.externalSource ?: return@forEach
+            val id = session.externalId ?: return@forEach
+            if (!seen.add(source to id)) {
+                return BackupProblem.DuplicateKey("sessions", "externalId", "$source/$id")
+            }
+        }
+        return null
     }
 
     private fun invalidValues(envelope: BackupEnvelope): BackupProblem? {

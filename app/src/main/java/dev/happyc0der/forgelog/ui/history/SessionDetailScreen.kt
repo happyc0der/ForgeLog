@@ -54,6 +54,7 @@ import dev.happyc0der.forgelog.ui.components.LoadingState
 import dev.happyc0der.forgelog.ui.components.NotesField
 import dev.happyc0der.forgelog.ui.components.StatGrid
 import dev.happyc0der.forgelog.ui.format.Formatters
+import dev.happyc0der.forgelog.ui.format.relativeDate
 import dev.happyc0der.forgelog.ui.testing.TestTags
 import dev.happyc0der.forgelog.ui.util.label
 import java.time.LocalDate
@@ -71,7 +72,7 @@ fun SessionDetailScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val zone = remember { ZoneId.systemDefault() }
     var editingSet by remember { mutableStateOf<SetLog?>(null) }
-    var confirmDelete by remember { mutableStateOf(false) }
+    var confirmDelete by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
@@ -219,7 +220,7 @@ private fun SessionSummaryCard(
     val session = uiState.detail?.session ?: return
     ForgeHeroCard {
         CardHeader(
-            title = Formatters.relativeDate(session.startedAt, LocalDate.now(zone), zone) +
+            title = relativeDate(session.startedAt, LocalDate.now(zone), zone) +
                 " · " + Formatters.timeOfDay(session.startedAt, zone),
             trailing = {
                 Text(

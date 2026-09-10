@@ -8,6 +8,7 @@ import dev.happyc0der.forgelog.data.local.programEntity
 import dev.happyc0der.forgelog.data.local.sessionEntity
 import dev.happyc0der.forgelog.data.local.sessionExerciseEntity
 import dev.happyc0der.forgelog.data.local.setLogEntity
+import dev.happyc0der.forgelog.domain.history.HistoryFilter
 import dev.happyc0der.forgelog.domain.model.SessionStatus
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -225,5 +226,36 @@ class SessionHistoryQueryTest {
         // exercise had a null id and so cannot be filtered on.
         assertEquals(listOf("Barbell Row", "Bench Press"), logged.map { it.displayName })
         assertEquals(listOf(rowId, benchId), logged.map { it.exerciseId })
+    }
+
+    /*
+     * LIKE wildcards in a search term are searched for, not obeyed. Unescaped, "50%" matched any
+     * session containing "50", and a lone "_" matched every session with at least one character.
+     * The escaping lives in HistoryFilter.normalizedQuery, so these go through it rather than
+     * handing the DAO an already-escaped string.
+     */
+
+    private suspend fun search(term: String): List<String> =
+        history(query = HistoryFilter(query = term).normalizedQuery)
+
+    @Test
+    fun `a percent sign in the search term is literal`() = runTest {
+        session("Deload 50% week", 9_000L, 9_500L, SessionStatus.COMPLETED, null, null, null, "Bench Press")
+        session("Heavy 500 day", 9_600L, 9_700L, SessionStatus.COMPLETED, null, null, null, "Bench Press")
+
+        assertEquals(listOf("Deload 50% week"), search("50%"))
+    }
+
+    @Test
+    fun `an underscore in the search term is literal`() = runTest {
+        session("Push_A", 9_000L, 9_500L, SessionStatus.COMPLETED, null, null, null, "Bench Press")
+        session("PushB", 9_600L, 9_700L, SessionStatus.COMPLETED, null, null, null, "Bench Press")
+
+        assertEquals(listOf("Push_A"), search("Push_"))
+    }
+
+    @Test
+    fun `a plain term still matches`() = runTest {
+        assertEquals(listOf("PPL Strength \u00b7 Push Day"), search("Push Day"))
     }
 }

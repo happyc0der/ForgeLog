@@ -59,6 +59,7 @@ import dev.happyc0der.forgelog.ui.components.LoadingState
 import dev.happyc0der.forgelog.ui.components.OptionDropdown
 import dev.happyc0der.forgelog.ui.components.StatGrid
 import dev.happyc0der.forgelog.ui.format.Formatters
+import dev.happyc0der.forgelog.ui.format.relativeDate
 import dev.happyc0der.forgelog.ui.testing.TestTags
 import dev.happyc0der.forgelog.ui.theme.forgeLogColors
 import java.time.LocalDate
@@ -348,7 +349,7 @@ private fun HistoryRowCard(
         CardHeader(
             title = buildString {
                 append(
-                    today?.let { Formatters.relativeDate(row.startedAt, it, zone) }
+                    today?.let { relativeDate(row.startedAt, it, zone) }
                         ?: Formatters.timeOfDay(row.startedAt, zone),
                 )
                 append(" · ")
@@ -455,8 +456,8 @@ private fun customRangeLabel(preset: DateRangePreset, uiState: HistoryUiState): 
     val zone = ZoneId.systemDefault()
     return stringResource(
         R.string.history_range_custom_selected,
-        Formatters.relativeDate(from, today, zone),
+        relativeDate(from, today, zone),
         // The stored end is exclusive; name the last day actually included.
-        Formatters.relativeDate(until - 1, today, zone),
+        relativeDate(until - 1, today, zone),
     )
 }
