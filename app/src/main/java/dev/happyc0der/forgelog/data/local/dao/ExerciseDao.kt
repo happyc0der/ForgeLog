@@ -18,22 +18,6 @@ interface ExerciseDao {
     )
     fun observeExercises(includeArchived: Boolean): Flow<List<ExerciseEntity>>
 
-    @Query(
-        """
-        SELECT * FROM exercises
-        WHERE category = :category
-          AND ((:includeArchived = 1) OR isArchived = 0)
-        ORDER BY name COLLATE NOCASE ASC
-        """,
-    )
-    fun observeExercisesByCategory(
-        category: ExerciseCategory,
-        includeArchived: Boolean,
-    ): Flow<List<ExerciseEntity>>
-
-    @Query("SELECT * FROM exercises WHERE id = :id")
-    fun observeExercise(id: Long): Flow<ExerciseEntity?>
-
     @Query("SELECT * FROM exercises WHERE id = :id")
     suspend fun getExercise(id: Long): ExerciseEntity?
 

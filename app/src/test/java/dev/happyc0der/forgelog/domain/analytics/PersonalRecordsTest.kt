@@ -126,23 +126,6 @@ class PersonalRecordsTest {
         assertEquals(300.0, records.heaviestWeight?.weightLb ?: 0.0, 0.001)
     }
 
-    @Test
-    fun `most reps at a given weight is tracked per weight`() {
-        val history = listOf(
-            session(
-                1L,
-                1_000L,
-                sets = listOf(
-                    setLog(id = 1L, reps = 5, weight = 185.0),
-                    setLog(id = 2L, setNumber = 2, reps = 8, weight = 185.0),
-                    setLog(id = 3L, setNumber = 3, reps = 3, weight = 225.0),
-                ),
-            ),
-        )
-        val records = PersonalRecords.byExercise(history).values.single()
-        assertEquals(8, records.mostRepsByWeight[185.0])
-        assertEquals(3, records.mostRepsByWeight[225.0])
-    }
 
     @Test
     fun `a duration exercise records its longest hold and no weight record`() {

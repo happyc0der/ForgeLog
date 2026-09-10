@@ -38,8 +38,6 @@ data class ExerciseRecords(
     val bestSetVolume: PrCandidate? = null,
     val longestDuration: PrCandidate? = null,
     val bestEstimatedOneRepMax: PrCandidate? = null,
-    /** Most reps achieved at each weight, which is how progress at a fixed load is judged. */
-    val mostRepsByWeight: Map<Double, Int> = emptyMap(),
 )
 
 object PersonalRecords {
@@ -97,10 +95,6 @@ object PersonalRecords {
             bestSetVolume = candidates.bestBy { it.setVolumeLb },
             longestDuration = candidates.bestBy { it.durationSeconds?.toDouble() },
             bestEstimatedOneRepMax = candidates.bestBy { it.estimatedOneRepMaxLb },
-            mostRepsByWeight = candidates
-                .filter { it.weightLb != null && it.reps != null }
-                .groupBy { it.weightLb!! }
-                .mapValues { (_, sets) -> sets.maxOf { it.reps!! } },
         )
     }
 

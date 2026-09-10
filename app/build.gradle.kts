@@ -42,12 +42,13 @@ android {
             isIncludeAndroidResources = true
         }
     }
-    // MigrationTestHelper loads the exported schema JSONs from assets, so the committed schema
-    // directory is mounted as a test asset source. Without this, migration tests cannot verify the
-    // upgraded database against the schema that actually shipped.
+    // Migration tests read the committed schema JSONs to build an older database and let Room
+    // perform the real upgrade, so the schema directory is mounted as a test asset source. (The JVM
+    // tests use LegacySchemaBuilder rather than MigrationTestHelper, which cannot read assets under
+    // Robolectric; androidTest keeps the mount for when instrumented migration tests are added.)
     sourceSets {
-        getByName("test") { assets.srcDirs(files("$projectDir/schemas")) }
-        getByName("androidTest") { assets.srcDirs(files("$projectDir/schemas")) }
+        getByName("test") { assets.directories.add("$projectDir/schemas") }
+        getByName("androidTest") { assets.directories.add("$projectDir/schemas") }
     }
 }
 

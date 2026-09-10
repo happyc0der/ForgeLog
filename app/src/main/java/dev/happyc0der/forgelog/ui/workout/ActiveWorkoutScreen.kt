@@ -140,7 +140,10 @@ fun ActiveWorkoutScreen(
                     TextButton(onClick = { abandonConfirm = true }) {
                         Text(text = stringResource(R.string.workout_abandon))
                     }
-                    TextButton(onClick = viewModel::finish) {
+                    TextButton(
+                        onClick = viewModel::finish,
+                        modifier = Modifier.testTag(TestTags.ACTIVE_WORKOUT_FINISH),
+                    ) {
                         Text(text = stringResource(R.string.workout_finish))
                     }
                 },
@@ -171,6 +174,7 @@ fun ActiveWorkoutScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
+                            .testTag(TestTags.ACTIVE_WORKOUT_SCREEN)
                         .padding(innerPadding)
                         .imePadding()
                         .verticalScroll(scrollState)

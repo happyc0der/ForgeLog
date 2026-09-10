@@ -291,7 +291,6 @@ class AnalyticsViewModelTest {
         vm.uiState.test {
             var state = awaitItem()
             while (state.comparison?.current?.sessionCount != 1) state = awaitItem()
-            assertEquals(DayOfWeek.SUNDAY, state.weekStart)
             cancelAndIgnoreRemainingEvents()
         }
     }

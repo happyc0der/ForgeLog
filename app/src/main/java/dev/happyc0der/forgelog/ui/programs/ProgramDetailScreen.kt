@@ -35,11 +35,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.happyc0der.forgelog.R
+import dev.happyc0der.forgelog.ui.testing.TestTags
 import dev.happyc0der.forgelog.domain.model.ProgramDay
 import dev.happyc0der.forgelog.domain.model.ProgramDayDetail
 import dev.happyc0der.forgelog.ui.components.ConfirmDialog
@@ -124,6 +126,7 @@ fun ProgramDetailScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
+                            .testTag(TestTags.PROGRAM_DETAIL_SCREEN)
                         .padding(innerPadding)
                         .verticalScroll(scrollState)
                         .padding(bottom = 88.dp),

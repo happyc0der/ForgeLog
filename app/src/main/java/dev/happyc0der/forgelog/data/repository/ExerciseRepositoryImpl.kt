@@ -36,19 +36,6 @@ class ExerciseRepositoryImpl @Inject constructor(
             .map { entities -> entities.map { it.toDomain() } }
             .flowOn(ioDispatcher)
 
-    override fun observeExercisesByCategory(
-        category: ExerciseCategory,
-        includeArchived: Boolean,
-    ): Flow<List<Exercise>> =
-        exerciseDao.observeExercisesByCategory(category, includeArchived)
-            .map { entities -> entities.map { it.toDomain() } }
-            .flowOn(ioDispatcher)
-
-    override fun observeExercise(id: Long): Flow<Exercise?> =
-        exerciseDao.observeExercise(id)
-            .map { it?.toDomain() }
-            .flowOn(ioDispatcher)
-
     override suspend fun getExercise(id: Long): Exercise? = withContext(ioDispatcher) {
         exerciseDao.getExercise(id)?.toDomain()
     }

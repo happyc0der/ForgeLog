@@ -63,7 +63,6 @@ data class AnalyticsUiState(
     val records: List<ExerciseRecords> = emptyList(),
     val selectedExerciseRecords: ExerciseRecords? = null,
     val weightUnit: ExerciseUnit = ExerciseUnit.LB,
-    val weekStart: DayOfWeek = DayOfWeek.MONDAY,
 ) {
     val hasAnyData: Boolean
         get() = (comparison?.current?.sessionCount ?: 0) > 0 ||
@@ -248,7 +247,6 @@ class AnalyticsViewModel @Inject constructor(
             records = analytics.records,
             selectedExerciseRecords = analytics.selectedExerciseRecords,
             weightUnit = analytics.weightUnit,
-            weekStart = analytics.weekStart,
         )
     }.stateIn(
         scope = viewModelScope,

@@ -34,12 +34,6 @@ class DurationInputTest {
         assertTrue(DurationInput.isParseable("1.5", DurationInputUnit.MINUTES))
     }
 
-    @Test
-    fun adjustStepMatchesSelectedUnit() {
-        assertEquals(15, DurationInput.adjustStepSeconds(DurationInputUnit.SECONDS))
-        assertEquals(60, DurationInput.adjustStepSeconds(DurationInputUnit.MINUTES))
-    }
-
     /*
      * "NaN" and "Infinity" are accepted by Double.parseDouble, and roundToInt throws on NaN rather
      * than saturating — so a paste into the duration field used to crash the app mid-set. The

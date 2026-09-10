@@ -44,9 +44,6 @@ interface ProgramDao {
     fun observeProgramSummaries(includeArchived: Boolean): Flow<List<ProgramSummaryEntity>>
 
     @Query("SELECT * FROM workout_programs WHERE id = :id")
-    fun observeProgram(id: Long): Flow<WorkoutProgramEntity?>
-
-    @Query("SELECT * FROM workout_programs WHERE id = :id")
     suspend fun getProgram(id: Long): WorkoutProgramEntity?
 
     @Transaction
@@ -65,15 +62,6 @@ interface ProgramDao {
     @Transaction
     @Query("SELECT * FROM program_days WHERE id = :dayId")
     fun observeDayDetail(dayId: Long): Flow<ProgramDayDetailEntity?>
-
-    @Query(
-        """
-        SELECT * FROM program_exercises
-        WHERE programDayId = :dayId
-        ORDER BY exerciseOrder ASC
-        """,
-    )
-    fun observeProgramExercises(dayId: Long): Flow<List<ProgramExerciseEntity>>
 
     @Transaction
     @Query("SELECT * FROM program_days WHERE id = :dayId")
@@ -146,6 +134,4 @@ interface ProgramDao {
     @Query("UPDATE program_exercises SET exerciseOrder = :exerciseOrder WHERE id = :id")
     suspend fun updateProgramExerciseOrder(id: Long, exerciseOrder: Int)
 
-    @Query("SELECT COUNT(*) FROM program_exercises WHERE exerciseId = :exerciseId")
-    suspend fun countProgramExercisesForExercise(exerciseId: Long): Int
 }

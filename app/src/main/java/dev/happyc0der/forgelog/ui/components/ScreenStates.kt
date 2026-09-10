@@ -11,6 +11,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
 import dev.happyc0der.forgelog.R
 
@@ -18,11 +20,16 @@ import dev.happyc0der.forgelog.R
 fun LoadingState(
     modifier: Modifier = Modifier,
 ) {
+    val loadingLabel = stringResource(R.string.state_loading)
     Box(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center,
     ) {
-        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+        CircularProgressIndicator(
+            color = MaterialTheme.colorScheme.primary,
+            // Otherwise the loading state is silent to a screen reader.
+            modifier = Modifier.semantics { contentDescription = loadingLabel },
+        )
     }
 }
 

@@ -11,11 +11,9 @@ import kotlinx.coroutines.flow.Flow
 interface ProgramRepository {
     fun observePrograms(includeArchived: Boolean = false): Flow<List<WorkoutProgram>>
     fun observeProgramSummaries(includeArchived: Boolean = false): Flow<List<ProgramSummary>>
-    fun observeProgram(id: Long): Flow<WorkoutProgram?>
     fun observeProgramDetail(id: Long): Flow<ProgramDetail?>
     fun observeDays(programId: Long): Flow<List<ProgramDay>>
     fun observeDayDetail(dayId: Long): Flow<ProgramDayDetail?>
-    fun observeProgramExercises(dayId: Long): Flow<List<ProgramExercise>>
     suspend fun getProgram(id: Long): WorkoutProgram?
     suspend fun getProgramDetail(id: Long): ProgramDetail?
     suspend fun getDayDetail(dayId: Long): ProgramDayDetail?

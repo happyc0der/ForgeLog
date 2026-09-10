@@ -33,14 +33,14 @@ class PreviousWorkoutMatcherTest {
             ),
         )
 
-        val match = PreviousWorkoutMatcher.findPreviousExercise(
+        val match = PreviousWorkoutMatcher.findPrevious(
             currentSession = current,
             currentExercise = currentExercise,
             history = listOf(olderSameExercise),
         )
 
-        assertEquals(11L, match?.exercise?.id)
-        assertEquals(135.0, match?.sets?.single()?.weight)
+        assertEquals(11L, match?.exercise?.exercise?.id)
+        assertEquals(135.0, match?.exercise?.sets?.single()?.weight)
     }
 
     @Test
@@ -60,13 +60,13 @@ class PreviousWorkoutMatcherTest {
             ),
         )
 
-        val match = PreviousWorkoutMatcher.findPreviousExercise(
+        val match = PreviousWorkoutMatcher.findPrevious(
             currentSession = current,
             currentExercise = unnamedCurrent,
             history = listOf(history),
         )
 
-        assertEquals(22L, match?.exercise?.id)
+        assertEquals(22L, match?.exercise?.exercise?.id)
     }
 
     @Test
@@ -84,7 +84,7 @@ class PreviousWorkoutMatcherTest {
             ),
         )
 
-        val match = PreviousWorkoutMatcher.findPreviousExercise(
+        val match = PreviousWorkoutMatcher.findPrevious(
             currentSession = current,
             currentExercise = currentExercise,
             history = listOf(history),
@@ -117,7 +117,7 @@ class PreviousWorkoutMatcherTest {
             ),
         )
 
-        val match = PreviousWorkoutMatcher.findPreviousExercise(
+        val match = PreviousWorkoutMatcher.findPrevious(
             currentSession = current,
             currentExercise = currentExercise,
             history = listOf(inProgress, abandoned, currentAsHistory),
@@ -143,14 +143,14 @@ class PreviousWorkoutMatcherTest {
             ),
         )
 
-        val match = PreviousWorkoutMatcher.findPreviousExercise(
+        val match = PreviousWorkoutMatcher.findPrevious(
             currentSession = current,
             currentExercise = currentExercise,
             history = listOf(differentDayNewer, sameDayOlder),
         )
 
-        assertEquals(51L, match?.exercise?.id)
-        assertEquals(185.0, match?.sets?.single()?.weight)
+        assertEquals(51L, match?.exercise?.exercise?.id)
+        assertEquals(185.0, match?.exercise?.sets?.single()?.weight)
     }
 
     @Test
@@ -170,13 +170,13 @@ class PreviousWorkoutMatcherTest {
             ),
         )
 
-        val match = PreviousWorkoutMatcher.findPreviousExercise(
+        val match = PreviousWorkoutMatcher.findPrevious(
             currentSession = current,
             currentExercise = currentExercise,
             history = listOf(otherProgramNewer, sameProgram),
         )
 
-        assertEquals(71L, match?.exercise?.id)
+        assertEquals(71L, match?.exercise?.exercise?.id)
     }
 
     @Test
@@ -196,13 +196,13 @@ class PreviousWorkoutMatcherTest {
             ),
         )
 
-        val match = PreviousWorkoutMatcher.findPreviousExercise(
+        val match = PreviousWorkoutMatcher.findPrevious(
             currentSession = current.copy(programId = null, programDayId = null),
             currentExercise = currentExercise,
             history = listOf(older, newer),
         )
 
-        assertEquals(101L, match?.exercise?.id)
+        assertEquals(101L, match?.exercise?.exercise?.id)
     }
 }
 
@@ -263,25 +263,6 @@ class PreviousPerformanceTest {
         assertEquals(listOf(1, 3), performance?.completedSets?.map { it.setNumber })
     }
 
-    @Test
-    fun `the older findPreviousExercise entry point still behaves the same`() {
-        val history = listOf(
-            sessionDetail(
-                workoutSession(id = 1L),
-                SessionExerciseWithSets(
-                    exercise = sessionExercise(id = 10L, sessionId = 1L, exerciseId = 7L, displayName = "Bench"),
-                    sets = listOf(setLog(id = 1L, sessionExerciseId = 10L)),
-                ),
-            ),
-        )
-        val current = sessionExercise(id = 20L, sessionId = 2L, exerciseId = 7L, displayName = "Bench")
-        val session = workoutSession(id = 2L, completedAt = null)
-
-        assertEquals(
-            PreviousWorkoutMatcher.findPrevious(session, current, history)?.exercise,
-            PreviousWorkoutMatcher.findPreviousExercise(session, current, history),
-        )
-    }
 
     /*
      * Recency outranks context.

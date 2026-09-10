@@ -22,12 +22,6 @@ data class PreviousPerformance(
 
 object PreviousWorkoutMatcher {
 
-    fun findPreviousExercise(
-        currentSession: WorkoutSession,
-        currentExercise: SessionExercise,
-        history: List<SessionDetail>,
-    ): SessionExerciseWithSets? = findPrevious(currentSession, currentExercise, history)?.exercise
-
     fun findPrevious(
         currentSession: WorkoutSession,
         currentExercise: SessionExercise,

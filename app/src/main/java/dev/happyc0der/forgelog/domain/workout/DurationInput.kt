@@ -9,9 +9,6 @@ enum class DurationInputUnit {
 }
 
 object DurationInput {
-    const val SECOND_ADJUST_STEP_SECONDS = 15
-    const val MINUTE_ADJUST_STEP_SECONDS = 60
-
     /**
      * A minute value large enough to overflow `Int` is a typo, not a set. Clamped rather than
      * rejected so a stray digit caps out instead of silently discarding the whole entry.
@@ -50,11 +47,6 @@ object DurationInput {
         val trimmed = display.trim()
         if (trimmed.isEmpty()) return true
         return parseSeconds(trimmed, unit) != null
-    }
-
-    fun adjustStepSeconds(unit: DurationInputUnit): Int = when (unit) {
-        DurationInputUnit.SECONDS -> SECOND_ADJUST_STEP_SECONDS
-        DurationInputUnit.MINUTES -> MINUTE_ADJUST_STEP_SECONDS
     }
 
     fun formatWithUnit(seconds: Int?, unit: DurationInputUnit): String? {

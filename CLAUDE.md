@@ -13,7 +13,7 @@ Treat that file as authoritative. If a rule there and something in this file eve
 ## Orientation
 
 ```
-app/src/main/java/com/example/forgelog/
+app/src/main/java/dev/happyc0der/forgelog/
 ├── data/
 │   ├── local/        Room: ForgeLogDatabase, migrations, entities, DAOs, relations, converters
 │   ├── mapper/       EntityMappers.kt — entity ↔ domain, and where relation lists get sorted

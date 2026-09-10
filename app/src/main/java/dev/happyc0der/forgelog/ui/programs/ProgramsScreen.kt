@@ -41,12 +41,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.happyc0der.forgelog.R
+import dev.happyc0der.forgelog.ui.testing.TestTags
 import dev.happyc0der.forgelog.domain.model.ProgramSummary
 import dev.happyc0der.forgelog.domain.model.WorkoutProgram
 import dev.happyc0der.forgelog.ui.components.ConfirmDialog
@@ -117,6 +119,7 @@ fun ProgramsScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
+                            .testTag(TestTags.PROGRAMS_SCREEN)
                         .padding(innerPadding),
                 ) {
                     FilterChip(

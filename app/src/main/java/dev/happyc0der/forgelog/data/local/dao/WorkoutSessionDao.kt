@@ -15,21 +15,6 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface WorkoutSessionDao {
-    @Query("SELECT * FROM workout_sessions ORDER BY startedAt DESC")
-    fun observeSessions(): Flow<List<WorkoutSessionEntity>>
-
-    @Query(
-        """
-        SELECT * FROM workout_sessions
-        WHERE status = :status
-        ORDER BY startedAt DESC
-        """,
-    )
-    fun observeSessionsByStatus(status: SessionStatus): Flow<List<WorkoutSessionEntity>>
-
-    @Query("SELECT * FROM workout_sessions WHERE id = :id")
-    fun observeSession(id: Long): Flow<WorkoutSessionEntity?>
-
     @Transaction
     @Query("SELECT * FROM workout_sessions WHERE id = :id")
     fun observeSessionDetail(id: Long): Flow<SessionDetailEntity?>
@@ -43,35 +28,6 @@ interface WorkoutSessionDao {
         """,
     )
     fun observeInProgressSession(): Flow<WorkoutSessionEntity?>
-
-    @Transaction
-    @Query(
-        """
-        SELECT * FROM workout_sessions
-        WHERE status = 'in_progress'
-        ORDER BY startedAt DESC
-        LIMIT 1
-        """,
-    )
-    fun observeInProgressSessionDetail(): Flow<SessionDetailEntity?>
-
-    @Query(
-        """
-        SELECT * FROM session_exercises
-        WHERE sessionId = :sessionId
-        ORDER BY exerciseOrder ASC
-        """,
-    )
-    fun observeSessionExercises(sessionId: Long): Flow<List<SessionExerciseEntity>>
-
-    @Query(
-        """
-        SELECT * FROM set_logs
-        WHERE sessionExerciseId = :sessionExerciseId
-        ORDER BY setNumber ASC
-        """,
-    )
-    fun observeSetLogs(sessionExerciseId: Long): Flow<List<SetLogEntity>>
 
     @Transaction
     @Query(
@@ -253,17 +209,11 @@ interface WorkoutSessionDao {
     @Query("DELETE FROM workout_sessions WHERE id = :id")
     suspend fun deleteSession(id: Long)
 
-    @Query("DELETE FROM session_exercises WHERE id = :id")
-    suspend fun deleteSessionExercise(id: Long)
-
     @Query("DELETE FROM set_logs WHERE id = :id")
     suspend fun deleteSetLog(id: Long)
 
     @Query("SELECT COUNT(*) FROM session_exercises WHERE exerciseId = :exerciseId")
     suspend fun countSessionExercisesForExercise(exerciseId: Long): Int
-
-    @Query("SELECT COUNT(*) FROM workout_sessions")
-    suspend fun observeSessionsCount(): Int
 
     @Query("SELECT COUNT(*) FROM workout_sessions WHERE programId = :programId")
     suspend fun countSessionsForProgram(programId: Long): Int

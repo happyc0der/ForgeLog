@@ -13,9 +13,6 @@ import dev.happyc0der.forgelog.domain.workout.PreviousPerformance
 import kotlinx.coroutines.flow.Flow
 
 interface WorkoutSessionRepository {
-    fun observeSessions(): Flow<List<WorkoutSession>>
-    fun observeSessionsByStatus(status: SessionStatus): Flow<List<WorkoutSession>>
-    fun observeSession(id: Long): Flow<WorkoutSession?>
     fun observeSessionDetail(id: Long): Flow<SessionDetail?>
     fun observeInProgressSession(): Flow<WorkoutSession?>
     fun observeLastCompletedSessionDetail(): Flow<SessionDetail?>
@@ -30,9 +27,6 @@ interface WorkoutSessionRepository {
         fromEpochMs: Long,
         untilEpochMs: Long,
     ): Flow<List<SessionDetail>>
-    fun observeInProgressSessionDetail(): Flow<SessionDetail?>
-    fun observeSessionExercises(sessionId: Long): Flow<List<SessionExercise>>
-    fun observeSetLogs(sessionExerciseId: Long): Flow<List<SetLog>>
     suspend fun getSession(id: Long): WorkoutSession?
     suspend fun getSessionDetail(id: Long): SessionDetail?
     suspend fun getInProgressSession(): WorkoutSession?
@@ -44,12 +38,18 @@ interface WorkoutSessionRepository {
     suspend fun upsertSessionExercise(sessionExercise: SessionExercise): Long
     suspend fun upsertSetLog(setLog: SetLog): Long
     suspend fun deleteSession(id: Long)
-    suspend fun deleteSessionExercise(id: Long)
     suspend fun deleteSetLog(id: Long)
-    suspend fun findPreviousPerformance(
-        currentSession: WorkoutSession,
-        currentExercise: SessionExercise,
-    ): PreviousPerformance?
+
+    /*
+     * There is deliberately no findPreviousPerformance here.
+     *
+     * It existed, wrapping PreviousWorkoutMatcher with a history fetch, and had no callers: the
+     * logger and the planner both need "previous" for every exercise in a session, so they fetch
+     * history once and match against it many times. A per-exercise repository call would refetch
+     * the same history for each row. The matcher is pure and lives in the domain; that is the
+     * right seam.
+     */
+
     suspend fun startSession(
         programId: Long?,
         programDayId: Long?,

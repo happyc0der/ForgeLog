@@ -10,9 +10,7 @@
     <string name="home_title">Ready to train</string>
     <string name="home_message">No workout is in progress. Start a session when you are ready to lift.</string>
     <string name="home_start_workout">Start Workout</string>
-    <string name="home_start_workout_empty">Create a program first to start a workout.</string>
     <string name="home_resume_title">Workout in progress</string>
-    <string name="home_resume_message">%1$s is still running. Resume logging or finish it from the workout screen.</string>
     <string name="home_resume_workout">Resume Workout</string>
     <string name="home_elapsed">Elapsed %1$s</string>
     <string name="home_greeting_morning">Good morning</string>
@@ -20,7 +18,6 @@
     <string name="home_greeting_evening">Good evening</string>
     <string name="home_greeting_night">Still up</string>
     <string name="home_last_workout_title">Last workout</string>
-    <string name="home_last_workout_none_title">No workouts yet</string>
     <string name="home_last_workout_none_message">Finish a session and its summary shows up here.</string>
     <string name="home_week_title">This week</string>
     <string name="home_week_empty">Nothing logged yet this week.</string>
@@ -47,7 +44,6 @@
     <string name="history_filter_program">Program</string>
     <string name="history_filter_day">Day</string>
     <string name="history_filter_exercise">Exercise</string>
-    <string name="history_filter_range">Date range</string>
     <string name="history_filter_any">Any</string>
     <string name="history_range_all">All time</string>
     <string name="history_range_this_week">This week</string>
@@ -71,8 +67,6 @@
     <string name="history_status_completed">Completed</string>
     <string name="history_status_in_progress">In progress</string>
     <string name="history_status_abandoned">Abandoned</string>
-    <string name="history_session_count">%1$d sessions</string>
-    <string name="history_session_count_one">1 session</string>
 
     <string name="session_detail_title">Session</string>
     <string name="session_detail_edit">Edit</string>
@@ -82,7 +76,6 @@
     <string name="session_detail_overall_notes">Session notes</string>
     <string name="session_detail_exercise_notes">Exercise notes</string>
     <string name="session_detail_feeling">How did it feel?</string>
-    <string name="session_detail_feeling_clear">Clear</string>
     <string name="session_detail_no_sets">No sets were logged for this exercise.</string>
     <string name="session_detail_edit_set">Edit set %1$d</string>
     <string name="session_detail_delete_set">Delete set</string>
@@ -137,7 +130,6 @@
     <string name="workout_target_summary_reps">%1$s reps</string>
     <string name="workout_target_summary_weight">@ %1$s</string>
     <string name="workout_previous_none">No previous performance for this lift.</string>
-    <string name="workout_previous_rest_before">Rest before %1$s</string>
     <string name="workout_previous_rest">rest %1$s</string>
     <string name="workout_set_number">Set %1$d</string>
     <string name="workout_previous_set">Set %1$d · %2$s</string>
@@ -225,19 +217,14 @@
     <string name="set_type_failure">Failure</string>
     <string name="set_type_custom">Custom</string>
 
-    <string name="history_title">No sessions logged</string>
-    <string name="history_message">Completed workouts will show up here so you can review past sessions.</string>
-
     <string name="analytics_no_data">Nothing logged in this range.</string>
     <string name="analytics_compare_title">This week vs %1$s</string>
     <string name="analytics_compare_last_week">last week</string>
     <string name="analytics_compare_weeks_ago">%1$d weeks ago</string>
     <string name="analytics_compare_custom_title">%1$s vs the span before</string>
-    <string name="analytics_compare_offset">Compare with</string>
     <string name="analytics_volume_by_day">Volume by day</string>
     <string name="analytics_sets_by_category">Sets by category</string>
     <string name="analytics_exercise_progress">Exercise progress</string>
-    <string name="analytics_trend_window">Window</string>
     <string name="analytics_trend_12_weeks">12 weeks</string>
     <string name="analytics_trend_6_months">6 months</string>
     <string name="analytics_trend_1_year">1 year</string>
@@ -294,8 +281,6 @@
     <string name="action_remove">Remove</string>
     <string name="action_show_archived">Show archived</string>
     <string name="action_hide_archived">Hide archived</string>
-    <string name="action_confirm">Delete</string>
-    <string name="action_keep">Keep</string>
 
     <string name="state_loading">Loading</string>
     <string name="state_error_title">Something went wrong</string>

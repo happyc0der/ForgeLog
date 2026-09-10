@@ -43,11 +43,6 @@ class ProgramRepositoryImpl @Inject constructor(
             .map { entities -> entities.map { it.toDomain() } }
             .flowOn(ioDispatcher)
 
-    override fun observeProgram(id: Long): Flow<WorkoutProgram?> =
-        programDao.observeProgram(id)
-            .map { it?.toDomain() }
-            .flowOn(ioDispatcher)
-
     override fun observeProgramDetail(id: Long): Flow<ProgramDetail?> =
         programDao.observeProgramDetail(id)
             .map { it?.toDomain() }
@@ -61,11 +56,6 @@ class ProgramRepositoryImpl @Inject constructor(
     override fun observeDayDetail(dayId: Long): Flow<ProgramDayDetail?> =
         programDao.observeDayDetail(dayId)
             .map { it?.toDomain() }
-            .flowOn(ioDispatcher)
-
-    override fun observeProgramExercises(dayId: Long): Flow<List<ProgramExercise>> =
-        programDao.observeProgramExercises(dayId)
-            .map { entities -> entities.map { it.toDomain() } }
             .flowOn(ioDispatcher)
 
     override suspend fun getProgram(id: Long): WorkoutProgram? = withContext(ioDispatcher) {

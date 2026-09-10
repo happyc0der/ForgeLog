@@ -195,6 +195,6 @@ class MigrationTest {
             }
         }
 
-        assertEquals(3, runBlocking { db.workoutSessionDao().observeSessionsCount() })
+        assertEquals(3, runBlocking { db.backupDao().allSessions() }.size)
     }
 }

@@ -250,5 +250,3 @@ private fun EmptyChartMessage(modifier: Modifier = Modifier) {
     )
 }
 
-/** Placeholder colour used when a chart has to render before data arrives. */
-internal val ChartPlaceholder: Color = Color.Transparent

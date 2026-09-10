@@ -35,21 +35,6 @@ class WorkoutSessionRepositoryImpl @Inject constructor(
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : WorkoutSessionRepository {
 
-    override fun observeSessions(): Flow<List<WorkoutSession>> =
-        workoutSessionDao.observeSessions()
-            .map { entities -> entities.map { it.toDomain() } }
-            .flowOn(ioDispatcher)
-
-    override fun observeSessionsByStatus(status: SessionStatus): Flow<List<WorkoutSession>> =
-        workoutSessionDao.observeSessionsByStatus(status)
-            .map { entities -> entities.map { it.toDomain() } }
-            .flowOn(ioDispatcher)
-
-    override fun observeSession(id: Long): Flow<WorkoutSession?> =
-        workoutSessionDao.observeSession(id)
-            .map { it?.toDomain() }
-            .flowOn(ioDispatcher)
-
     override fun observeSessionDetail(id: Long): Flow<SessionDetail?> =
         workoutSessionDao.observeSessionDetail(id)
             .map { it?.toDomain() }
@@ -57,11 +42,6 @@ class WorkoutSessionRepositoryImpl @Inject constructor(
 
     override fun observeInProgressSession(): Flow<WorkoutSession?> =
         workoutSessionDao.observeInProgressSession()
-            .map { it?.toDomain() }
-            .flowOn(ioDispatcher)
-
-    override fun observeInProgressSessionDetail(): Flow<SessionDetail?> =
-        workoutSessionDao.observeInProgressSessionDetail()
             .map { it?.toDomain() }
             .flowOn(ioDispatcher)
 
@@ -94,16 +74,6 @@ class WorkoutSessionRepositoryImpl @Inject constructor(
     ): Flow<List<SessionDetail>> =
         workoutSessionDao.observeCompletedSessionDetailsBetween(fromEpochMs, untilEpochMs)
             .map { details -> details.map { it.toDomain() } }
-            .flowOn(ioDispatcher)
-
-    override fun observeSessionExercises(sessionId: Long): Flow<List<SessionExercise>> =
-        workoutSessionDao.observeSessionExercises(sessionId)
-            .map { entities -> entities.map { it.toDomain() } }
-            .flowOn(ioDispatcher)
-
-    override fun observeSetLogs(sessionExerciseId: Long): Flow<List<SetLog>> =
-        workoutSessionDao.observeSetLogs(sessionExerciseId)
-            .map { entities -> entities.map { it.toDomain() } }
             .flowOn(ioDispatcher)
 
     override suspend fun getSession(id: Long): WorkoutSession? = withContext(ioDispatcher) {
@@ -149,24 +119,8 @@ class WorkoutSessionRepositoryImpl @Inject constructor(
         workoutSessionDao.deleteSession(id)
     }
 
-    override suspend fun deleteSessionExercise(id: Long) = withContext(ioDispatcher) {
-        workoutSessionDao.deleteSessionExercise(id)
-    }
-
     override suspend fun deleteSetLog(id: Long) = withContext(ioDispatcher) {
         workoutSessionDao.deleteSetLog(id)
-    }
-
-    override suspend fun findPreviousPerformance(
-        currentSession: WorkoutSession,
-        currentExercise: SessionExercise,
-    ): PreviousPerformance? = withContext(ioDispatcher) {
-        val history = getRecentCompletedDetails(currentSession.id)
-        PreviousWorkoutMatcher.findPrevious(
-            currentSession = currentSession,
-            currentExercise = currentExercise,
-            history = history,
-        )
     }
 
     override suspend fun startSession(

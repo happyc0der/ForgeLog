@@ -180,6 +180,7 @@ fun StartWorkoutScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
+                            .testTag(TestTags.START_WORKOUT_SCREEN)
                         .padding(innerPadding)
                         .verticalScroll(rememberScrollState())
                         .padding(horizontal = 16.dp)

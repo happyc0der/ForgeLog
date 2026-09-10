@@ -45,7 +45,6 @@ data class HistoryRow(
     val status: SessionStatus,
     val startedAt: Long,
     val day: LocalDate,
-    val programName: String?,
 )
 
 /**
@@ -119,7 +118,6 @@ class HistoryViewModel @Inject constructor(
                                 java.time.Instant.ofEpochMilli(detail.session.startedAt),
                                 zone,
                             ),
-                            programName = null,
                         )
                     }
                 }
