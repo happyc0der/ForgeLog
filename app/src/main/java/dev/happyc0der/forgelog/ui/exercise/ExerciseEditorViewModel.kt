@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -42,6 +43,7 @@ class ExerciseEditorViewModel @Inject constructor(
 ) : ViewModel() {
     private val exerciseId = savedStateHandle.toRoute<ExerciseEditorRoute>().exerciseId
         .takeIf { it > 0L }
+    private var duplicateCheckJob: Job? = null
 
     private val _uiState = MutableStateFlow(ExerciseEditorUiState(isCreate = exerciseId == null))
     val uiState: StateFlow<ExerciseEditorUiState> = _uiState.asStateFlow()
@@ -59,7 +61,8 @@ class ExerciseEditorViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            errorMessage = application.getString(R.string.program_missing),
+                            // Was reporting a missing *program* for a missing exercise.
+                            errorMessage = application.getString(R.string.exercise_missing),
                         )
                     }
                 } else {
@@ -81,8 +84,37 @@ class ExerciseEditorViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Warns when the name is already taken, without blocking the save.
+     *
+     * Two variations can legitimately share a name, so this is advice rather than a rule — but
+     * saving a second "Bench Press" by accident used to be completely silent.
+     */
+    private fun checkDuplicateName(value: String) {
+        duplicateCheckJob?.cancel()
+        val candidate = value.trim()
+        if (candidate.isEmpty()) {
+            _uiState.update { it.copy(form = it.form.copy(duplicateNameWarning = null)) }
+            return
+        }
+        duplicateCheckJob = viewModelScope.launch {
+            val clash = exerciseRepository.findByName(candidate)
+                ?.takeIf { it.id != exerciseId }
+            _uiState.update { state ->
+                state.copy(
+                    form = state.form.copy(
+                        duplicateNameWarning = clash?.let {
+                            application.getString(R.string.exercise_duplicate_name)
+                        },
+                    ),
+                )
+            }
+        }
+    }
+
     fun onNameChange(value: String) {
         _uiState.update { it.copy(form = it.form.copy(name = value, nameError = null)) }
+        checkDuplicateName(value)
     }
 
     fun onCategoryChange(value: ExerciseCategory) {
@@ -111,9 +143,14 @@ class ExerciseEditorViewModel @Inject constructor(
             return
         }
         val urlResult = HowToUrl.normalize(current.howToUrl)
-        val url = urlResult.getOrElse { error ->
+        val url = urlResult.getOrElse {
             _uiState.update {
-                it.copy(form = it.form.copy(howToUrlError = error.message))
+                // The domain's message is hardcoded English; the user-facing string is the resource.
+                it.copy(
+                    form = it.form.copy(
+                        howToUrlError = application.getString(R.string.exercise_how_to_invalid),
+                    ),
+                )
             }
             return
         }

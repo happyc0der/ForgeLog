@@ -50,6 +50,9 @@ import dev.happyc0der.forgelog.domain.model.ProgramSummary
 import dev.happyc0der.forgelog.domain.model.WorkoutProgram
 import dev.happyc0der.forgelog.ui.components.ConfirmDialog
 import dev.happyc0der.forgelog.ui.components.EmptyState
+import dev.happyc0der.forgelog.ui.format.Formatters
+import java.time.LocalDate
+import java.time.ZoneId
 import dev.happyc0der.forgelog.ui.components.ErrorState
 import dev.happyc0der.forgelog.ui.components.LoadingState
 import kotlinx.coroutines.launch
@@ -62,6 +65,7 @@ fun ProgramsScreen(
     viewModel: ProgramsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val zone = remember { ZoneId.systemDefault() }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var editor by remember { mutableStateOf<ProgramEditorTarget?>(null) }
@@ -107,12 +111,6 @@ fun ProgramsScreen(
                 onRetry = viewModel::retry,
                 modifier = Modifier.padding(innerPadding),
             )
-            uiState.programs.isEmpty() -> EmptyState(
-                icon = Icons.Outlined.FitnessCenter,
-                title = stringResource(R.string.programs_empty_title),
-                message = stringResource(R.string.programs_empty_message),
-                modifier = Modifier.padding(innerPadding),
-            )
             else -> {
                 Column(
                     modifier = Modifier
@@ -135,6 +133,29 @@ fun ProgramsScreen(
                             )
                         },
                     )
+                    if (uiState.programs.isEmpty()) {
+                        // Deliberately inside the column, below the chip. When every program was
+                        // archived, a full-screen empty state replaced the one control that could
+                        // reveal them, leaving the user stuck.
+                        EmptyState(
+                            icon = Icons.Outlined.FitnessCenter,
+                            title = stringResource(
+                                if (uiState.includeArchived) {
+                                    R.string.programs_empty_title
+                                } else {
+                                    R.string.programs_empty_visible_title
+                                },
+                            ),
+                            message = stringResource(
+                                if (uiState.includeArchived) {
+                                    R.string.programs_empty_message
+                                } else {
+                                    R.string.programs_empty_visible_message
+                                },
+                            ),
+                        )
+                        return@Column
+                    }
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(bottom = 88.dp),
@@ -142,6 +163,7 @@ fun ProgramsScreen(
                         items(uiState.programs, key = { it.program.id }) { summary ->
                             ProgramRow(
                                 summary = summary,
+                                zone = zone,
                                 onClick = { onOpenProgram(summary.program.id) },
                                 onRename = { editor = ProgramEditorTarget.Rename(summary.program) },
                                 onDuplicate = { viewModel.duplicate(summary.program.id) },
@@ -172,13 +194,14 @@ fun ProgramsScreen(
         ProgramEditorDialog(
             target = target,
             onDismiss = { editor = null },
-            onConfirm = { name, description ->
+            onConfirm = { name, description, color ->
                 when (target) {
-                    ProgramEditorTarget.Create -> viewModel.createProgram(name, description)
+                    ProgramEditorTarget.Create -> viewModel.createProgram(name, description, color)
                     is ProgramEditorTarget.Rename -> viewModel.renameProgram(
                         target.program,
                         name,
                         description,
+                        color,
                     )
                 }
                 editor = null
@@ -215,6 +238,7 @@ fun ProgramsScreen(
 @Composable
 private fun ProgramRow(
     summary: ProgramSummary,
+    zone: ZoneId,
     onClick: () -> Unit,
     onRename: () -> Unit,
     onDuplicate: () -> Unit,
@@ -232,13 +256,34 @@ private fun ProgramRow(
             } else {
                 stringResource(R.string.programs_day_count, summary.dayCount)
             }
+            val completions = when (summary.completedSessionCount) {
+                0 -> null
+                1 -> stringResource(R.string.programs_completed_count_one)
+                else -> stringResource(R.string.programs_completed_count, summary.completedSessionCount)
+            }
             val archived = if (summary.program.isArchived) {
                 " • ${stringResource(R.string.state_archived)}"
             } else {
                 ""
             }
             val description = summary.program.description?.takeIf { it.isNotBlank() }
-            Text(text = listOfNotNull(description, days).joinToString(" • ") + archived)
+            Column {
+                Text(
+                    text = listOfNotNull(description, days, completions).joinToString(" • ") + archived,
+                )
+                // "Not performed yet" rather than an absent line, so a never-used program is
+                // distinguishable from one whose date simply failed to load.
+                Text(
+                    text = summary.lastPerformedAt?.let { stamp ->
+                        stringResource(
+                            R.string.programs_last_performed,
+                            Formatters.relativeDate(stamp, LocalDate.now(zone), zone),
+                        )
+                    } ?: stringResource(R.string.programs_never_performed),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         },
         leadingContent = {
             Surface(

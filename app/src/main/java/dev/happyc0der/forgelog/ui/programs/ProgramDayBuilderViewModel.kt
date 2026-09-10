@@ -82,17 +82,31 @@ class ProgramDayBuilderViewModel @Inject constructor(
     private val eventsChannel = Channel<ProgramDayBuilderEvent>(Channel.BUFFERED)
     val events = eventsChannel.receiveAsFlow()
 
-    fun addExercise(exerciseId: Long) {
+    /**
+     * Day notes. The column has existed since the first schema and nothing could write it, so a note
+     * like "warm up the hips properly" had nowhere to live.
+     */
+    fun setDayNotes(notes: String) {
         viewModelScope.launch {
-            val exercise = exerciseRepository.getExercise(exerciseId) ?: return@launch
-            val order = uiState.value.detail?.exercises?.size ?: 0
-            programRepository.upsertProgramExercise(
-                ProgramExercise(
-                    programDayId = dayId,
-                    exerciseId = exercise.id,
-                    exerciseOrder = order,
-                ),
-            )
+            val day = programRepository.getDayDetail(dayId)?.day ?: return@launch
+            programRepository.upsertDay(day.copy(notes = notes.trim().ifBlank { null }))
+        }
+    }
+
+    fun addExercise(exerciseId: Long) {
+        viewModelScope.launch { appendExercise(exerciseId, announce = true) }
+    }
+
+    /**
+     * Appends one exercise. Ordering is the repository's problem, because only a transaction can
+     * make "read the count, then insert" atomic.
+     */
+    private suspend fun appendExercise(exerciseId: Long, announce: Boolean) {
+        val exercise = exerciseRepository.getExercise(exerciseId) ?: return
+        // The repository picks the order inside a transaction, so two concurrent adds cannot both
+        // claim the same position.
+        programRepository.appendProgramExercise(programDayId = dayId, exerciseId = exercise.id)
+        if (announce) {
             eventsChannel.send(
                 ProgramDayBuilderEvent.Message(application.getString(R.string.program_exercise_added)),
             )
@@ -116,7 +130,11 @@ class ProgramDayBuilderViewModel @Inject constructor(
                     updatedAt = 0L,
                 ),
             )
-            addExercise(newId)
+            // Same coroutine as the create, so the order is read after the exercise exists.
+            appendExercise(newId, announce = false)
+            eventsChannel.send(
+                ProgramDayBuilderEvent.Message(application.getString(R.string.exercise_saved)),
+            )
         }
         return true
     }

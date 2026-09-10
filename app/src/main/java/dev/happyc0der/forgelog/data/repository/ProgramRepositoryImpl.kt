@@ -224,6 +224,20 @@ class ProgramRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun appendProgramExercise(programDayId: Long, exerciseId: Long): Long =
+        withContext(ioDispatcher) {
+            database.withTransaction {
+                val order = programDao.countProgramExercises(programDayId)
+                programDao.insertProgramExercise(
+                    ProgramExercise(
+                        programDayId = programDayId,
+                        exerciseId = exerciseId,
+                        exerciseOrder = order,
+                    ).toEntity(),
+                )
+            }
+        }
+
     override suspend fun upsertProgramExercise(programExercise: ProgramExercise): Long =
         withContext(ioDispatcher) {
             programDao.upsertProgramExercise(programExercise.toEntity())

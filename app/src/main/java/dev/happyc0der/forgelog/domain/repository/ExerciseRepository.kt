@@ -13,6 +13,9 @@ interface ExerciseRepository {
     fun observeExercise(id: Long): Flow<Exercise?>
     suspend fun getExercise(id: Long): Exercise?
     suspend fun upsert(exercise: Exercise): Long
+
+    /** Case-insensitive exact-name lookup, for warning about duplicates. */
+    suspend fun findByName(name: String): Exercise?
     suspend fun setArchived(id: Long, archived: Boolean)
     suspend fun hasSessionHistory(id: Long): Boolean
     suspend fun deleteIfUnusedInSessions(id: Long)

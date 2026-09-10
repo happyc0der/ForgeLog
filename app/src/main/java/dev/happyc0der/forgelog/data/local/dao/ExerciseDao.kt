@@ -37,6 +37,10 @@ interface ExerciseDao {
     @Query("SELECT * FROM exercises WHERE id = :id")
     suspend fun getExercise(id: Long): ExerciseEntity?
 
+    /** COLLATE NOCASE so "bench press" and "Bench Press" are recognised as the same name. */
+    @Query("SELECT * FROM exercises WHERE name = :name COLLATE NOCASE LIMIT 1")
+    suspend fun findByName(name: String): ExerciseEntity?
+
     @Upsert
     suspend fun upsert(entity: ExerciseEntity): Long
 

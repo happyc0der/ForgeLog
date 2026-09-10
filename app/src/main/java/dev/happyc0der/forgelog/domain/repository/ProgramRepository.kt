@@ -28,6 +28,15 @@ interface ProgramRepository {
     suspend fun deleteDay(id: Long)
     suspend fun duplicateDay(dayId: Long): Long
     suspend fun reorderDays(orderedDayIds: List<Long>)
+    /**
+     * Adds [exerciseId] to the end of [programDayId], choosing the next order inside a transaction.
+     *
+     * Computing the order in the caller and then inserting is not atomic: two adds in quick
+     * succession — picking from the library while an inline-created exercise is still being written —
+     * both read the same count and persist the same exerciseOrder.
+     */
+    suspend fun appendProgramExercise(programDayId: Long, exerciseId: Long): Long
+
     suspend fun upsertProgramExercise(programExercise: ProgramExercise): Long
     suspend fun deleteProgramExercise(id: Long)
     suspend fun reorderProgramExercises(orderedProgramExerciseIds: List<Long>)

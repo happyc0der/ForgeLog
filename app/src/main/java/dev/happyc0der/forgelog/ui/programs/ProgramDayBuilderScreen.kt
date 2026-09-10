@@ -1,5 +1,6 @@
 package dev.happyc0der.forgelog.ui.programs
 
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -45,6 +46,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -170,11 +172,17 @@ fun ProgramDayBuilderScreen(
                         .padding(bottom = 88.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
+                    DayNotesField(
+                        initial = detail.day.notes.orEmpty(),
+                        onCommit = viewModel::setDayNotes,
+                    )
                     ReorderableColumn(
                         items = uiState.exercises,
                         key = { it.programExercise.id },
                         onMove = viewModel::moveExercise,
                         onDragEnd = viewModel::persistExerciseOrder,
+                        moveUpLabel = stringResource(R.string.action_move_up),
+                        moveDownLabel = stringResource(R.string.action_move_down),
                     ) { item, dragModifier ->
                         ProgramExerciseCard(
                             item = item,
@@ -365,7 +373,7 @@ private fun ProgramExerciseCard(
                 NumberField(R.string.program_exercise_planned_sets, plannedSets) { plannedSets = it; error = null }
                 NumberField(R.string.program_exercise_rep_min, repMin) { repMin = it; error = null }
                 NumberField(R.string.program_exercise_rep_max, repMax) { repMax = it; error = null }
-                NumberField(R.string.program_exercise_target_weight, weight) { weight = it; error = null }
+                NumberField(R.string.program_exercise_target_weight, weight, decimal = true) { weight = it; error = null }
                 DurationSecondsField(
                     secondsText = duration,
                     onSecondsTextChange = { duration = it; error = null },
@@ -455,6 +463,7 @@ private fun ProgramExerciseCard(
 private fun NumberField(
     labelRes: Int,
     value: String,
+    decimal: Boolean = false,
     onValueChange: (String) -> Unit,
 ) {
     OutlinedTextField(
@@ -465,5 +474,35 @@ private fun NumberField(
             .padding(top = 8.dp),
         label = { Text(text = stringResource(labelRes)) },
         singleLine = true,
+        // These fields only ever take numbers, and the full keyboard made entering a target weight
+        // needlessly fiddly mid-setup.
+        keyboardOptions = KeyboardOptions(
+            keyboardType = if (decimal) KeyboardType.Decimal else KeyboardType.Number,
+        ),
     )
+}
+
+/**
+ * Notes for the whole day, committed on Save rather than per keystroke so a long note is one write.
+ */
+@Composable
+private fun DayNotesField(
+    initial: String,
+    onCommit: (String) -> Unit,
+) {
+    var draft by rememberSaveable(initial) { mutableStateOf(initial) }
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        OutlinedTextField(
+            value = draft,
+            onValueChange = { draft = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text(text = stringResource(R.string.program_day_notes)) },
+            minLines = 2,
+        )
+        if (draft != initial) {
+            TextButton(onClick = { onCommit(draft) }) {
+                Text(text = stringResource(R.string.action_save))
+            }
+        }
+    }
 }

@@ -8,6 +8,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -19,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.happyc0der.forgelog.R
+import dev.happyc0der.forgelog.ui.theme.forgeLogColors
 import dev.happyc0der.forgelog.domain.model.ExerciseCategory
 import dev.happyc0der.forgelog.domain.model.ExerciseUnit
 import dev.happyc0der.forgelog.ui.input.bringIntoViewWhenFocused
@@ -31,6 +33,8 @@ data class ExerciseFormState(
     val howToUrl: String = "",
     val defaultPointers: String = "",
     val nameError: String? = null,
+    /** Set when another exercise already has this name. Advisory only. */
+    val duplicateNameWarning: String? = null,
     val howToUrlError: String? = null,
 )
 
@@ -55,7 +59,21 @@ fun ExerciseForm(
             modifier = Modifier.fillMaxWidth(),
             label = { Text(text = stringResource(R.string.exercise_field_name)) },
             isError = state.nameError != null,
-            supportingText = state.nameError?.let { error -> { Text(text = error) } },
+            supportingText = {
+                // A duplicate name is a warning, not an error: two similar variations can legitimately
+                // share a name, and refusing the save would be the app second-guessing the user.
+                val message = state.nameError ?: state.duplicateNameWarning
+                if (message != null) {
+                    Text(
+                        text = message,
+                        color = if (state.nameError != null) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.forgeLogColors.warning
+                        },
+                    )
+                }
+            },
             singleLine = true,
         )
         EnumDropdown(
@@ -78,7 +96,16 @@ fun ExerciseForm(
             modifier = Modifier.fillMaxWidth(),
             label = { Text(text = stringResource(R.string.exercise_field_how_to)) },
             isError = state.howToUrlError != null,
-            supportingText = state.howToUrlError?.let { error -> { Text(text = error) } },
+            supportingText = {
+                Text(
+                    text = state.howToUrlError ?: stringResource(R.string.exercise_how_to_helper),
+                    color = if (state.howToUrlError != null) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+            },
             singleLine = true,
         )
         OutlinedTextField(
@@ -86,7 +113,15 @@ fun ExerciseForm(
             onValueChange = onPointersChange,
             modifier = Modifier.fillMaxWidth(),
             label = { Text(text = stringResource(R.string.exercise_field_pointers)) },
-            minLines = 3,
+            minLines = 4,
+            supportingText = { Text(text = stringResource(R.string.exercise_pointers_helper)) },
+        )
+        // What to actually put in the pointers box. Without this the field is just an empty note
+        // field, which is why it tended to stay empty.
+        Text(
+            text = stringResource(R.string.exercise_pointers_examples),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

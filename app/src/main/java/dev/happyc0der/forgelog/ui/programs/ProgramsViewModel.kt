@@ -97,13 +97,13 @@ class ProgramsViewModel @Inject constructor(
         }
     }
 
-    fun createProgram(name: String, description: String) {
+    fun createProgram(name: String, description: String, color: String = DEFAULT_PROGRAM_COLOR) {
         launchSafely(::reportAsMessage) {
             programRepository.upsertProgram(
                 WorkoutProgram(
                     name = name,
                     description = description.ifBlank { null },
-                    color = DEFAULT_PROGRAM_COLOR,
+                    color = color,
                     createdAt = 0L,
                     updatedAt = 0L,
                 ),
@@ -111,12 +111,18 @@ class ProgramsViewModel @Inject constructor(
         }
     }
 
-    fun renameProgram(program: WorkoutProgram, name: String, description: String) {
+    fun renameProgram(
+        program: WorkoutProgram,
+        name: String,
+        description: String,
+        color: String = program.color,
+    ) {
         launchSafely(::reportAsMessage) {
             programRepository.upsertProgram(
                 program.copy(
                     name = name,
                     description = description.ifBlank { null },
+                    color = color,
                 ),
             )
         }

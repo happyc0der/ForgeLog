@@ -53,6 +53,10 @@ class ExerciseRepositoryImpl @Inject constructor(
         exerciseDao.getExercise(id)?.toDomain()
     }
 
+    override suspend fun findByName(name: String): Exercise? = withContext(ioDispatcher) {
+        exerciseDao.findByName(name.trim())?.toDomain()
+    }
+
     override suspend fun upsert(exercise: Exercise): Long = withContext(ioDispatcher) {
         val now = timeProvider.nowEpochMs()
         val stamped = if (exercise.id == 0L) {

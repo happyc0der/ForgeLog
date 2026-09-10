@@ -119,6 +119,9 @@ interface ProgramDao {
     @Insert
     suspend fun insertDay(entity: ProgramDayEntity): Long
 
+    @Query("SELECT COUNT(*) FROM program_exercises WHERE programDayId = :programDayId")
+    suspend fun countProgramExercises(programDayId: Long): Int
+
     @Insert
     suspend fun insertProgramExercise(entity: ProgramExerciseEntity): Long
 

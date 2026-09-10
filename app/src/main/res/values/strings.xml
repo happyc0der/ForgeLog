@@ -293,7 +293,12 @@
     <string name="exercise_field_category">Category</string>
     <string name="exercise_field_unit">Default unit</string>
     <string name="exercise_field_how_to">How-to URL</string>
-    <string name="exercise_field_pointers">Default pointers</string>
+    <string name="exercise_field_pointers">Training pointers</string>
+    <string name="exercise_how_to_helper">A video or article link. Opens in your browser.</string>
+    <string name="exercise_pointers_helper">Shown every time you log this lift.</string>
+    <string name="exercise_pointers_examples">Worth noting here: form cues that keep the lift honest, substitutions when the equipment is taken, injury notes and what to avoid, and the progression rule you follow — for example "add 5 lb once you hit 8 reps on every set".</string>
+    <string name="exercise_missing">This exercise is no longer available.</string>
+    <string name="exercise_duplicate_name">Another exercise is already called this. That is allowed, but the two will be easy to confuse.</string>
     <string name="exercise_name_required">Enter an exercise name.</string>
     <string name="exercise_how_to_invalid">Enter a valid http or https link.</string>
     <string name="exercise_how_to_missing_app">No browser is available to open this link.</string>
@@ -306,11 +311,18 @@
     <string name="exercise_deleted">Exercise deleted.</string>
 
     <string name="programs_title">Programs</string>
+    <string name="programs_empty_visible_title">Nothing here right now</string>
+    <string name="programs_empty_visible_message">Every program you have is archived. Use Show archived above to see them, or create a new one.</string>
+    <string name="programs_last_performed">Last done %1$s</string>
+    <string name="programs_never_performed">Not performed yet</string>
+    <string name="programs_completed_count">%1$d completed</string>
+    <string name="programs_completed_count_one">1 completed</string>
     <string name="programs_empty_title">No programs yet</string>
     <string name="programs_empty_message">Build a training program here, then run it from Home when you train.</string>
     <string name="programs_day_count">%1$d days</string>
     <string name="programs_day_count_one">1 day</string>
     <string name="program_field_name">Program name</string>
+    <string name="program_field_color">Colour</string>
     <string name="program_field_description">Description</string>
     <string name="program_name_required">Enter a program name.</string>
     <string name="program_create_title">New program</string>
@@ -329,6 +341,7 @@
     <string name="program_detail_empty_message">Add a training day, then fill it with exercises.</string>
     <string name="program_day_field_name">Day name</string>
     <string name="program_day_name">Day name</string>
+    <string name="program_day_notes">Day notes</string>
     <string name="program_day_name_required">Enter a day name.</string>
     <string name="program_day_create_title">New day</string>
     <string name="program_day_rename_title">Rename day</string>
