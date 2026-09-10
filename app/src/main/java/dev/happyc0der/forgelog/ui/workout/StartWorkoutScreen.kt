@@ -180,7 +180,7 @@ fun StartWorkoutScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                            .testTag(TestTags.START_WORKOUT_SCREEN)
+                        .testTag(TestTags.START_WORKOUT_SCREEN)
                         .padding(innerPadding)
                         .verticalScroll(rememberScrollState())
                         .padding(horizontal = 16.dp)
@@ -425,9 +425,10 @@ private fun previousSetSummary(set: SetLog, durationUnit: DurationInputUnit): St
     val parts = buildList {
         add(set.setType.label())
         set.reps?.let { add("${it}r") }
-        set.weight?.let { add("$it ${set.weightUnit.label()}") }
+        // Formatters.weight, not "$it": a Double renders 500 as "500.0".
+        set.weight?.let { add(Formatters.weight(it, set.weightUnit)) }
         DurationInput.formatWithUnit(set.durationSeconds, durationUnit)?.let { add(it) }
-        set.distanceMeters?.let { add("${it}m") }
+        set.distanceMeters?.let { add(Formatters.distanceMeters(it)) }
         DurationInput.formatWithUnit(set.restAfterSetSeconds, durationUnit)?.let { rest ->
             add(stringResource(R.string.workout_previous_rest, rest))
         }

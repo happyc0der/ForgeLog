@@ -119,7 +119,7 @@ fun ProgramsScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                            .testTag(TestTags.PROGRAMS_SCREEN)
+                        .testTag(TestTags.PROGRAMS_SCREEN)
                         .padding(innerPadding),
                 ) {
                     FilterChip(

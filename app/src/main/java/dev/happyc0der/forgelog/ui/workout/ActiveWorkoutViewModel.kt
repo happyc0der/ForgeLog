@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import dev.happyc0der.forgelog.R
+import dev.happyc0der.forgelog.ui.format.Formatters
 import dev.happyc0der.forgelog.domain.model.ExerciseUnit
 import dev.happyc0der.forgelog.domain.model.SessionDetail
 import dev.happyc0der.forgelog.domain.model.SessionExerciseWithSets
@@ -510,9 +511,9 @@ class ActiveWorkoutViewModel @Inject constructor(
         if (draft != null) return draft
         return when (field) {
             FIELD_REPS -> set.reps?.toString().orEmpty()
-            FIELD_WEIGHT -> set.weight?.toString().orEmpty()
+            FIELD_WEIGHT -> set.weight?.let(Formatters::plainNumber).orEmpty()
             FIELD_DURATION -> set.durationSeconds?.toString().orEmpty()
-            FIELD_DISTANCE -> set.distanceMeters?.toString().orEmpty()
+            FIELD_DISTANCE -> set.distanceMeters?.let(Formatters::plainNumber).orEmpty()
             FIELD_REST -> set.restAfterSetSeconds?.toString().orEmpty()
             FIELD_NOTES -> set.notes.orEmpty()
             else -> ""

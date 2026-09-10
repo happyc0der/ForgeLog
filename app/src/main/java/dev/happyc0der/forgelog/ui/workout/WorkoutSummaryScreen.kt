@@ -21,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -230,7 +231,11 @@ private fun BreakdownCard(exercises: List<SummaryExerciseUi>, weightUnit: Exerci
                         text = if (exercise.completedSets == 0) {
                             stringResource(R.string.summary_no_completed_sets)
                         } else {
-                            stringResource(R.string.summary_exercise_sets, exercise.completedSets)
+                            pluralStringResource(
+                                R.plurals.workout_set_count,
+                                exercise.completedSets,
+                                exercise.completedSets,
+                            )
                         },
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -126,7 +126,7 @@ fun ProgramDetailScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                            .testTag(TestTags.PROGRAM_DETAIL_SCREEN)
+                        .testTag(TestTags.PROGRAM_DETAIL_SCREEN)
                         .padding(innerPadding)
                         .verticalScroll(scrollState)
                         .padding(bottom = 88.dp),

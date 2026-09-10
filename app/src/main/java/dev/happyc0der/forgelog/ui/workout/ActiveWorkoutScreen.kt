@@ -46,6 +46,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -174,7 +175,7 @@ fun ActiveWorkoutScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                            .testTag(TestTags.ACTIVE_WORKOUT_SCREEN)
+                        .testTag(TestTags.ACTIVE_WORKOUT_SCREEN)
                         .padding(innerPadding)
                         .imePadding()
                         .verticalScroll(scrollState)
@@ -294,8 +295,11 @@ private fun ExerciseLoggerCard(
             }
             if (!exerciseUi.expanded) {
                 Text(
-                    text = stringResource(
-                        R.string.program_day_exercise_count,
+                    // This counts sets, not exercises. It used to borrow the day builder's
+                    // "%1$d exercises" string, so an untouched lift read "0 exercises".
+                    text = pluralStringResource(
+                        R.plurals.workout_set_count,
+                        exerciseUi.item.sets.size,
                         exerciseUi.item.sets.size,
                     ),
                     style = MaterialTheme.typography.bodyMedium,

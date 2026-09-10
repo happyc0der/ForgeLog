@@ -80,7 +80,7 @@ internal fun TargetSection(
                     )
                     TargetField(
                         label = stringResource(R.string.workout_target_weight),
-                        value = item.targetWeight?.toString(),
+                        value = item.targetWeight?.let(Formatters::plainNumber),
                         onChange = { onTargetChange(TargetField.WEIGHT, it) },
                         decimal = true,
                         modifier = Modifier.weight(1f),

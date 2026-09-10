@@ -25,6 +25,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import dev.happyc0der.forgelog.R
+import dev.happyc0der.forgelog.ui.format.Formatters
 import dev.happyc0der.forgelog.domain.model.ExerciseUnit
 import dev.happyc0der.forgelog.domain.model.SetLog
 import dev.happyc0der.forgelog.domain.model.SetType
@@ -50,10 +51,10 @@ internal fun SetEditorDialog(
     // phone mid-edit used to discard every one of them. Enums are stored by name, which survives
     // process death where the enum instance would not.
     var reps by rememberSaveable { mutableStateOf(set.reps?.toString().orEmpty()) }
-    var weight by rememberSaveable { mutableStateOf(set.weight?.toString().orEmpty()) }
+    var weight by rememberSaveable { mutableStateOf(set.weight?.let(Formatters::plainNumber).orEmpty()) }
     var unitName by rememberSaveable { mutableStateOf(set.weightUnit.name) }
     var duration by rememberSaveable { mutableStateOf(set.durationSeconds?.toString().orEmpty()) }
-    var distance by rememberSaveable { mutableStateOf(set.distanceMeters?.toString().orEmpty()) }
+    var distance by rememberSaveable { mutableStateOf(set.distanceMeters?.let(Formatters::plainNumber).orEmpty()) }
     var rest by rememberSaveable { mutableStateOf(set.restAfterSetSeconds?.toString().orEmpty()) }
     var rpe by rememberSaveable { mutableStateOf(set.rpe?.toString().orEmpty()) }
     var rir by rememberSaveable { mutableStateOf(set.rir?.toString().orEmpty()) }

@@ -1,9 +1,7 @@
 package dev.happyc0der.forgelog.data.backup
 
 import dev.happyc0der.forgelog.domain.model.SessionDetail
-import java.math.BigDecimal
-import java.math.RoundingMode
-import kotlin.math.abs
+import dev.happyc0der.forgelog.domain.format.plainNumber
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -152,15 +150,10 @@ object CsvExporter {
     }
 
     /**
-     * A number as a spreadsheet will read it: no scientific notation past 10 million, no trailing
-     * `.0` on a whole number, and a decimal point rather than whatever the device locale uses.
+     * A number as a spreadsheet will read it. Same rule the UI uses, so an exported figure matches
+     * what the app showed.
      */
-    private fun Double.toCsv(): String =
-        if (this % 1.0 == 0.0 && abs(this) < 1e15) {
-            String.format(Locale.US, "%.0f", this)
-        } else {
-            String.format(Locale.US, "%s", BigDecimal(this).setScale(6, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString())
-        }
+    private fun Double.toCsv(): String = plainNumber(this)
 
     private val FORMULA_LEADS = setOf('=', '+', '-', '@')
 }

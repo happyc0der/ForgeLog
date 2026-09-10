@@ -2,6 +2,8 @@ package dev.happyc0der.forgelog.ui.history
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -248,7 +250,11 @@ private fun FilterPanel(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            // Scrollable: five chips do not fit a phone's width, and the fifth — the custom range
+            // — was clipped off the end where nothing could reach it.
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             DateRangePreset.entries.forEach { preset ->

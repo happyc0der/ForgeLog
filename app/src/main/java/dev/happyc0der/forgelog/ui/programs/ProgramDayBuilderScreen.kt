@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.happyc0der.forgelog.R
+import dev.happyc0der.forgelog.ui.format.Formatters
 import dev.happyc0der.forgelog.ui.testing.TestTags
 import dev.happyc0der.forgelog.domain.library.HowToUrl
 import dev.happyc0der.forgelog.domain.model.ProgramExercise
@@ -169,7 +170,7 @@ fun ProgramDayBuilderScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                            .testTag(TestTags.PROGRAM_DAY_BUILDER_SCREEN)
+                        .testTag(TestTags.PROGRAM_DAY_BUILDER_SCREEN)
                         .padding(innerPadding)
                         .verticalScroll(rememberScrollState())
                         .padding(horizontal = 16.dp)
@@ -319,7 +320,7 @@ private fun ProgramExerciseCard(
         mutableStateOf(item.programExercise.targetRepMax?.toString().orEmpty())
     }
     var weight by rememberSaveable(item.programExercise.id) {
-        mutableStateOf(item.programExercise.targetWeight?.toString().orEmpty())
+        mutableStateOf(item.programExercise.targetWeight?.let(Formatters::plainNumber).orEmpty())
     }
     var duration by rememberSaveable(item.programExercise.id) {
         mutableStateOf(item.programExercise.targetDurationSeconds?.toString().orEmpty())
@@ -336,6 +337,57 @@ private fun ProgramExerciseCard(
     var error by rememberSaveable(item.programExercise.id) { mutableStateOf<String?>(null) }
     val numberInvalid = stringResource(R.string.program_exercise_number_invalid)
     val rangeInvalid = stringResource(R.string.program_exercise_rep_range_invalid)
+
+    /**
+     * Validates and persists the targets, reporting whether it succeeded.
+     *
+     * Every control that closes the editor goes through this. Only the Save button at the very
+     * bottom of the card used to write anything, while the button labelled "Done" — the obvious
+     * one, sitting at the top — collapsed the card and discarded the targets without a word.
+     */
+    fun commit(): Boolean {
+        val planned = parseOptionalInt(plannedSets)
+        val min = parseOptionalInt(repMin)
+        val max = parseOptionalInt(repMax)
+        val targetWeight = parseOptionalDouble(weight)
+        val targetDuration = parseOptionalInt(duration)
+        val targetRest = parseOptionalInt(rest)
+        if (listOf(planned, min, max, targetDuration, targetRest).any { it.isFailure } ||
+            targetWeight.isFailure
+        ) {
+            error = numberInvalid
+            return false
+        }
+        val minVal = min.getOrNull()
+        val maxVal = max.getOrNull()
+        if (minVal != null && maxVal != null && maxVal < minVal) {
+            error = rangeInvalid
+            return false
+        }
+        onSave(
+            item.programExercise.copy(
+                plannedSets = planned.getOrNull(),
+                targetRepMin = minVal,
+                targetRepMax = maxVal,
+                targetWeight = targetWeight.getOrNull(),
+                targetDurationSeconds = targetDuration.getOrNull(),
+                targetRestSeconds = targetRest.getOrNull(),
+                defaultPointersOverride = pointers.trim().ifBlank { null },
+                notes = notes.trim().ifBlank { null },
+            ),
+        )
+        error = null
+        return true
+    }
+
+    /** Opening needs no save; closing always does one. */
+    fun toggleExpanded() {
+        if (!expanded) {
+            expanded = true
+        } else if (commit()) {
+            expanded = false
+        }
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -358,7 +410,7 @@ private fun ProgramExerciseCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                IconButton(onClick = { expanded = !expanded }) {
+                IconButton(onClick = { toggleExpanded() }) {
                     Icon(
                         imageVector = Icons.Filled.MoreVert,
                         contentDescription = stringResource(R.string.action_more),
@@ -366,8 +418,16 @@ private fun ProgramExerciseCard(
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { expanded = !expanded }) {
-                    Text(text = if (expanded) stringResource(R.string.action_done) else stringResource(R.string.action_edit))
+                OutlinedButton(onClick = { toggleExpanded() }) {
+                    // "Save" while open, because that is now what it does. It said "Done", which
+                    // read as "keep this" and meant the opposite.
+                    Text(
+                        text = if (expanded) {
+                            stringResource(R.string.action_save)
+                        } else {
+                            stringResource(R.string.action_edit)
+                        },
+                    )
                 }
                 OutlinedButton(onClick = onRemove) {
                     Text(text = stringResource(R.string.action_remove))
@@ -420,39 +480,7 @@ private fun ProgramExerciseCard(
                     )
                 }
                 Button(
-                    onClick = {
-                        val planned = parseOptionalInt(plannedSets)
-                        val min = parseOptionalInt(repMin)
-                        val max = parseOptionalInt(repMax)
-                        val targetWeight = parseOptionalDouble(weight)
-                        val targetDuration = parseOptionalInt(duration)
-                        val targetRest = parseOptionalInt(rest)
-                        if (listOf(planned, min, max, targetDuration, targetRest).any { it.isFailure } ||
-                            targetWeight.isFailure
-                        ) {
-                            error = numberInvalid
-                            return@Button
-                        }
-                        val minVal = min.getOrNull()
-                        val maxVal = max.getOrNull()
-                        if (minVal != null && maxVal != null && maxVal < minVal) {
-                            error = rangeInvalid
-                            return@Button
-                        }
-                        onSave(
-                            item.programExercise.copy(
-                                plannedSets = planned.getOrNull(),
-                                targetRepMin = minVal,
-                                targetRepMax = maxVal,
-                                targetWeight = targetWeight.getOrNull(),
-                                targetDurationSeconds = targetDuration.getOrNull(),
-                                targetRestSeconds = targetRest.getOrNull(),
-                                defaultPointersOverride = pointers.trim().ifBlank { null },
-                                notes = notes.trim().ifBlank { null },
-                            ),
-                        )
-                        expanded = false
-                    },
+                    onClick = { if (commit()) expanded = false },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 12.dp),

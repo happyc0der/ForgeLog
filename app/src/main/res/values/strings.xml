@@ -196,7 +196,6 @@
     <string name="summary_subtitle">%1$s · %2$s</string>
     <string name="summary_breakdown_title">What you did</string>
     <string name="summary_top_set">%1$d × %2$s</string>
-    <string name="summary_exercise_sets">%1$d sets</string>
     <string name="summary_no_completed_sets">No sets completed</string>
     <string name="summary_records_title">New personal bests</string>
     <string name="summary_records_none_title">No new bests today</string>
@@ -454,4 +453,10 @@
     <string name="settings_version">Version %1$s</string>
     <string name="settings_database_version">Database schema v%1$d</string>
     <string name="settings_working">Working…</string>
+
+    <!-- "1 sets" is visibly wrong, and this is shown on every collapsed exercise. -->
+    <plurals name="workout_set_count">
+        <item quantity="one">%1$d set</item>
+        <item quantity="other">%1$d sets</item>
+    </plurals>
 </resources>

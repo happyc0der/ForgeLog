@@ -3,6 +3,7 @@ package dev.happyc0der.forgelog.ui.format
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import dev.happyc0der.forgelog.R
+import dev.happyc0der.forgelog.domain.format.plainNumber as domainPlainNumber
 import dev.happyc0der.forgelog.domain.model.ExerciseUnit
 import dev.happyc0der.forgelog.domain.workout.KG_TO_LB
 import java.time.Instant
@@ -84,6 +85,12 @@ object Formatters {
             else -> "${minutes}m ${remainder}s"
         }
     }
+
+    /** A distance in metres, without a Double's trailing `.0`. */
+    fun distanceMeters(value: Double): String = plainNumber(value) + "m"
+
+    /** See [dev.happyc0der.forgelog.domain.format.plainNumber]. */
+    fun plainNumber(value: Double): String = domainPlainNumber(value)
 
     /** Seconds spent on timed work, shown only when a session actually had any. */
     fun timedSeconds(seconds: Int): String? {
