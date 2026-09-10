@@ -8,7 +8,9 @@ import dev.happyc0der.forgelog.data.local.dao.ExerciseDao
 import dev.happyc0der.forgelog.data.local.dao.ProgramDao
 import dev.happyc0der.forgelog.data.local.dao.WorkoutSessionDao
 import dev.happyc0der.forgelog.domain.time.SystemTimeProvider
+import dev.happyc0der.forgelog.domain.time.SystemZoneProvider
 import dev.happyc0der.forgelog.domain.time.TimeProvider
+import dev.happyc0der.forgelog.domain.time.ZoneProvider
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -44,4 +46,8 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideTimeProvider(): TimeProvider = SystemTimeProvider()
+
+    @Provides
+    @Singleton
+    fun provideZoneProvider(): ZoneProvider = SystemZoneProvider()
 }
