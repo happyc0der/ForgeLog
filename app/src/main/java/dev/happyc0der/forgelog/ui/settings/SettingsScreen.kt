@@ -64,12 +64,19 @@ fun SettingsScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var confirmDelete by remember { mutableStateOf(false) }
     var confirmImport by remember { mutableStateOf(false) }
-    var exportMimeType by remember { mutableStateOf("application/json") }
-
     // Storage Access Framework: the user picks the destination, so ForgeLog needs no storage
     // permission at all and never writes anywhere the user did not choose.
-    val createDocument = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument(exportMimeType),
+    //
+    // One launcher per MIME type, rather than one whose type is swapped in state. The contract is
+    // captured when the launcher is registered, so a single shared launcher would offer to save the
+    // CSV as application/json depending on recomposition timing.
+    val createJsonDocument = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri ->
+        viewModel.onExportDestinationChosen(uri?.let(::UriDocumentHandle))
+    }
+    val createCsvDocument = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/csv"),
     ) { uri ->
         viewModel.onExportDestinationChosen(uri?.let(::UriDocumentHandle))
     }
@@ -83,9 +90,9 @@ fun SettingsScreen(
         viewModel.events.collect { event ->
             when (event) {
                 is SettingsEvent.Message -> snackbarHostState.showSnackbar(event.value)
-                is SettingsEvent.PickExportDestination -> {
-                    exportMimeType = event.mimeType
-                    createDocument.launch(event.suggestedName)
+                is SettingsEvent.PickExportDestination -> when (event.mimeType) {
+                    "text/csv" -> createCsvDocument.launch(event.suggestedName)
+                    else -> createJsonDocument.launch(event.suggestedName)
                 }
                 SettingsEvent.PickImportSource ->
                     openDocument.launch(arrayOf("application/json", "text/plain", "*/*"))

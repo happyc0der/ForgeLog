@@ -4,21 +4,17 @@ A personal, fully offline Android app for building gym programs, running workout
 
 No accounts, no backend, no analytics, no ads. Your training data lives on your phone and leaves it only if you export it yourself.
 
-## Status
+## What it does
 
-Honest state of the app, so nobody goes looking for a screen that isn't there yet.
+- **Build programs** — programs, days, and per-exercise targets (planned sets, rep range, weight, duration, rest, pointers, notes). Duplicate a day to make a variation; drag to reorder.
+- **Exercise library** — search and filter by category, custom exercises, a how-to link that opens in the browser, and training pointers shown every time you log the lift.
+- **Run a workout** — pre-workout panel showing what you actually did last time, targets you can adjust for today without touching the program, reorder/skip/add on the fly, and a rest countdown that survives rotation and backgrounding.
+- **Log fast** — one exercise expanded at a time, fields hidden when they are not relevant and revealable when they are, prefill from the last set or last session, autosave on every change, and an in-progress session that survives a restart.
+- **Review** — Home shows the last workout and the week so far; History is searchable and filterable, with a full read-only log you can correct; sessions can be repeated or promoted into a program day.
+- **Analytics** — week-over-week comparison, volume by day, sets by category, heaviest-set and estimated-1RM trends, and personal bests. Missing data is marked as missing rather than shown as zero.
+- **Own your data** — JSON backup and restore plus CSV export, all through the Storage Access Framework, and a delete-everything flow that makes you type the word.
 
-| Area | State |
-|---|---|
-| Programs, days, exercise configuration | Working |
-| Exercise library | Working |
-| Start-workout planner with previous-session panel | Working |
-| Active workout logger + foreground timer notification | Working |
-| Home dashboard | Working |
-| History | Working |
-| Analytics | Working |
-| Backup / export / import | Working |
-| Settings | Working |
+Nothing here needs a network. The app declares no `INTERNET` permission.
 
 ## Prerequisites
 
@@ -72,6 +68,8 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
 ## Tests
+
+358 unit tests, all runnable on a laptop with no device attached. Room runs under Robolectric, so the DAO queries, the migrations and the backup round-trip are genuinely executed rather than mocked.
 
 ```bash
 ./gradlew testDebugUnitTest            # JVM unit tests
