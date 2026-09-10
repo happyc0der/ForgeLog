@@ -77,9 +77,12 @@ class SetPrefillTest {
 }
 
 /**
- * Prefill priority: what was just logged, then last session, then the plan. The plan comes last
- * because what the lifter actually did beats what was written down — but on a brand-new exercise it
- * is all there is, and an empty row is worse than their own target.
+ * Prefill priority: what was just logged this session, then the plan for today, then last session.
+ *
+ * The plan beats history because a target is a deliberate statement about *this* session — a
+ * deload, a jump, a new rep range — and letting last week's numbers override it means retyping the
+ * weight on every set. What is already logged today beats both: mid-session the lifter has usually
+ * just corrected something, and that is the most current intent.
  */
 class SetPrefillTargetsTest {
 
@@ -130,7 +133,7 @@ class SetPrefillTargetsTest {
     }
 
     @Test
-    fun `last session wins over the plan`() {
+    fun `the plan wins over last session`() {
         val historical = SessionExerciseWithSets(
             exercise = sessionExercise(id = 9L, sessionId = 1L, exerciseId = 3L, displayName = "Bench"),
             sets = listOf(setLog(id = 5L, sessionExerciseId = 9L, reps = 7, weight = 195.0)),
@@ -142,8 +145,68 @@ class SetPrefillTargetsTest {
             historical = historical,
             targets = SetTargets(targetRepMin = 6, targetWeight = 185.0),
         )
+        // Planning 185 for today and being handed last week's 195 means retyping it every set.
+        assertEquals(6, next.reps)
+        assertEquals(185.0, next.weight ?: 0.0, 0.001)
+    }
+
+    @Test
+    fun `history still fills what the plan is silent about`() {
+        val historical = SessionExerciseWithSets(
+            exercise = sessionExercise(id = 9L, sessionId = 1L, exerciseId = 3L, displayName = "Bench"),
+            sets = listOf(
+                setLog(id = 5L, sessionExerciseId = 9L, reps = 7, weight = 195.0, restAfterSetSeconds = 210),
+            ),
+        )
+        val next = SetPrefill.nextSet(
+            sessionExerciseId = exerciseId,
+            existing = emptyList(),
+            defaultUnit = ExerciseUnit.LB,
+            historical = historical,
+            // A plan that says nothing about rest.
+            targets = SetTargets(targetWeight = 185.0),
+        )
+        assertEquals(185.0, next.weight ?: 0.0, 0.001)
         assertEquals(7, next.reps)
-        assertEquals(195.0, next.weight ?: 0.0, 0.001)
+        assertEquals(210, next.restAfterSetSeconds)
+    }
+
+    @Test
+    fun `a planned weight is taken in the exercise's own unit, not last session's`() {
+        val historical = SessionExerciseWithSets(
+            exercise = sessionExercise(id = 9L, sessionId = 1L, exerciseId = 3L, displayName = "Squat"),
+            sets = listOf(
+                setLog(id = 5L, sessionExerciseId = 9L, reps = 5, weight = 100.0, weightUnit = ExerciseUnit.KG),
+            ),
+        )
+        val next = SetPrefill.nextSet(
+            sessionExerciseId = exerciseId,
+            existing = emptyList(),
+            defaultUnit = ExerciseUnit.LB,
+            historical = historical,
+            targets = SetTargets(targetWeight = 225.0),
+        )
+        // 225 lb, not 225 kg: a plan records a bare number against the exercise's own unit.
+        assertEquals(225.0, next.weight ?: 0.0, 0.001)
+        assertEquals(ExerciseUnit.LB, next.weightUnit)
+    }
+
+    @Test
+    fun `the set just logged still wins over the plan mid-session`() {
+        val historical = SessionExerciseWithSets(
+            exercise = sessionExercise(id = 9L, sessionId = 1L, exerciseId = 3L, displayName = "Bench"),
+            sets = listOf(setLog(id = 5L, sessionExerciseId = 9L, reps = 7, weight = 195.0)),
+        )
+        val next = SetPrefill.nextSet(
+            sessionExerciseId = exerciseId,
+            // The lifter dropped to 175 on set 1; set 2 follows that, not the plan.
+            existing = listOf(setLog(id = 1L, sessionExerciseId = exerciseId, reps = 5, weight = 175.0)),
+            defaultUnit = ExerciseUnit.LB,
+            historical = historical,
+            targets = SetTargets(targetRepMin = 6, targetWeight = 185.0),
+        )
+        assertEquals(5, next.reps)
+        assertEquals(175.0, next.weight ?: 0.0, 0.001)
     }
 
     @Test
