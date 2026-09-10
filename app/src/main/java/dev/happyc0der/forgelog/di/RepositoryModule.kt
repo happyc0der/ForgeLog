@@ -3,9 +3,11 @@ package dev.happyc0der.forgelog.di
 import dev.happyc0der.forgelog.data.repository.ExerciseRepositoryImpl
 import dev.happyc0der.forgelog.data.repository.ProgramRepositoryImpl
 import dev.happyc0der.forgelog.data.repository.WorkoutSessionRepositoryImpl
+import dev.happyc0der.forgelog.data.settings.SettingsRepositoryImpl
 import dev.happyc0der.forgelog.domain.repository.ExerciseRepository
 import dev.happyc0der.forgelog.domain.repository.ProgramRepository
 import dev.happyc0der.forgelog.domain.repository.WorkoutSessionRepository
+import dev.happyc0der.forgelog.domain.settings.SettingsRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -28,4 +30,8 @@ abstract class RepositoryModule {
     abstract fun bindWorkoutSessionRepository(
         impl: WorkoutSessionRepositoryImpl,
     ): WorkoutSessionRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindSettingsRepository(impl: SettingsRepositoryImpl): SettingsRepository
 }
