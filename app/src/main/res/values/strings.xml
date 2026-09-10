@@ -193,13 +193,46 @@
     <string name="history_title">No sessions logged</string>
     <string name="history_message">Completed workouts will show up here so you can review past sessions.</string>
 
-    <string name="analytics_title">No training data yet</string>
-    <string name="analytics_message">Charts and progress stats will appear after you log workouts.</string>
+    <string name="analytics_no_data">Nothing logged in this range.</string>
+    <string name="analytics_compare_title">This week vs %1$s</string>
+    <string name="analytics_compare_last_week">last week</string>
+    <string name="analytics_compare_weeks_ago">%1$d weeks ago</string>
+    <string name="analytics_compare_offset">Compare with</string>
+    <string name="analytics_volume_by_day">Volume by day</string>
+    <string name="analytics_sets_by_category">Sets by category</string>
+    <string name="analytics_exercise_progress">Exercise progress</string>
+    <string name="analytics_trend_window">Window</string>
+    <string name="analytics_trend_12_weeks">12 weeks</string>
+    <string name="analytics_trend_6_months">6 months</string>
+    <string name="analytics_trend_1_year">1 year</string>
+    <string name="analytics_top_set">Heaviest set</string>
+    <string name="analytics_estimated_1rm">Estimated 1RM</string>
+    <string name="analytics_1rm_formula">Estimated 1RM = weight × (1 + reps ÷ 30). Only for completed working sets of 1–10 reps with a real load — never for bodyweight or timed work.</string>
+    <string name="analytics_1rm_explain">How is this calculated?</string>
+    <string name="analytics_records">Personal bests</string>
+    <string name="analytics_record_heaviest">Heaviest</string>
+    <string name="analytics_record_reps">Most reps</string>
+    <string name="analytics_record_volume">Best set</string>
+    <string name="analytics_record_duration">Longest</string>
+    <string name="analytics_record_1rm">Best est. 1RM</string>
+    <string name="analytics_empty_title">No training logged yet</string>
+    <string name="analytics_empty_message">Finish a workout and the comparisons, charts and personal bests fill in here.</string>
+    <string name="analytics_metric_sessions">Sessions</string>
+    <string name="analytics_metric_duration">Total time</string>
+    <string name="analytics_metric_sets">Sets</string>
+    <string name="analytics_metric_volume">Volume</string>
+    <string name="analytics_metric_avg_session">Avg session</string>
+    <string name="analytics_metric_avg_rpe">Avg RPE</string>
+    <string name="analytics_metric_timed">Timed work</string>
+    <string name="analytics_change_up">+%1$d%%</string>
+    <string name="analytics_change_down">%1$d%%</string>
+    <string name="analytics_change_none">no baseline</string>
 
     <string name="settings_title">Settings</string>
 
     <string name="action_save">Save</string>
     <string name="action_cancel">Cancel</string>
+    <string name="action_close">Close</string>
     <string name="action_delete">Delete</string>
     <string name="action_archive">Archive</string>
     <string name="action_unarchive">Unarchive</string>

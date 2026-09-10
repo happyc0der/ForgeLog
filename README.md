@@ -14,9 +14,9 @@ Honest state of the app, so nobody goes looking for a screen that isn't there ye
 | Exercise library | Working |
 | Start-workout planner with previous-session panel | Working |
 | Active workout logger + foreground timer notification | Working |
-| Home dashboard | Placeholder — see the build plan |
-| History | Placeholder |
-| Analytics | Placeholder |
+| Home dashboard | Working |
+| History | Working |
+| Analytics | Working |
 | Backup / export / import | Working |
 | Settings | Working |
 
