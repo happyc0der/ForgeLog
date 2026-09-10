@@ -46,10 +46,12 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.happyc0der.forgelog.R
-import dev.happyc0der.forgelog.domain.model.SessionExerciseWithSets
 import dev.happyc0der.forgelog.domain.model.SetLog
+import dev.happyc0der.forgelog.domain.model.ExerciseUnit
 import dev.happyc0der.forgelog.domain.workout.DurationInput
 import dev.happyc0der.forgelog.domain.workout.DurationInputUnit
+import dev.happyc0der.forgelog.domain.workout.PreviousPerformance
+import dev.happyc0der.forgelog.ui.format.Formatters
 import dev.happyc0der.forgelog.ui.components.ConfirmDialog
 import dev.happyc0der.forgelog.ui.components.EmptyState
 import dev.happyc0der.forgelog.ui.components.ErrorState
@@ -59,6 +61,8 @@ import dev.happyc0der.forgelog.ui.input.DurationUnitToggle
 import dev.happyc0der.forgelog.ui.input.rememberDurationInputUnit
 import dev.happyc0der.forgelog.ui.testing.TestTags
 import dev.happyc0der.forgelog.ui.util.label
+import java.time.LocalDate
+import java.time.ZoneId
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -191,6 +195,10 @@ fun StartWorkoutScreen(
                             dragModifier = dragModifier,
                             durationUnit = durationUnit,
                             onDurationUnitChange = onDurationUnitChange,
+                            weightUnit = uiState.weightUnit,
+                            onTargetChange = { field, value ->
+                                viewModel.setTarget(item.localId, field, value)
+                            },
                             onSkip = { viewModel.skipExercise(item.localId) },
                         )
                     }
@@ -262,6 +270,8 @@ private fun PlannedExerciseCard(
     dragModifier: Modifier,
     durationUnit: DurationInputUnit,
     onDurationUnitChange: (DurationInputUnit) -> Unit,
+    weightUnit: ExerciseUnit,
+    onTargetChange: (TargetField, Double?) -> Unit,
     onSkip: () -> Unit,
 ) {
     Card(
@@ -295,6 +305,11 @@ private fun PlannedExerciseCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            TargetSection(
+                item = item,
+                weightUnit = weightUnit,
+                onTargetChange = onTargetChange,
+            )
             PreviousSessionPanel(
                 previous = item.previous,
                 durationUnit = durationUnit,
@@ -307,12 +322,23 @@ private fun PlannedExerciseCard(
     }
 }
 
+/**
+ * What happened last time this exercise was trained.
+ *
+ * Three things this has to get right, all of which it previously got wrong:
+ * the date is shown, because "Previous session" alone cannot distinguish last Tuesday from last
+ * March; it is labelled as a record rather than a prescription, so a heavier number does not read as
+ * an instruction; and only completed sets appear, because a set row that was added and never ticked
+ * did not happen.
+ */
 @Composable
 fun PreviousSessionPanel(
-    previous: SessionExerciseWithSets?,
+    previous: PreviousPerformance?,
     durationUnit: DurationInputUnit,
     onDurationUnitChange: (DurationInputUnit) -> Unit,
 ) {
+    val zone = remember { ZoneId.systemDefault() }
+    val completedSets = previous?.completedSets.orEmpty()
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -320,7 +346,13 @@ fun PreviousSessionPanel(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = stringResource(R.string.workout_previous_title),
+                text = previous?.let { performance ->
+                    val stamp = performance.session.completedAt ?: performance.session.startedAt
+                    stringResource(
+                        R.string.workout_previous_title_dated,
+                        Formatters.relativeDate(stamp, LocalDate.now(zone), zone),
+                    )
+                } ?: stringResource(R.string.workout_previous_title),
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.secondary,
                 modifier = Modifier
@@ -332,34 +364,50 @@ fun PreviousSessionPanel(
                 onUnitChange = onDurationUnitChange,
             )
         }
-        if (previous == null || previous.sets.isEmpty()) {
+        if (previous == null || completedSets.isEmpty()) {
             Text(
                 text = stringResource(R.string.workout_previous_none),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-        } else {
-            DurationInput.formatWithUnit(
-                previous.exercise.restBeforeExerciseSeconds,
-                durationUnit,
-            )?.let { restBefore ->
+            return@Column
+        }
+        Text(
+            text = stringResource(R.string.workout_previous_disclaimer),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        completedSets.forEach { set ->
+            Text(
+                text = stringResource(
+                    R.string.workout_previous_set,
+                    set.setNumber,
+                    previousSetSummary(set, durationUnit),
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            set.notes?.takeIf { it.isNotBlank() }?.let { notes ->
                 Text(
-                    text = stringResource(R.string.workout_previous_rest_before, restBefore),
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = notes,
+                    style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            previous.sets.forEach { set ->
-                Text(
-                    text = stringResource(
-                        R.string.workout_previous_set,
-                        set.setNumber,
-                        previousSetSummary(set, durationUnit),
-                    ),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-            }
+        }
+        previous.exercise.exercise.feeling?.let { feeling ->
+            Text(
+                text = stringResource(R.string.workout_previous_feeling, feeling),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        previous.exercise.exercise.exerciseNotes?.takeIf { it.isNotBlank() }?.let { notes ->
+            Text(
+                text = notes,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

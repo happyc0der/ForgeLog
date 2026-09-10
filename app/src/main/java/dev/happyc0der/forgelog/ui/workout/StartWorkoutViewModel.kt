@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import dev.happyc0der.forgelog.R
 import dev.happyc0der.forgelog.domain.model.Exercise
+import dev.happyc0der.forgelog.domain.model.ExerciseUnit
 import dev.happyc0der.forgelog.domain.model.ProgramDay
 import dev.happyc0der.forgelog.domain.model.SessionExercise
 import dev.happyc0der.forgelog.domain.model.SessionExerciseWithSets
@@ -16,6 +17,8 @@ import dev.happyc0der.forgelog.domain.model.WorkoutSession
 import dev.happyc0der.forgelog.domain.repository.ExerciseRepository
 import dev.happyc0der.forgelog.domain.repository.ProgramRepository
 import dev.happyc0der.forgelog.domain.repository.WorkoutSessionRepository
+import dev.happyc0der.forgelog.domain.settings.SettingsRepository
+import dev.happyc0der.forgelog.domain.workout.PreviousPerformance
 import dev.happyc0der.forgelog.domain.workout.PreviousWorkoutMatcher
 import dev.happyc0der.forgelog.ui.common.launchSafely
 import dev.happyc0der.forgelog.ui.navigation.StartWorkoutRoute
@@ -28,6 +31,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -41,13 +45,39 @@ data class DayChoice(
     val exerciseCount: Int,
 )
 
+/**
+ * One exercise in today's roster.
+ *
+ * Targets start as whatever the program day specifies and can be changed here for this session
+ * only — [dev.happyc0der.forgelog.domain.repository.WorkoutSessionRepository.startSession]
+ * snapshots them onto the session, and nothing writes back to the program.
+ */
 data class PlannedExerciseItem(
     val localId: Long,
     val exercise: Exercise,
     val pointersOverride: String?,
-    val targetRestSeconds: Int?,
-    val previous: SessionExerciseWithSets? = null,
-)
+    val plannedSets: Int? = null,
+    val targetRepMin: Int? = null,
+    val targetRepMax: Int? = null,
+    val targetWeight: Double? = null,
+    val targetDurationSeconds: Int? = null,
+    val targetRestSeconds: Int? = null,
+    val previous: PreviousPerformance? = null,
+) {
+    val hasTargets: Boolean
+        get() = plannedSets != null || targetRepMin != null || targetRepMax != null ||
+            targetWeight != null || targetDurationSeconds != null || targetRestSeconds != null
+}
+
+/** Which target a planner edit applies to. */
+enum class TargetField {
+    PLANNED_SETS,
+    REP_MIN,
+    REP_MAX,
+    WEIGHT,
+    DURATION_SECONDS,
+    REST_SECONDS,
+}
 
 data class StartWorkoutUiState(
     val isLoading: Boolean = true,
@@ -59,6 +89,7 @@ data class StartWorkoutUiState(
     val dayName: String? = null,
     val roster: List<PlannedExerciseItem> = emptyList(),
     val canConfirm: Boolean = false,
+    val weightUnit: ExerciseUnit = ExerciseUnit.LB,
 )
 
 sealed interface StartWorkoutEvent {
@@ -87,6 +118,7 @@ class StartWorkoutViewModel @Inject constructor(
     private val programRepository: ProgramRepository,
     private val exerciseRepository: ExerciseRepository,
     private val workoutSessionRepository: WorkoutSessionRepository,
+    settingsRepository: SettingsRepository,
 ) : ViewModel() {
     private val route = savedStateHandle.toRoute<StartWorkoutRoute>()
     private val routeDayId = route.programDayId
@@ -96,6 +128,7 @@ class StartWorkoutViewModel @Inject constructor(
     private val programName = MutableStateFlow<String?>(null)
     private val dayName = MutableStateFlow<String?>(null)
     private val programId = MutableStateFlow<Long?>(null)
+    private val weightUnit = settingsRepository.settings.map { it.defaultWeightUnit }
     private val loadingDay = MutableStateFlow(routeDayId > 0L)
     private val errorMessage = MutableStateFlow<String?>(null)
     private val localIds = AtomicLong(1L)
@@ -134,7 +167,8 @@ class StartWorkoutViewModel @Inject constructor(
         },
         loadingDay,
         errorMessage,
-    ) { partial, loading, error ->
+        weightUnit,
+    ) { partial, loading, error, unit ->
         StartWorkoutUiState(
             isLoading = partial.selectedDayId != null && loading,
             errorMessage = error,
@@ -146,6 +180,7 @@ class StartWorkoutViewModel @Inject constructor(
             roster = partial.roster,
             canConfirm = partial.roster.isNotEmpty() &&
                 (isAdHoc || partial.selectedDayId != null),
+            weightUnit = unit,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -186,6 +221,29 @@ class StartWorkoutViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Adjusts one target for today's session. The program template is never touched, which is the
+     * whole point of editing here rather than in the day builder.
+     */
+    fun setTarget(localId: Long, field: TargetField, value: Double?) {
+        roster.update { items ->
+            items.map { item ->
+                if (item.localId != localId) {
+                    item
+                } else {
+                    when (field) {
+                        TargetField.PLANNED_SETS -> item.copy(plannedSets = value?.toInt())
+                        TargetField.REP_MIN -> item.copy(targetRepMin = value?.toInt())
+                        TargetField.REP_MAX -> item.copy(targetRepMax = value?.toInt())
+                        TargetField.WEIGHT -> item.copy(targetWeight = value)
+                        TargetField.DURATION_SECONDS -> item.copy(targetDurationSeconds = value?.toInt())
+                        TargetField.REST_SECONDS -> item.copy(targetRestSeconds = value?.toInt())
+                    }
+                }
+            }
+        }
+    }
+
     fun skipExercise(localId: Long) {
         roster.update { items -> items.filterNot { it.localId == localId } }
     }
@@ -198,7 +256,6 @@ class StartWorkoutViewModel @Inject constructor(
                 localId = localIds.getAndIncrement(),
                 exercise = exercise,
                 pointersOverride = exercise.defaultPointers,
-                targetRestSeconds = null,
                 previous = previousFor(
                     exercise = exercise,
                     programId = programId.value,
@@ -246,6 +303,11 @@ class StartWorkoutViewModel @Inject constructor(
                     SessionStartExercise(
                         exercise = item.exercise,
                         pointersOverride = item.pointersOverride,
+                        plannedSets = item.plannedSets,
+                        targetRepMin = item.targetRepMin,
+                        targetRepMax = item.targetRepMax,
+                        targetWeight = item.targetWeight,
+                        targetDurationSeconds = item.targetDurationSeconds,
                         targetRestSeconds = item.targetRestSeconds,
                     )
                 },
@@ -304,7 +366,7 @@ class StartWorkoutViewModel @Inject constructor(
         programDayId: Long?,
         history: List<dev.happyc0der.forgelog.domain.model.SessionDetail>,
         order: Int,
-    ): SessionExerciseWithSets? {
+    ): PreviousPerformance? {
         val dummySession = WorkoutSession(
             id = 0L,
             programDayId = programDayId,
@@ -322,7 +384,7 @@ class StartWorkoutViewModel @Inject constructor(
             exerciseOrder = order,
             startedAt = 0L,
         )
-        return PreviousWorkoutMatcher.findPreviousExercise(
+        return PreviousWorkoutMatcher.findPrevious(
             currentSession = dummySession,
             currentExercise = dummyExercise,
             history = history,

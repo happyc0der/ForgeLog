@@ -43,4 +43,17 @@ data class SessionExerciseEntity(
     val pointersSnapshot: String?,
     val exerciseNotes: String?,
     val feeling: Int?,
+    /*
+     * Targets copied from the program exercise when the session started.
+     *
+     * They are snapshots for the same reason the name and pointers are: editing a program later
+     * must not rewrite what a past session was aiming for. Null means the plan did not specify
+     * this target, which is different from a target of zero.
+     */
+    val plannedSets: Int? = null,
+    val targetRepMin: Int? = null,
+    val targetRepMax: Int? = null,
+    val targetWeight: Double? = null,
+    val targetDurationSeconds: Int? = null,
+    val targetRestSeconds: Int? = null,
 )

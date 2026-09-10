@@ -132,6 +132,15 @@ fun ActiveWorkoutScreen(
             )
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        bottomBar = {
+            RestTimerBar(
+                state = uiState.restTimer,
+                onPause = viewModel::pauseRestTimer,
+                onResume = viewModel::resumeRestTimer,
+                onAdjust = viewModel::adjustRestTimer,
+                onSkip = viewModel::skipRestTimer,
+            )
+        },
     ) { innerPadding ->
         when {
             uiState.isLoading -> LoadingState(modifier = Modifier.padding(innerPadding))
@@ -232,6 +241,13 @@ private fun ExerciseLoggerCard(
                         }
                     }
                 }
+            }
+            sessionTargetSummary(exercise, exerciseUi.unit)?.let { targets ->
+                Text(
+                    text = stringResource(R.string.workout_exercise_target, targets),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
             }
             if (!exerciseUi.expanded) {
                 Text(

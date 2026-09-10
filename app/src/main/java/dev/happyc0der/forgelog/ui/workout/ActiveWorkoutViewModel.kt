@@ -13,13 +13,19 @@ import dev.happyc0der.forgelog.domain.model.SetLog
 import dev.happyc0der.forgelog.domain.model.SetType
 import dev.happyc0der.forgelog.domain.repository.ExerciseRepository
 import dev.happyc0der.forgelog.domain.repository.WorkoutSessionRepository
+import dev.happyc0der.forgelog.domain.settings.SettingsRepository
 import dev.happyc0der.forgelog.domain.time.TimeProvider
+import dev.happyc0der.forgelog.domain.workout.PreviousPerformance
+import dev.happyc0der.forgelog.domain.workout.RestTimer
+import dev.happyc0der.forgelog.domain.workout.RestTimerState
 import dev.happyc0der.forgelog.domain.workout.PreviousWorkoutMatcher
 import dev.happyc0der.forgelog.domain.workout.SessionRest
 import dev.happyc0der.forgelog.domain.workout.SetFieldVisibility
 import dev.happyc0der.forgelog.domain.workout.SetInputField
 import dev.happyc0der.forgelog.domain.workout.SetPrefill
+import dev.happyc0der.forgelog.domain.workout.SetTargets
 import dev.happyc0der.forgelog.domain.workout.formatElapsed
+import dev.happyc0der.forgelog.domain.workout.formatSeconds
 import dev.happyc0der.forgelog.ui.common.ticker
 import dev.happyc0der.forgelog.ui.navigation.ActiveWorkoutRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -31,6 +37,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -42,11 +49,23 @@ import javax.inject.Inject
 data class ActiveExerciseUi(
     val item: SessionExerciseWithSets,
     val unit: ExerciseUnit,
-    val previous: SessionExerciseWithSets?,
+    val previous: PreviousPerformance?,
     val expanded: Boolean,
     val revealedFields: Set<SetInputField>,
     val notesDraft: String,
 )
+
+/** Everything the rest countdown needs to render, already resolved against the clock. */
+data class RestTimerUi(
+    val isActive: Boolean = false,
+    val isPaused: Boolean = false,
+    val remainingLabel: String = "0:00",
+    val targetSeconds: Int = 0,
+    val overrunSeconds: Int = 0,
+    val progress: Float = 0f,
+) {
+    val isOverrun: Boolean get() = overrunSeconds > 0
+}
 
 data class ActiveWorkoutUiState(
     val isLoading: Boolean = true,
@@ -56,6 +75,7 @@ data class ActiveWorkoutUiState(
     val sessionElapsedLabel: String = "0:00",
     val sinceLastSetLabel: String? = null,
     val drafts: Map<String, String> = emptyMap(),
+    val restTimer: RestTimerUi = RestTimerUi(),
 )
 
 sealed interface ActiveWorkoutEvent {
@@ -71,11 +91,20 @@ class ActiveWorkoutViewModel @Inject constructor(
     private val workoutSessionRepository: WorkoutSessionRepository,
     exerciseRepository: ExerciseRepository,
     private val timeProvider: TimeProvider,
+    private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
     private val sessionId = savedStateHandle.toRoute<ActiveWorkoutRoute>().sessionId
     private val drafts = MutableStateFlow<Map<String, String>>(emptyMap())
     private val revealed = MutableStateFlow<Map<Long, Set<SetInputField>>>(emptyMap())
     private val debounceJobs = mutableMapOf<String, Job>()
+
+    /**
+     * In memory on purpose. The countdown is anchored to the completion time of the set that started
+     * it, so the remaining time is recomputed from the database rather than stored — a rest timer
+     * survives rotation and backgrounding without a column of its own. Only a deliberate pause or
+     * dismiss is transient, and losing either on process death is the right behaviour.
+     */
+    private val restTimer = MutableStateFlow<RestTimerState?>(null)
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private val previousByExercise = workoutSessionRepository.observeSessionDetail(sessionId)
@@ -87,7 +116,7 @@ class ActiveWorkoutViewModel @Inject constructor(
                     val history = workoutSessionRepository.getRecentCompletedDetails(detail.session.id)
                     emit(
                         detail.exercises.associate { item ->
-                            item.exercise.id to PreviousWorkoutMatcher.findPreviousExercise(
+                            item.exercise.id to PreviousWorkoutMatcher.findPrevious(
                                 currentSession = detail.session,
                                 currentExercise = item.exercise,
                                 history = history,
@@ -115,7 +144,9 @@ class ActiveWorkoutViewModel @Inject constructor(
             )
         },
         previousByExercise,
-    ) { partial, previous ->
+        restTimer,
+        settingsRepository.settings,
+    ) { partial, previous, timer, settings ->
         val detail = partial.detail
         if (detail == null) {
             ActiveWorkoutUiState(
@@ -147,6 +178,7 @@ class ActiveWorkoutViewModel @Inject constructor(
                 sessionElapsedLabel = formatElapsed(partial.now - detail.session.startedAt),
                 sinceLastSetLabel = sinceLastSetMs?.let(::formatElapsed),
                 drafts = partial.drafts,
+                restTimer = timer.toUi(partial.now),
             )
         }
     }.stateIn(
@@ -172,7 +204,14 @@ class ActiveWorkoutViewModel @Inject constructor(
                 sessionExerciseId = sessionExerciseId,
                 existing = item.item.sets,
                 defaultUnit = item.unit,
-                historical = item.previous,
+                historical = item.previous?.exercise,
+                targets = SetTargets(
+                    targetRepMin = item.item.exercise.targetRepMin,
+                    targetRepMax = item.item.exercise.targetRepMax,
+                    targetWeight = item.item.exercise.targetWeight,
+                    targetDurationSeconds = item.item.exercise.targetDurationSeconds,
+                    targetRestSeconds = item.item.exercise.targetRestSeconds,
+                ),
             )
             workoutSessionRepository.upsertSetLog(next)
         }
@@ -216,7 +255,62 @@ class ActiveWorkoutViewModel @Inject constructor(
                     restAfterSetSeconds = SessionRest.restAfterSetSeconds(now, lastCompletedAt),
                 ),
             )
+            startRestTimer(set.sessionExerciseId, now)
         }
+    }
+
+    /**
+     * Rest begins the moment a set is ticked, using the exercise's planned rest where the program
+     * specified one and the user's default otherwise. This is what the planned-rest target is for.
+     */
+    private suspend fun startRestTimer(sessionExerciseId: Long, anchorEpochMs: Long) {
+        val plannedRest = currentDetail()
+            ?.exercises
+            ?.firstOrNull { it.exercise.id == sessionExerciseId }
+            ?.exercise
+            ?.targetRestSeconds
+        val defaultRest = settingsRepository.settings.first().defaultRestSeconds
+        restTimer.value = RestTimer.start(
+            targetSeconds = RestTimer.suggestedTarget(plannedRest, defaultRest),
+            anchorEpochMs = anchorEpochMs,
+        )
+    }
+
+    fun pauseRestTimer() {
+        restTimer.update { current ->
+            current?.let { RestTimer.pause(it, timeProvider.nowEpochMs()) }
+        }
+    }
+
+    fun resumeRestTimer() {
+        restTimer.update { current ->
+            current?.let { RestTimer.resume(it, timeProvider.nowEpochMs()) }
+        }
+    }
+
+    fun adjustRestTimer(deltaSeconds: Int) {
+        restTimer.update { current -> current?.let { RestTimer.adjust(it, deltaSeconds) } }
+    }
+
+    fun skipRestTimer() {
+        restTimer.update { current -> current?.let(RestTimer::dismiss) }
+    }
+
+    private fun RestTimerState?.toUi(nowEpochMs: Long): RestTimerUi {
+        if (this == null || !isActive) return RestTimerUi()
+        val remaining = RestTimer.remainingSeconds(this, nowEpochMs)
+        return RestTimerUi(
+            isActive = true,
+            isPaused = isPaused,
+            remainingLabel = formatSeconds(remaining),
+            targetSeconds = targetSeconds,
+            overrunSeconds = RestTimer.overrunSeconds(this, nowEpochMs),
+            progress = if (targetSeconds <= 0) {
+                1f
+            } else {
+                ((targetSeconds - remaining).toFloat() / targetSeconds).coerceIn(0f, 1f)
+            },
+        )
     }
 
     fun onSetUnit(set: SetLog, unit: ExerciseUnit) {

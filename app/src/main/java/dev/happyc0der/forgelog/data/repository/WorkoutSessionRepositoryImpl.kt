@@ -17,6 +17,7 @@ import dev.happyc0der.forgelog.domain.model.SetLog
 import dev.happyc0der.forgelog.domain.model.WorkoutSession
 import dev.happyc0der.forgelog.domain.repository.WorkoutSessionRepository
 import dev.happyc0der.forgelog.domain.time.TimeProvider
+import dev.happyc0der.forgelog.domain.workout.PreviousPerformance
 import dev.happyc0der.forgelog.domain.workout.PreviousWorkoutMatcher
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
@@ -159,9 +160,9 @@ class WorkoutSessionRepositoryImpl @Inject constructor(
     override suspend fun findPreviousPerformance(
         currentSession: WorkoutSession,
         currentExercise: SessionExercise,
-    ): SessionExerciseWithSets? = withContext(ioDispatcher) {
+    ): PreviousPerformance? = withContext(ioDispatcher) {
         val history = getRecentCompletedDetails(currentSession.id)
-        PreviousWorkoutMatcher.findPreviousExercise(
+        PreviousWorkoutMatcher.findPrevious(
             currentSession = currentSession,
             currentExercise = currentExercise,
             history = history,
@@ -198,6 +199,14 @@ class WorkoutSessionRepositoryImpl @Inject constructor(
                         startedAt = now,
                         howToUrlSnapshot = planned.exercise.howToUrl,
                         pointersSnapshot = pointers,
+                        // Snapshotted, like the name and pointers: editing the program later must
+                        // not rewrite what this session was aiming for.
+                        plannedSets = planned.plannedSets,
+                        targetRepMin = planned.targetRepMin,
+                        targetRepMax = planned.targetRepMax,
+                        targetWeight = planned.targetWeight,
+                        targetDurationSeconds = planned.targetDurationSeconds,
+                        targetRestSeconds = planned.targetRestSeconds,
                     ).toEntity(),
                 )
             }

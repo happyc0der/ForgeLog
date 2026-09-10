@@ -239,6 +239,9 @@ interface WorkoutSessionDao {
     @Query("SELECT COUNT(*) FROM session_exercises WHERE exerciseId = :exerciseId")
     suspend fun countSessionExercisesForExercise(exerciseId: Long): Int
 
+    @Query("SELECT COUNT(*) FROM workout_sessions")
+    suspend fun observeSessionsCount(): Int
+
     @Query("SELECT COUNT(*) FROM workout_sessions WHERE programId = :programId")
     suspend fun countSessionsForProgram(programId: Long): Int
 }

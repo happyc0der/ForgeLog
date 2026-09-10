@@ -75,3 +75,122 @@ class SetPrefillTest {
         assertNull(next.weight)
     }
 }
+
+/**
+ * Prefill priority: what was just logged, then last session, then the plan. The plan comes last
+ * because what the lifter actually did beats what was written down — but on a brand-new exercise it
+ * is all there is, and an empty row is worse than their own target.
+ */
+class SetPrefillTargetsTest {
+
+    private val exerciseId = 42L
+
+    @Test
+    fun `the plan fills the first set when there is no history at all`() {
+        val next = SetPrefill.nextSet(
+            sessionExerciseId = exerciseId,
+            existing = emptyList(),
+            defaultUnit = ExerciseUnit.LB,
+            historical = null,
+            targets = SetTargets(targetRepMin = 6, targetRepMax = 8, targetWeight = 185.0, targetRestSeconds = 150),
+        )
+        // The bottom of the range is the number being committed to.
+        assertEquals(6, next.reps)
+        assertEquals(185.0, next.weight ?: 0.0, 0.001)
+        assertEquals(150, next.restAfterSetSeconds)
+        assertEquals(1, next.setNumber)
+        assertEquals(false, next.completed)
+    }
+
+    @Test
+    fun `a max-only rep target is used when there is no minimum`() {
+        val next = SetPrefill.nextSet(
+            sessionExerciseId = exerciseId,
+            existing = emptyList(),
+            defaultUnit = ExerciseUnit.LB,
+            historical = null,
+            targets = SetTargets(targetRepMax = 12),
+        )
+        assertEquals(12, next.reps)
+    }
+
+    @Test
+    fun `the set just logged wins over the plan`() {
+        val logged = setLog(id = 1L, sessionExerciseId = exerciseId, reps = 5, weight = 200.0)
+        val next = SetPrefill.nextSet(
+            sessionExerciseId = exerciseId,
+            existing = listOf(logged),
+            defaultUnit = ExerciseUnit.LB,
+            historical = null,
+            targets = SetTargets(targetRepMin = 6, targetWeight = 185.0),
+        )
+        assertEquals(5, next.reps)
+        assertEquals(200.0, next.weight ?: 0.0, 0.001)
+        assertEquals(2, next.setNumber)
+    }
+
+    @Test
+    fun `last session wins over the plan`() {
+        val historical = SessionExerciseWithSets(
+            exercise = sessionExercise(id = 9L, sessionId = 1L, exerciseId = 3L, displayName = "Bench"),
+            sets = listOf(setLog(id = 5L, sessionExerciseId = 9L, reps = 7, weight = 195.0)),
+        )
+        val next = SetPrefill.nextSet(
+            sessionExerciseId = exerciseId,
+            existing = emptyList(),
+            defaultUnit = ExerciseUnit.LB,
+            historical = historical,
+            targets = SetTargets(targetRepMin = 6, targetWeight = 185.0),
+        )
+        assertEquals(7, next.reps)
+        assertEquals(195.0, next.weight ?: 0.0, 0.001)
+    }
+
+    @Test
+    fun `an uncompleted historical set is not used as a template when a completed one exists`() {
+        val historical = SessionExerciseWithSets(
+            exercise = sessionExercise(id = 9L, sessionId = 1L, exerciseId = 3L, displayName = "Bench"),
+            sets = listOf(
+                setLog(id = 5L, sessionExerciseId = 9L, setNumber = 1, reps = 7, weight = 195.0, completed = true),
+                setLog(id = 6L, sessionExerciseId = 9L, setNumber = 2, reps = 99, weight = 999.0, completed = false),
+            ),
+        )
+        val next = SetPrefill.nextSet(
+            sessionExerciseId = exerciseId,
+            existing = emptyList(),
+            defaultUnit = ExerciseUnit.LB,
+            historical = historical,
+            targets = SetTargets(),
+        )
+        // The abandoned row is not evidence of anything.
+        assertEquals(7, next.reps)
+        assertEquals(195.0, next.weight ?: 0.0, 0.001)
+    }
+
+    @Test
+    fun `no plan and no history leaves the fields empty rather than guessing`() {
+        val next = SetPrefill.nextSet(
+            sessionExerciseId = exerciseId,
+            existing = emptyList(),
+            defaultUnit = ExerciseUnit.KG,
+            historical = null,
+            targets = SetTargets(),
+        )
+        assertNull(next.reps)
+        assertNull(next.weight)
+        assertEquals(ExerciseUnit.KG, next.weightUnit)
+    }
+
+    @Test
+    fun `a duration target prefills timed work`() {
+        val next = SetPrefill.nextSet(
+            sessionExerciseId = exerciseId,
+            existing = emptyList(),
+            defaultUnit = ExerciseUnit.SECONDS,
+            historical = null,
+            targets = SetTargets(targetDurationSeconds = 45),
+        )
+        assertEquals(45, next.durationSeconds)
+        assertNull(next.reps)
+    }
+}

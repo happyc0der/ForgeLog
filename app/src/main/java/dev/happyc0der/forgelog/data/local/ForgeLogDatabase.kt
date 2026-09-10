@@ -25,7 +25,7 @@ import dev.happyc0der.forgelog.data.local.entity.WorkoutSessionEntity
         SessionExerciseEntity::class,
         SetLogEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 @TypeConverters(ForgeLogTypeConverters::class)

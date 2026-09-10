@@ -157,6 +157,9 @@ fun WorkoutSession.toEntity(): WorkoutSessionEntity = WorkoutSessionEntity(
     restTimerPausedRemainingSeconds = restTimerPausedRemainingSeconds,
     createdAt = createdAt,
     updatedAt = updatedAt,
+    source = source,
+    externalSource = externalSource,
+    externalId = externalId,
 )
 
 fun SessionExerciseEntity.toDomain(): SessionExercise = SessionExercise(
@@ -172,6 +175,12 @@ fun SessionExerciseEntity.toDomain(): SessionExercise = SessionExercise(
     pointersSnapshot = pointersSnapshot,
     exerciseNotes = exerciseNotes,
     feeling = feeling,
+    plannedSets = plannedSets,
+    targetRepMin = targetRepMin,
+    targetRepMax = targetRepMax,
+    targetWeight = targetWeight,
+    targetDurationSeconds = targetDurationSeconds,
+    targetRestSeconds = targetRestSeconds,
 )
 
 fun SessionExercise.toEntity(): SessionExerciseEntity = SessionExerciseEntity(
@@ -187,6 +196,12 @@ fun SessionExercise.toEntity(): SessionExerciseEntity = SessionExerciseEntity(
     pointersSnapshot = pointersSnapshot,
     exerciseNotes = exerciseNotes,
     feeling = feeling,
+    plannedSets = plannedSets,
+    targetRepMin = targetRepMin,
+    targetRepMax = targetRepMax,
+    targetWeight = targetWeight,
+    targetDurationSeconds = targetDurationSeconds,
+    targetRestSeconds = targetRestSeconds,
 )
 
 fun SetLogEntity.toDomain(): SetLog = SetLog(

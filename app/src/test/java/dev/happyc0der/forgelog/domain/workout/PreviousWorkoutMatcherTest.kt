@@ -205,3 +205,81 @@ class PreviousWorkoutMatcherTest {
         assertEquals(101L, match?.exercise?.id)
     }
 }
+
+/**
+ * The matcher used to return only the exercise, throwing away the session it found it in — which is
+ * why the planner could never show a date and the user could not tell last Tuesday from last March.
+ */
+class PreviousPerformanceTest {
+
+    @Test
+    fun `the matched session is carried, not discarded`() {
+        val pastSession = workoutSession(id = 1L, startedAt = 1_000L, completedAt = 5_000L)
+        val history = listOf(
+            sessionDetail(
+                pastSession,
+                SessionExerciseWithSets(
+                    exercise = sessionExercise(id = 10L, sessionId = 1L, exerciseId = 7L, displayName = "Bench"),
+                    sets = listOf(setLog(id = 1L, sessionExerciseId = 10L)),
+                ),
+            ),
+        )
+
+        val performance = PreviousWorkoutMatcher.findPrevious(
+            currentSession = workoutSession(id = 2L, startedAt = 9_000L, completedAt = null),
+            currentExercise = sessionExercise(id = 20L, sessionId = 2L, exerciseId = 7L, displayName = "Bench"),
+            history = history,
+        )
+
+        assertEquals(1L, performance?.session?.id)
+        assertEquals(5_000L, performance?.session?.completedAt)
+        assertEquals("Bench", performance?.exercise?.exercise?.displayNameSnapshot)
+    }
+
+    @Test
+    fun `completedSets excludes rows that were never ticked`() {
+        val history = listOf(
+            sessionDetail(
+                workoutSession(id = 1L),
+                SessionExerciseWithSets(
+                    exercise = sessionExercise(id = 10L, sessionId = 1L, exerciseId = 7L, displayName = "Bench"),
+                    sets = listOf(
+                        setLog(id = 1L, sessionExerciseId = 10L, setNumber = 1, completed = true),
+                        setLog(id = 2L, sessionExerciseId = 10L, setNumber = 2, completed = false),
+                        setLog(id = 3L, sessionExerciseId = 10L, setNumber = 3, completed = true),
+                    ),
+                ),
+            ),
+        )
+
+        val performance = PreviousWorkoutMatcher.findPrevious(
+            currentSession = workoutSession(id = 2L, completedAt = null),
+            currentExercise = sessionExercise(id = 20L, sessionId = 2L, exerciseId = 7L, displayName = "Bench"),
+            history = history,
+        )
+
+        assertEquals(3, performance?.exercise?.sets?.size)
+        // A set added and never completed did not happen, so history must not show it.
+        assertEquals(listOf(1, 3), performance?.completedSets?.map { it.setNumber })
+    }
+
+    @Test
+    fun `the older findPreviousExercise entry point still behaves the same`() {
+        val history = listOf(
+            sessionDetail(
+                workoutSession(id = 1L),
+                SessionExerciseWithSets(
+                    exercise = sessionExercise(id = 10L, sessionId = 1L, exerciseId = 7L, displayName = "Bench"),
+                    sets = listOf(setLog(id = 1L, sessionExerciseId = 10L)),
+                ),
+            ),
+        )
+        val current = sessionExercise(id = 20L, sessionId = 2L, exerciseId = 7L, displayName = "Bench")
+        val session = workoutSession(id = 2L, completedAt = null)
+
+        assertEquals(
+            PreviousWorkoutMatcher.findPrevious(session, current, history)?.exercise,
+            PreviousWorkoutMatcher.findPreviousExercise(session, current, history),
+        )
+    }
+}

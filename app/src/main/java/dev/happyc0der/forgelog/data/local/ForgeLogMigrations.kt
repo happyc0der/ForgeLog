@@ -24,5 +24,37 @@ object ForgeLogMigrations {
         }
     }
 
-    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2)
+    /**
+     * Adds planned targets to logged exercises, and provenance to sessions.
+     *
+     * Two unrelated changes in one migration on purpose: one migration, one schema JSON, one round
+     * of migration testing. Every column is nullable or has a default, so these are plain
+     * ADD COLUMNs with no table rebuild — legal on the SQLite shipped with API 26.
+     *
+     * The index name has to match exactly what Room generates for the entity's @Index, or
+     * validateMigration fails on the next open.
+     */
+    val MIGRATION_2_3 = object : Migration(2, 3) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE session_exercises ADD COLUMN plannedSets INTEGER")
+            db.execSQL("ALTER TABLE session_exercises ADD COLUMN targetRepMin INTEGER")
+            db.execSQL("ALTER TABLE session_exercises ADD COLUMN targetRepMax INTEGER")
+            db.execSQL("ALTER TABLE session_exercises ADD COLUMN targetWeight REAL")
+            db.execSQL("ALTER TABLE session_exercises ADD COLUMN targetDurationSeconds INTEGER")
+            db.execSQL("ALTER TABLE session_exercises ADD COLUMN targetRestSeconds INTEGER")
+
+            db.execSQL(
+                "ALTER TABLE workout_sessions ADD COLUMN source TEXT NOT NULL DEFAULT 'manual'",
+            )
+            db.execSQL("ALTER TABLE workout_sessions ADD COLUMN externalSource TEXT")
+            db.execSQL("ALTER TABLE workout_sessions ADD COLUMN externalId TEXT")
+            db.execSQL(
+                "CREATE UNIQUE INDEX IF NOT EXISTS " +
+                    "index_workout_sessions_externalSource_externalId " +
+                    "ON workout_sessions (externalSource, externalId)",
+            )
+        }
+    }
+
+    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
 }

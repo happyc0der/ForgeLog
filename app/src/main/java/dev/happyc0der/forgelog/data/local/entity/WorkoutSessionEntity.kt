@@ -5,6 +5,7 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import dev.happyc0der.forgelog.domain.model.RestTimerType
+import dev.happyc0der.forgelog.domain.model.SessionSource
 import dev.happyc0der.forgelog.domain.model.SessionStatus
 
 @Entity(
@@ -29,6 +30,7 @@ import dev.happyc0der.forgelog.domain.model.SessionStatus
         Index("status"),
         Index("startedAt"),
         Index("completedAt"),
+        Index(value = ["externalSource", "externalId"], unique = true),
     ],
 )
 data class WorkoutSessionEntity(
@@ -54,4 +56,14 @@ data class WorkoutSessionEntity(
     val restTimerPausedRemainingSeconds: Int?,
     val createdAt: Long,
     val updatedAt: Long,
+    /*
+     * Provenance, for a future file or service import.
+     *
+     * The unique index on (externalSource, externalId) is what makes importing the same activity
+     * twice an update rather than a duplicate. SQLite treats NULLs as distinct in a unique index,
+     * so hand-logged sessions — which leave both null — are unaffected by it.
+     */
+    val source: SessionSource = SessionSource.MANUAL,
+    val externalSource: String? = null,
+    val externalId: String? = null,
 )

@@ -9,6 +9,7 @@ import dev.happyc0der.forgelog.domain.model.SessionStartExercise
 import dev.happyc0der.forgelog.domain.model.SessionStatus
 import dev.happyc0der.forgelog.domain.model.SetLog
 import dev.happyc0der.forgelog.domain.model.WorkoutSession
+import dev.happyc0der.forgelog.domain.workout.PreviousPerformance
 import kotlinx.coroutines.flow.Flow
 
 interface WorkoutSessionRepository {
@@ -48,7 +49,7 @@ interface WorkoutSessionRepository {
     suspend fun findPreviousPerformance(
         currentSession: WorkoutSession,
         currentExercise: SessionExercise,
-    ): SessionExerciseWithSets?
+    ): PreviousPerformance?
     suspend fun startSession(
         programId: Long?,
         programDayId: Long?,

@@ -24,6 +24,9 @@ data class WorkoutSession(
     val restTimerPausedRemainingSeconds: Int? = null,
     val createdAt: Long,
     val updatedAt: Long,
+    val source: SessionSource = SessionSource.MANUAL,
+    val externalSource: String? = null,
+    val externalId: String? = null,
 )
 
 data class SessionExercise(
@@ -42,7 +45,19 @@ data class SessionExercise(
     val pointersSnapshot: String? = null,
     val exerciseNotes: String? = null,
     val feeling: Int? = null,
-)
+    /** Targets snapshotted from the program when the session started. Null means "not planned". */
+    val plannedSets: Int? = null,
+    val targetRepMin: Int? = null,
+    val targetRepMax: Int? = null,
+    val targetWeight: Double? = null,
+    val targetDurationSeconds: Int? = null,
+    val targetRestSeconds: Int? = null,
+) {
+    /** True when the plan said anything at all about this exercise. */
+    val hasTargets: Boolean
+        get() = plannedSets != null || targetRepMin != null || targetRepMax != null ||
+            targetWeight != null || targetDurationSeconds != null
+}
 
 data class SetLog(
     val id: Long = 0L,

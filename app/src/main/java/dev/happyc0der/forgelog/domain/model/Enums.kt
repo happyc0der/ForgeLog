@@ -71,3 +71,20 @@ enum class RestTimerType(val storageValue: String) {
                 ?: RestTimerType.NONE
     }
 }
+
+/**
+ * Where a session came from.
+ *
+ * Exists so an imported activity can be told apart from one logged by hand, which is what makes a
+ * future Garmin or Strava import idempotent — re-importing the same activity updates its row
+ * instead of duplicating it. Nothing imports anything yet; every session today is [MANUAL].
+ */
+enum class SessionSource(val storageValue: String) {
+    MANUAL("manual"),
+    IMPORTED("imported");
+
+    companion object {
+        fun fromStorage(value: String): SessionSource =
+            entries.firstOrNull { it.storageValue == value } ?: MANUAL
+    }
+}

@@ -31,6 +31,16 @@ object Formatters {
         }
     }
 
+    /** A single load, as opposed to a session's total volume. */
+    fun weight(value: Double, unit: ExerciseUnit): String {
+        val suffix = if (unit == ExerciseUnit.KG) "kg" else "lb"
+        return if (value % 1.0 == 0.0) {
+            String.format(Locale.US, "%.0f %s", value, suffix)
+        } else {
+            String.format(Locale.US, "%.1f %s", value, suffix)
+        }
+    }
+
     /** Compact duration for stat tiles: `1h 12m`, `48m`, `< 1m`. Null renders as an em dash. */
     fun compactDuration(durationMs: Long?): String? {
         if (durationMs == null) return null

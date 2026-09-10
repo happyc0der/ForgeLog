@@ -42,6 +42,13 @@ android {
             isIncludeAndroidResources = true
         }
     }
+    // MigrationTestHelper loads the exported schema JSONs from assets, so the committed schema
+    // directory is mounted as a test asset source. Without this, migration tests cannot verify the
+    // upgraded database against the schema that actually shipped.
+    sourceSets {
+        getByName("test") { assets.srcDirs(files("$projectDir/schemas")) }
+        getByName("androidTest") { assets.srcDirs(files("$projectDir/schemas")) }
+    }
 }
 
 kotlin {
@@ -83,6 +90,7 @@ dependencies {
     testImplementation(libs.turbine)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core.ktx)
+    testImplementation(libs.androidx.room.testing)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)

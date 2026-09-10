@@ -6,12 +6,33 @@ import dev.happyc0der.forgelog.domain.model.SessionExerciseWithSets
 import dev.happyc0der.forgelog.domain.model.SessionStatus
 import dev.happyc0der.forgelog.domain.model.WorkoutSession
 
+/**
+ * The last time this exercise was trained, and the session it happened in.
+ *
+ * The session is carried because the UI has to say *when*: "Previous session" with no date leaves
+ * the user unable to tell last Tuesday from last March.
+ */
+data class PreviousPerformance(
+    val session: WorkoutSession,
+    val exercise: SessionExerciseWithSets,
+) {
+    /** Only sets that were actually completed count as history; an untouched row did not happen. */
+    val completedSets get() = exercise.sets.filter { it.completed }
+}
+
 object PreviousWorkoutMatcher {
+
     fun findPreviousExercise(
         currentSession: WorkoutSession,
         currentExercise: SessionExercise,
         history: List<SessionDetail>,
-    ): SessionExerciseWithSets? {
+    ): SessionExerciseWithSets? = findPrevious(currentSession, currentExercise, history)?.exercise
+
+    fun findPrevious(
+        currentSession: WorkoutSession,
+        currentExercise: SessionExercise,
+        history: List<SessionDetail>,
+    ): PreviousPerformance? {
         val candidates = history
             .asSequence()
             .filter { detail ->
@@ -36,7 +57,9 @@ object PreviousWorkoutMatcher {
             )
             .toList()
 
-        return candidates.firstOrNull()?.exercise
+        return candidates.firstOrNull()?.let { match ->
+            PreviousPerformance(session = match.session, exercise = match.exercise)
+        }
     }
 
     private fun SessionExerciseWithSets.matches(current: SessionExercise): Boolean {
