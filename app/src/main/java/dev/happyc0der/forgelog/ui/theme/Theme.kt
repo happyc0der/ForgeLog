@@ -3,6 +3,7 @@ package dev.happyc0der.forgelog.ui.theme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
 
 private val ForgeLogDarkColorScheme = darkColorScheme(
@@ -41,9 +42,12 @@ private val ForgeLogDarkColorScheme = darkColorScheme(
 fun ForgeLogTheme(
     content: @Composable () -> Unit,
 ) {
-    MaterialTheme(
-        colorScheme = ForgeLogDarkColorScheme,
-        typography = Typography,
-        content = content,
-    )
+    CompositionLocalProvider(LocalForgeLogColors provides ForgeLogDarkExtendedColors) {
+        MaterialTheme(
+            colorScheme = ForgeLogDarkColorScheme,
+            shapes = ForgeLogShapes,
+            typography = Typography,
+            content = content,
+        )
+    }
 }
