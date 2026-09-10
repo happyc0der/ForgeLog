@@ -150,12 +150,11 @@ class ProgramRepositoryImpl @Inject constructor(
             val session = workoutSessionDao.getSessionDetail(sessionId)
                 ?: error("Session $sessionId was not found.")
             programDao.getProgram(programId) ?: error("Program $programId was not found.")
-            val siblingCount = programDao.getProgramDetail(programId)?.days?.size ?: 0
             val newDayId = programDao.insertDay(
                 ProgramDay(
                     programId = programId,
                     name = dayName,
-                    dayOrder = siblingCount,
+                    dayOrder = programDao.nextDayOrder(programId),
                     notes = null,
                 ).toEntity(),
             )
@@ -191,15 +190,11 @@ class ProgramRepositoryImpl @Inject constructor(
         database.withTransaction {
             val detail = programDao.getDayDetail(dayId)
                 ?: error("Program day $dayId was not found.")
-            val siblingCount = programDao.getProgramDetail(detail.day.programId)
-                ?.days
-                ?.size
-                ?: 0
             val newDayId = programDao.insertDay(
                 detail.day.copy(
                     id = 0L,
                     name = LibraryCopyNames.dayCopy(detail.day.name),
-                    dayOrder = siblingCount,
+                    dayOrder = programDao.nextDayOrder(detail.day.programId),
                 ),
             )
             detail.exercises
@@ -227,12 +222,11 @@ class ProgramRepositoryImpl @Inject constructor(
     override suspend fun appendProgramExercise(programDayId: Long, exerciseId: Long): Long =
         withContext(ioDispatcher) {
             database.withTransaction {
-                val order = programDao.countProgramExercises(programDayId)
                 programDao.insertProgramExercise(
                     ProgramExercise(
                         programDayId = programDayId,
                         exerciseId = exerciseId,
-                        exerciseOrder = order,
+                        exerciseOrder = programDao.nextProgramExerciseOrder(programDayId),
                     ).toEntity(),
                 )
             }

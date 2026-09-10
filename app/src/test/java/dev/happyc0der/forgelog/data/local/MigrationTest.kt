@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import dev.happyc0der.forgelog.data.mapper.toDomain
+import dev.happyc0der.forgelog.domain.model.hasTargets
 import dev.happyc0der.forgelog.domain.model.SessionSource
 import kotlinx.coroutines.runBlocking
 import org.junit.After

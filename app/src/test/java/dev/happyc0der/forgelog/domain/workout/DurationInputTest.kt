@@ -1,6 +1,7 @@
 package dev.happyc0der.forgelog.domain.workout
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -37,6 +38,26 @@ class DurationInputTest {
     fun adjustStepMatchesSelectedUnit() {
         assertEquals(15, DurationInput.adjustStepSeconds(DurationInputUnit.SECONDS))
         assertEquals(60, DurationInput.adjustStepSeconds(DurationInputUnit.MINUTES))
+    }
+
+    /*
+     * "NaN" and "Infinity" are accepted by Double.parseDouble, and roundToInt throws on NaN rather
+     * than saturating — so a paste into the duration field used to crash the app mid-set. The
+     * numeric keyboard is only a hint; a clipboard or a hardware keyboard bypasses it.
+     */
+
+    @Test
+    fun nonNumericDoublesAreRejectedRatherThanThrowing() {
+        listOf("NaN", "Infinity", "-Infinity", "nan").forEach { input ->
+            assertNull("$input should not parse", DurationInput.parseSeconds(input, DurationInputUnit.MINUTES))
+            assertFalse("$input should not be parseable", DurationInput.isParseable(input, DurationInputUnit.MINUTES))
+        }
+    }
+
+    @Test
+    fun anAbsurdlyLargeEntryClampsInsteadOfOverflowing() {
+        val parsed = DurationInput.parseSeconds("999999999999", DurationInputUnit.MINUTES)
+        assertEquals(Int.MAX_VALUE, parsed)
     }
 
     @Test

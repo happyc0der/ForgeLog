@@ -12,6 +12,12 @@ object DurationInput {
     const val SECOND_ADJUST_STEP_SECONDS = 15
     const val MINUTE_ADJUST_STEP_SECONDS = 60
 
+    /**
+     * A minute value large enough to overflow `Int` is a typo, not a set. Clamped rather than
+     * rejected so a stray digit caps out instead of silently discarding the whole entry.
+     */
+    private val SAFE_SECONDS = Int.MIN_VALUE.toDouble()..Int.MAX_VALUE.toDouble()
+
     fun toDisplay(seconds: Int?, unit: DurationInputUnit): String {
         if (seconds == null) return ""
         return when (unit) {
@@ -32,9 +38,11 @@ object DurationInput {
         if (trimmed.isEmpty()) return null
         return when (unit) {
             DurationInputUnit.SECONDS -> trimmed.toIntOrNull()
-            DurationInputUnit.MINUTES -> trimmed.toDoubleOrNull()?.let { minutes ->
-                (minutes * 60.0).roundToInt()
-            }
+            // "NaN" and "Infinity" both parse as doubles, and roundToInt throws on NaN rather
+            // than saturating. A field the user can paste into must reject them as unparseable.
+            DurationInputUnit.MINUTES -> trimmed.toDoubleOrNull()
+                ?.takeIf { it.isFinite() }
+                ?.let { minutes -> (minutes * 60.0).coerceIn(SAFE_SECONDS).roundToInt() }
         }
     }
 

@@ -21,7 +21,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import dev.happyc0der.forgelog.R
+import dev.happyc0der.forgelog.domain.model.ExerciseTargets
 import dev.happyc0der.forgelog.domain.model.ExerciseUnit
+import dev.happyc0der.forgelog.domain.model.hasTargets
 import dev.happyc0der.forgelog.ui.format.Formatters
 
 /**
@@ -146,55 +148,34 @@ private fun TargetField(
     )
 }
 
-/** Null when nothing is planned, so the caller can say so rather than showing an empty line. */
-@Composable
-internal fun targetSummary(item: PlannedExerciseItem, weightUnit: ExerciseUnit): String? {
-    if (!item.hasTargets) return null
-    val parts = buildList {
-        item.plannedSets?.let { add(stringResource(R.string.workout_target_summary_sets, it)) }
-        val reps = when {
-            item.targetRepMin != null && item.targetRepMax != null ->
-                "${item.targetRepMin}-${item.targetRepMax}"
-            item.targetRepMin != null -> "${item.targetRepMin}+"
-            item.targetRepMax != null -> "≤${item.targetRepMax}"
-            else -> null
-        }
-        reps?.let { add(stringResource(R.string.workout_target_summary_reps, it)) }
-        item.targetWeight?.let {
-            add(stringResource(R.string.workout_target_summary_weight, Formatters.weight(it, weightUnit)))
-        }
-        item.targetDurationSeconds?.let { add("${it}s") }
-        item.targetRestSeconds?.let { add(stringResource(R.string.workout_previous_rest, "${it}s")) }
-    }
-    return parts.joinToString(" · ")
-}
-
 /**
- * The targets snapshotted onto a session exercise, as a single line for the logger.
+ * One plan, as a single line — for the planner's roster and for the logger alike.
  *
- * Null when the plan said nothing, so the logger shows no target row at all rather than an empty
- * label — an exercise added mid-session genuinely has no target.
+ * Null when the plan said nothing, so the caller shows no target row at all rather than an empty
+ * label: an exercise added mid-session genuinely has no target. Written once over
+ * [ExerciseTargets] because the planner and the logger previously had a copy each, and the
+ * logger's copy quietly dropped rest.
  */
 @Composable
-internal fun sessionTargetSummary(
-    exercise: dev.happyc0der.forgelog.domain.model.SessionExercise,
-    weightUnit: ExerciseUnit,
-): String? {
-    if (!exercise.hasTargets) return null
+internal fun targetSummary(targets: ExerciseTargets, weightUnit: ExerciseUnit): String? {
+    if (!targets.hasTargets) return null
     val parts = buildList {
-        exercise.plannedSets?.let { add(stringResource(R.string.workout_target_summary_sets, it)) }
+        targets.plannedSets?.let { add(stringResource(R.string.workout_target_summary_sets, it)) }
         val reps = when {
-            exercise.targetRepMin != null && exercise.targetRepMax != null ->
-                "${exercise.targetRepMin}-${exercise.targetRepMax}"
-            exercise.targetRepMin != null -> "${exercise.targetRepMin}+"
-            exercise.targetRepMax != null -> "≤${exercise.targetRepMax}"
+            targets.targetRepMin != null && targets.targetRepMax != null ->
+                "${targets.targetRepMin}-${targets.targetRepMax}"
+            targets.targetRepMin != null -> "${targets.targetRepMin}+"
+            targets.targetRepMax != null -> "≤${targets.targetRepMax}"
             else -> null
         }
         reps?.let { add(stringResource(R.string.workout_target_summary_reps, it)) }
-        exercise.targetWeight?.let {
+        targets.targetWeight?.let {
             add(stringResource(R.string.workout_target_summary_weight, Formatters.weight(it, weightUnit)))
         }
-        exercise.targetDurationSeconds?.let { add("${it}s") }
+        targets.targetDurationSeconds?.let { add(Formatters.seconds(it)) }
+        targets.targetRestSeconds?.let {
+            add(stringResource(R.string.workout_previous_rest, Formatters.seconds(it)))
+        }
     }
     return parts.joinToString(" · ")
 }

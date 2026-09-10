@@ -46,18 +46,13 @@ data class SessionExercise(
     val exerciseNotes: String? = null,
     val feeling: Int? = null,
     /** Targets snapshotted from the program when the session started. Null means "not planned". */
-    val plannedSets: Int? = null,
-    val targetRepMin: Int? = null,
-    val targetRepMax: Int? = null,
-    val targetWeight: Double? = null,
-    val targetDurationSeconds: Int? = null,
-    val targetRestSeconds: Int? = null,
-) {
-    /** True when the plan said anything at all about this exercise. */
-    val hasTargets: Boolean
-        get() = plannedSets != null || targetRepMin != null || targetRepMax != null ||
-            targetWeight != null || targetDurationSeconds != null
-}
+    override val plannedSets: Int? = null,
+    override val targetRepMin: Int? = null,
+    override val targetRepMax: Int? = null,
+    override val targetWeight: Double? = null,
+    override val targetDurationSeconds: Int? = null,
+    override val targetRestSeconds: Int? = null,
+) : ExerciseTargets
 
 data class SetLog(
     val id: Long = 0L,

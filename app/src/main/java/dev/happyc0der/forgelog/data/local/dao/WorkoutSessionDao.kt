@@ -227,6 +227,24 @@ interface WorkoutSessionDao {
     @Query("UPDATE session_exercises SET exerciseNotes = :notes WHERE id = :id")
     suspend fun updateExerciseNotes(id: Long, notes: String?)
 
+    @Query(
+        """
+        UPDATE workout_sessions
+        SET status = :status, completedAt = :completedAt, updatedAt = :now
+        WHERE id = :id
+        """,
+    )
+    suspend fun updateStatus(id: Long, status: SessionStatus, completedAt: Long?, now: Long)
+
+    @Query(
+        """
+        UPDATE workout_sessions
+        SET expandedSessionExerciseId = :sessionExerciseId, updatedAt = :now
+        WHERE id = :id
+        """,
+    )
+    suspend fun updateExpandedExercise(id: Long, sessionExerciseId: Long?, now: Long)
+
     @Query("DELETE FROM workout_sessions WHERE id = :id")
     suspend fun deleteSession(id: Long)
 

@@ -289,27 +289,29 @@ class WorkoutSessionRepositoryImpl @Inject constructor(
         }
     }
 
+    /**
+     * Abandoning leaves [WorkoutSession.completedAt] null.
+     *
+     * A null completion time is what marks a duration as unknown, and an abandoned session has no
+     * meaningful duration — stamping one made the history list show a figure that
+     * [dev.happyc0der.forgelog.domain.home.SessionSummary] documents as having to be blank.
+     */
     override suspend fun abandonSession(sessionId: Long) = withContext(ioDispatcher) {
-        val session = workoutSessionDao.getSession(sessionId)?.toDomain() ?: return@withContext
-        val now = timeProvider.nowEpochMs()
-        workoutSessionDao.upsertSession(
-            session.copy(
-                status = SessionStatus.ABANDONED,
-                completedAt = now,
-                updatedAt = now,
-            ).toEntity(),
+        workoutSessionDao.updateStatus(
+            id = sessionId,
+            status = SessionStatus.ABANDONED,
+            completedAt = null,
+            now = timeProvider.nowEpochMs(),
         )
     }
 
     override suspend fun completeSession(sessionId: Long) = withContext(ioDispatcher) {
-        val session = workoutSessionDao.getSession(sessionId)?.toDomain() ?: return@withContext
         val now = timeProvider.nowEpochMs()
-        workoutSessionDao.upsertSession(
-            session.copy(
-                status = SessionStatus.COMPLETED,
-                completedAt = now,
-                updatedAt = now,
-            ).toEntity(),
+        workoutSessionDao.updateStatus(
+            id = sessionId,
+            status = SessionStatus.COMPLETED,
+            completedAt = now,
+            now = now,
         )
     }
 
@@ -317,12 +319,10 @@ class WorkoutSessionRepositoryImpl @Inject constructor(
         sessionId: Long,
         sessionExerciseId: Long?,
     ) = withContext(ioDispatcher) {
-        val session = workoutSessionDao.getSession(sessionId)?.toDomain() ?: return@withContext
-        workoutSessionDao.upsertSession(
-            session.copy(
-                expandedSessionExerciseId = sessionExerciseId,
-                updatedAt = timeProvider.nowEpochMs(),
-            ).toEntity(),
+        workoutSessionDao.updateExpandedExercise(
+            id = sessionId,
+            sessionExerciseId = sessionExerciseId,
+            now = timeProvider.nowEpochMs(),
         )
     }
 

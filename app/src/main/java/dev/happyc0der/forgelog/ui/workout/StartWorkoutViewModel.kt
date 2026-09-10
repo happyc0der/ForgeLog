@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import dev.happyc0der.forgelog.R
 import dev.happyc0der.forgelog.domain.model.Exercise
+import dev.happyc0der.forgelog.domain.model.ExerciseTargets
 import dev.happyc0der.forgelog.domain.model.ExerciseUnit
 import dev.happyc0der.forgelog.domain.model.ProgramDay
 import dev.happyc0der.forgelog.domain.model.SessionExercise
@@ -21,8 +22,10 @@ import dev.happyc0der.forgelog.domain.settings.SettingsRepository
 import dev.happyc0der.forgelog.domain.workout.PreviousPerformance
 import dev.happyc0der.forgelog.domain.workout.PreviousWorkoutMatcher
 import dev.happyc0der.forgelog.ui.common.launchSafely
+import dev.happyc0der.forgelog.ui.common.reportErrors
 import dev.happyc0der.forgelog.ui.navigation.StartWorkoutRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -56,18 +59,14 @@ data class PlannedExerciseItem(
     val localId: Long,
     val exercise: Exercise,
     val pointersOverride: String?,
-    val plannedSets: Int? = null,
-    val targetRepMin: Int? = null,
-    val targetRepMax: Int? = null,
-    val targetWeight: Double? = null,
-    val targetDurationSeconds: Int? = null,
-    val targetRestSeconds: Int? = null,
+    override val plannedSets: Int? = null,
+    override val targetRepMin: Int? = null,
+    override val targetRepMax: Int? = null,
+    override val targetWeight: Double? = null,
+    override val targetDurationSeconds: Int? = null,
+    override val targetRestSeconds: Int? = null,
     val previous: PreviousPerformance? = null,
-) {
-    val hasTargets: Boolean
-        get() = plannedSets != null || targetRepMin != null || targetRepMax != null ||
-            targetWeight != null || targetDurationSeconds != null || targetRestSeconds != null
-}
+) : ExerciseTargets
 
 /** Which target a planner edit applies to. */
 enum class TargetField {
@@ -128,7 +127,9 @@ class StartWorkoutViewModel @Inject constructor(
     private val programName = MutableStateFlow<String?>(null)
     private val dayName = MutableStateFlow<String?>(null)
     private val programId = MutableStateFlow<Long?>(null)
-    private val weightUnit = settingsRepository.settings.map { it.defaultWeightUnit }
+    private val weightUnit = settingsRepository.settings
+        .map { it.defaultWeightUnit }
+        .reportErrors(ExerciseUnit.LB) { reportLoadError(it) }
     private val loadingDay = MutableStateFlow(routeDayId > 0L)
     private val errorMessage = MutableStateFlow<String?>(null)
     private val localIds = AtomicLong(1L)
@@ -153,6 +154,10 @@ class StartWorkoutViewModel @Inject constructor(
                 }
             }
         }
+        // The day list is the one arm fed by the database. Unguarded, a query failure completed the
+        // whole combine exceptionally, so the screen sat on its initial state forever and the error
+        // it was about to show never arrived.
+        .reportErrors(emptyList()) { reportLoadError(it) }
 
     val uiState: StateFlow<StartWorkoutUiState> = combine(
         combine(selectedDayId, dayChoices, roster, programName, dayName) {
@@ -199,7 +204,17 @@ class StartWorkoutViewModel @Inject constructor(
         viewModelScope.launch {
             selectedDayId.collect { dayId ->
                 if (dayId != null && dayId != loadedDayId) {
-                    loadDay(dayId)
+                    // Caught per load rather than around the whole collect: a failure on one day
+                    // must not kill the collector and leave every later selection doing nothing.
+                    try {
+                        loadDay(dayId)
+                    } catch (cancellation: CancellationException) {
+                        throw cancellation
+                    } catch (throwable: Throwable) {
+                        loadingDay.value = false
+                        errorMessage.value = throwable.message?.takeIf { it.isNotBlank() }
+                            ?: application.getString(R.string.state_error_generic)
+                    }
                 }
             }
         }
@@ -316,6 +331,13 @@ class StartWorkoutViewModel @Inject constructor(
         }
     }
 
+    /** A failed data source: shown on the screen, since the roster may be unrenderable. */
+    private fun reportLoadError(throwable: Throwable) {
+        loadingDay.value = false
+        errorMessage.value = throwable.message?.takeIf { it.isNotBlank() }
+            ?: application.getString(R.string.state_error_generic)
+    }
+
     private fun reportAsMessage(throwable: Throwable) {
         viewModelScope.launch {
             eventsChannel.send(
@@ -346,6 +368,13 @@ class StartWorkoutViewModel @Inject constructor(
                 exercise = item.exercise,
                 pointersOverride = item.programExercise.defaultPointersOverride
                     ?: item.exercise.defaultPointers,
+                // Every target the day builder can set has to arrive here, or the plan silently
+                // evaporates on its way into the session.
+                plannedSets = item.programExercise.plannedSets,
+                targetRepMin = item.programExercise.targetRepMin,
+                targetRepMax = item.programExercise.targetRepMax,
+                targetWeight = item.programExercise.targetWeight,
+                targetDurationSeconds = item.programExercise.targetDurationSeconds,
                 targetRestSeconds = item.programExercise.targetRestSeconds,
                 previous = previousFor(
                     exercise = item.exercise,

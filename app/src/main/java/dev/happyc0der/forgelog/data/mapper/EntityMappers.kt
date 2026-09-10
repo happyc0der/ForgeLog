@@ -137,6 +137,11 @@ fun WorkoutSessionEntity.toDomain(): WorkoutSession = WorkoutSession(
     restTimerPausedRemainingSeconds = restTimerPausedRemainingSeconds,
     createdAt = createdAt,
     updatedAt = updatedAt,
+    // Provenance has to survive the round trip: it is the dedup key for imported activities, and
+    // dropping it here reset every session to "manual" the first time anything was edited.
+    source = source,
+    externalSource = externalSource,
+    externalId = externalId,
 )
 
 fun WorkoutSession.toEntity(): WorkoutSessionEntity = WorkoutSessionEntity(

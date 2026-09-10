@@ -119,8 +119,23 @@ interface ProgramDao {
     @Insert
     suspend fun insertDay(entity: ProgramDayEntity): Long
 
-    @Query("SELECT COUNT(*) FROM program_exercises WHERE programDayId = :programDayId")
-    suspend fun countProgramExercises(programDayId: Long): Int
+    /*
+     * The next sort position comes from MAX + 1, never from COUNT(*).
+     *
+     * Deleting a row leaves a gap and nothing renumbers the survivors, so a count under-reports the
+     * highest position in use: delete the first of three and COUNT(*) returns 2 while position 2 is
+     * still occupied. The append then duplicates it, and `ORDER BY` returns the tie in whichever
+     * order it likes, so the two rows swap places between reads.
+     */
+
+    @Query(
+        "SELECT COALESCE(MAX(exerciseOrder), -1) + 1 FROM program_exercises " +
+            "WHERE programDayId = :programDayId",
+    )
+    suspend fun nextProgramExerciseOrder(programDayId: Long): Int
+
+    @Query("SELECT COALESCE(MAX(dayOrder), -1) + 1 FROM program_days WHERE programId = :programId")
+    suspend fun nextDayOrder(programId: Long): Int
 
     @Insert
     suspend fun insertProgramExercise(entity: ProgramExerciseEntity): Long

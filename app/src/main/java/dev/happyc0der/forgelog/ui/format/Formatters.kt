@@ -53,6 +53,23 @@ object Formatters {
         }
     }
 
+    /**
+     * A short span in seconds, for rest and duration targets: `45s`, `2m`, `2m 30s`.
+     *
+     * Distinct from [compactDuration], which rounds to whole minutes and so renders every rest
+     * target under a minute as `< 1m`.
+     */
+    fun seconds(value: Int): String {
+        if (value <= 0) return "0s"
+        val minutes = value / 60
+        val remainder = value % 60
+        return when {
+            minutes == 0 -> "${remainder}s"
+            remainder == 0 -> "${minutes}m"
+            else -> "${minutes}m ${remainder}s"
+        }
+    }
+
     /** Seconds spent on timed work, shown only when a session actually had any. */
     fun timedSeconds(seconds: Int): String? {
         if (seconds <= 0) return null

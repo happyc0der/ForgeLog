@@ -247,7 +247,7 @@ private fun ExerciseLoggerCard(
                     }
                 }
             }
-            sessionTargetSummary(exercise, exerciseUi.unit)?.let { targets ->
+            targetSummary(exercise, exerciseUi.unit)?.let { targets ->
                 Text(
                     text = stringResource(R.string.workout_exercise_target, targets),
                     style = MaterialTheme.typography.labelMedium,

@@ -13,6 +13,7 @@ import dev.happyc0der.forgelog.domain.model.SetLog
 import dev.happyc0der.forgelog.domain.model.SetType
 import dev.happyc0der.forgelog.domain.repository.ExerciseRepository
 import dev.happyc0der.forgelog.domain.repository.WorkoutSessionRepository
+import dev.happyc0der.forgelog.domain.settings.AppSettings
 import dev.happyc0der.forgelog.domain.settings.SettingsRepository
 import dev.happyc0der.forgelog.domain.time.TimeProvider
 import dev.happyc0der.forgelog.domain.workout.PreviousPerformance
@@ -26,6 +27,8 @@ import dev.happyc0der.forgelog.domain.workout.SetPrefill
 import dev.happyc0der.forgelog.domain.workout.SetTargets
 import dev.happyc0der.forgelog.domain.workout.formatElapsed
 import dev.happyc0der.forgelog.domain.workout.formatSeconds
+import dev.happyc0der.forgelog.ui.common.launchSafely
+import dev.happyc0der.forgelog.ui.common.reportErrors
 import dev.happyc0der.forgelog.ui.common.ticker
 import dev.happyc0der.forgelog.ui.navigation.ActiveWorkoutRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -105,6 +108,15 @@ class ActiveWorkoutViewModel @Inject constructor(
     private val drafts = MutableStateFlow<Map<String, String>>(emptyMap())
     private val revealed = MutableStateFlow<Map<Long, Set<SetInputField>>>(emptyMap())
     private val debounceJobs = mutableMapOf<String, Job>()
+    private val loadError = MutableStateFlow<String?>(null)
+
+    /**
+     * Serialises set inserts so a double tap cannot produce two sets with the same number.
+     *
+     * [SetPrefill.nextSet] derives the number from the highest one already present, and reading that
+     * from UI state is only correct while no other insert is in flight.
+     */
+    private var addSetJob: Job? = null
 
     /**
      * In memory on purpose. The countdown is anchored to the completion time of the set that started
@@ -134,6 +146,9 @@ class ActiveWorkoutViewModel @Inject constructor(
                 }
             }
         }
+        // A failure to look up history must not take the whole screen down: the log is still usable
+        // without the "last time" column.
+        .reportErrors(emptyMap()) { reportLoadError(it) }
 
     val uiState: StateFlow<ActiveWorkoutUiState> = combine(
         combine(
@@ -150,16 +165,17 @@ class ActiveWorkoutViewModel @Inject constructor(
                 revealed = revealedMap,
                 units = exercises.associate { it.id to it.defaultUnit },
             )
-        },
+        }.reportErrors(null) { reportLoadError(it) },
         previousByExercise,
         restTimer,
-        settingsRepository.settings,
-    ) { partial, previous, timer, settings ->
-        val detail = partial.detail
-        if (detail == null) {
+        settingsRepository.settings.reportErrors(AppSettings()) { reportLoadError(it) },
+        loadError,
+    ) { partial, previous, timer, settings, error ->
+        val detail = partial?.detail
+        if (partial == null || detail == null) {
             ActiveWorkoutUiState(
                 isLoading = false,
-                errorMessage = application.getString(R.string.workout_session_missing),
+                errorMessage = error ?: application.getString(R.string.workout_session_missing),
             )
         } else {
             val expandedId = detail.session.expandedSessionExerciseId
@@ -170,6 +186,8 @@ class ActiveWorkoutViewModel @Inject constructor(
             val sinceLastSetMs = SessionRest.sinceLastSetMs(partial.now, lastCompletedAt)
             ActiveWorkoutUiState(
                 isLoading = false,
+                // Non-fatal: the log still renders, with the failure shown alongside it.
+                errorMessage = error,
                 detail = detail,
                 exercises = detail.exercises.map { item ->
                     val unit = item.exercise.exerciseId?.let(partial.units::get) ?: ExerciseUnit.LB
@@ -213,7 +231,7 @@ class ActiveWorkoutViewModel @Inject constructor(
          * recomputed every second, so a naive check would fire continuously for as long as the timer
          * sat at zero. The ticker only runs while a timer is actually active.
          */
-        viewModelScope.launch {
+        launchSafely(::reportAsMessage) {
             restTimer
                 .flatMapLatest { state ->
                     if (state == null || !state.isActive) {
@@ -230,31 +248,65 @@ class ActiveWorkoutViewModel @Inject constructor(
     }
 
     fun expand(sessionExerciseId: Long) {
-        viewModelScope.launch {
+        launchSafely(::reportAsMessage) {
             workoutSessionRepository.updateExpandedExercise(sessionId, sessionExerciseId)
         }
     }
 
     fun addSet(sessionExerciseId: Long) {
-        viewModelScope.launch {
-            val state = uiState.value
-            val item = state.exercises.firstOrNull { it.item.exercise.id == sessionExerciseId } ?: return@launch
+        val previous = addSetJob
+        addSetJob = launchSafely(::reportAsMessage) {
+            // Wait for any insert still in flight, then re-read the sets straight from the
+            // database. Both halves are needed: uiState is fed by a Room flow that has not
+            // necessarily emitted the previous insert yet, so a second tap would otherwise derive
+            // the same set number and produce two sets numbered alike.
+            previous?.join()
+            val item = workoutSessionRepository.getSessionDetail(sessionId)
+                ?.exercises
+                ?.firstOrNull { it.exercise.id == sessionExerciseId }
+                ?: return@launchSafely
+            val unit = uiState.value.exercises
+                .firstOrNull { it.item.exercise.id == sessionExerciseId }
+                ?.unit
+                ?: ExerciseUnit.LB
             val next = SetPrefill.nextSet(
                 sessionExerciseId = sessionExerciseId,
-                existing = item.item.sets,
-                defaultUnit = item.unit,
-                historical = item.previous?.exercise,
+                existing = item.sets,
+                defaultUnit = unit,
+                historical = previousByExerciseSnapshot(sessionExerciseId),
                 targets = SetTargets(
-                    targetRepMin = item.item.exercise.targetRepMin,
-                    targetRepMax = item.item.exercise.targetRepMax,
-                    targetWeight = item.item.exercise.targetWeight,
-                    targetDurationSeconds = item.item.exercise.targetDurationSeconds,
-                    targetRestSeconds = item.item.exercise.targetRestSeconds,
+                    targetRepMin = item.exercise.targetRepMin,
+                    targetRepMax = item.exercise.targetRepMax,
+                    targetWeight = item.exercise.targetWeight,
+                    targetDurationSeconds = item.exercise.targetDurationSeconds,
+                    targetRestSeconds = item.exercise.targetRestSeconds,
                 ),
             )
             workoutSessionRepository.upsertSetLog(next)
         }
     }
+
+    /** A failed operation the user asked for: shown as a snackbar, the log stays usable. */
+    private fun reportAsMessage(throwable: Throwable) {
+        viewModelScope.launch {
+            eventsChannel.send(ActiveWorkoutEvent.Message(messageFor(throwable)))
+        }
+    }
+
+    /** A failed data source: shown on the screen, since there may be nothing left to render. */
+    private fun reportLoadError(throwable: Throwable) {
+        loadError.value = messageFor(throwable)
+    }
+
+    private fun messageFor(throwable: Throwable): String =
+        throwable.message?.takeIf { it.isNotBlank() }
+            ?: application.getString(R.string.state_error_generic)
+
+    private fun previousByExerciseSnapshot(sessionExerciseId: Long) =
+        uiState.value.exercises
+            .firstOrNull { it.item.exercise.id == sessionExerciseId }
+            ?.previous
+            ?.exercise
 
     fun toggleMoreFields(sessionExerciseId: Long) {
         revealed.update { current ->
@@ -269,7 +321,7 @@ class ActiveWorkoutViewModel @Inject constructor(
     }
 
     fun onSetCompleted(set: SetLog, completed: Boolean) {
-        viewModelScope.launch {
+        launchSafely(::reportAsMessage) {
             if (!completed) {
                 workoutSessionRepository.upsertSetLog(
                     set.copy(
@@ -278,7 +330,7 @@ class ActiveWorkoutViewModel @Inject constructor(
                         restAfterSetSeconds = null,
                     ),
                 )
-                return@launch
+                return@launchSafely
             }
             val now = timeProvider.nowEpochMs()
             val otherSets = currentDetail()
@@ -390,7 +442,7 @@ class ActiveWorkoutViewModel @Inject constructor(
     }
 
     fun finish() {
-        viewModelScope.launch {
+        launchSafely(::reportAsMessage) {
             flushDrafts()
             workoutSessionRepository.completeSession(sessionId)
             eventsChannel.send(ActiveWorkoutEvent.Finished)
@@ -398,7 +450,7 @@ class ActiveWorkoutViewModel @Inject constructor(
     }
 
     fun abandon() {
-        viewModelScope.launch {
+        launchSafely(::reportAsMessage) {
             flushDrafts()
             workoutSessionRepository.abandonSession(sessionId)
             eventsChannel.send(ActiveWorkoutEvent.Abandoned)
@@ -423,14 +475,14 @@ class ActiveWorkoutViewModel @Inject constructor(
         SetFieldVisibility.isVisible(field, unit, revealedFields)
 
     private fun persistSet(set: SetLog) {
-        viewModelScope.launch {
+        launchSafely(::reportAsMessage) {
             workoutSessionRepository.upsertSetLog(set)
         }
     }
 
     private fun debounce(key: String, block: suspend () -> Unit) {
         debounceJobs[key]?.cancel()
-        debounceJobs[key] = viewModelScope.launch {
+        debounceJobs[key] = launchSafely(::reportAsMessage) {
             delay(250)
             block()
         }

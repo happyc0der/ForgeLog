@@ -4,6 +4,7 @@ import dev.happyc0der.forgelog.data.local.dayEntity
 import dev.happyc0der.forgelog.data.local.exerciseEntity
 import dev.happyc0der.forgelog.data.local.programEntity
 import dev.happyc0der.forgelog.data.local.programExerciseEntity
+import dev.happyc0der.forgelog.domain.model.hasTargets
 import dev.happyc0der.forgelog.domain.model.Exercise
 import dev.happyc0der.forgelog.domain.model.ExerciseCategory
 import dev.happyc0der.forgelog.domain.model.ExerciseUnit
