@@ -17,6 +17,7 @@ import dev.happyc0der.forgelog.domain.repository.ExerciseRepository
 import dev.happyc0der.forgelog.domain.repository.ProgramRepository
 import dev.happyc0der.forgelog.domain.repository.WorkoutSessionRepository
 import dev.happyc0der.forgelog.domain.workout.PreviousWorkoutMatcher
+import dev.happyc0der.forgelog.ui.common.launchSafely
 import dev.happyc0der.forgelog.ui.navigation.StartWorkoutRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -87,6 +88,7 @@ class StartWorkoutViewModel @Inject constructor(
     private val dayName = MutableStateFlow<String?>(null)
     private val programId = MutableStateFlow<Long?>(null)
     private val loadingDay = MutableStateFlow(routeDayId > 0L)
+    private val errorMessage = MutableStateFlow<String?>(null)
     private val localIds = AtomicLong(1L)
     private var loadedDayId: Long? = null
 
@@ -122,10 +124,12 @@ class StartWorkoutViewModel @Inject constructor(
             )
         },
         loadingDay,
-    ) { partial, loading ->
+        errorMessage,
+    ) { partial, loading, error ->
         StartWorkoutUiState(
             isLoading = partial.selectedDayId != null && loading,
-            needsDaySelection = partial.selectedDayId == null,
+            errorMessage = error,
+            needsDaySelection = partial.selectedDayId == null && error == null,
             dayChoices = partial.dayChoices,
             programName = partial.programName,
             dayName = partial.dayName,
@@ -153,6 +157,7 @@ class StartWorkoutViewModel @Inject constructor(
 
     fun selectDay(dayId: Long) {
         loadedDayId = null
+        errorMessage.value = null
         loadingDay.value = true
         selectedDayId.value = dayId
     }
@@ -171,8 +176,8 @@ class StartWorkoutViewModel @Inject constructor(
     }
 
     fun addExercise(exerciseId: Long) {
-        viewModelScope.launch {
-            val exercise = exerciseRepository.getExercise(exerciseId) ?: return@launch
+        launchSafely(::reportAsMessage) {
+            val exercise = exerciseRepository.getExercise(exerciseId) ?: return@launchSafely
             val history = workoutSessionRepository.getRecentCompletedDetails(excludeSessionId = 0L)
             val item = PlannedExerciseItem(
                 localId = localIds.getAndIncrement(),
@@ -192,19 +197,19 @@ class StartWorkoutViewModel @Inject constructor(
     }
 
     fun confirmStart() {
-        viewModelScope.launch {
+        launchSafely(::reportAsMessage) {
             val dayId = selectedDayId.value
             val items = roster.value
             if (dayId == null || items.isEmpty()) {
                 eventsChannel.send(
                     StartWorkoutEvent.Message(application.getString(R.string.workout_need_exercises)),
                 )
-                return@launch
+                return@launchSafely
             }
             val existing = workoutSessionRepository.getInProgressSession()
             if (existing != null) {
                 eventsChannel.send(StartWorkoutEvent.Started(existing.id))
-                return@launch
+                return@launchSafely
             }
             val sessionId = workoutSessionRepository.startSession(
                 programId = programId.value,
@@ -222,14 +227,23 @@ class StartWorkoutViewModel @Inject constructor(
         }
     }
 
+    private fun reportAsMessage(throwable: Throwable) {
+        viewModelScope.launch {
+            eventsChannel.send(
+                StartWorkoutEvent.Message(
+                    throwable.message?.takeIf { it.isNotBlank() }
+                        ?: application.getString(R.string.state_error_generic),
+                ),
+            )
+        }
+    }
+
     private suspend fun loadDay(dayId: Long) {
         loadingDay.value = true
         val detail = programRepository.getDayDetail(dayId)
         if (detail == null) {
             loadingDay.value = false
-            eventsChannel.send(
-                StartWorkoutEvent.Message(application.getString(R.string.workout_day_missing)),
-            )
+            errorMessage.value = application.getString(R.string.workout_day_missing)
             return
         }
         val program = programRepository.getProgram(detail.day.programId)

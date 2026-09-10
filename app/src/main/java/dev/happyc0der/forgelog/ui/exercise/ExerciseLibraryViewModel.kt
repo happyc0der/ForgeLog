@@ -8,12 +8,16 @@ import dev.happyc0der.forgelog.domain.library.ExerciseDeletePolicy
 import dev.happyc0der.forgelog.domain.model.Exercise
 import dev.happyc0der.forgelog.domain.model.ExerciseCategory
 import dev.happyc0der.forgelog.domain.repository.ExerciseRepository
+import dev.happyc0der.forgelog.ui.common.launchSafely
+import dev.happyc0der.forgelog.ui.common.reportErrors
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -44,8 +48,17 @@ class ExerciseLibraryViewModel @Inject constructor(
     private val includeArchived = MutableStateFlow(false)
     private val loadError = MutableStateFlow<String?>(null)
 
+    /** Bumped by [retry] to re-subscribe after a failure, since `catch` ends the source flow. */
+    private val retryToken = MutableStateFlow(0)
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val exercises = retryToken.flatMapLatest {
+        exerciseRepository.observeExercises(includeArchived = true)
+            .reportErrors(emptyList()) { reportError(it) }
+    }
+
     val uiState: StateFlow<ExerciseLibraryUiState> = combine(
-        exerciseRepository.observeExercises(includeArchived = true),
+        exercises,
         query,
         category,
         includeArchived,
@@ -86,6 +99,27 @@ class ExerciseLibraryViewModel @Inject constructor(
         includeArchived.update { !it }
     }
 
+    fun retry() {
+        loadError.value = null
+        retryToken.update { it + 1 }
+    }
+
+    private fun reportError(throwable: Throwable) {
+        loadError.value = throwable.message?.takeIf { it.isNotBlank() }
+            ?: application.getString(R.string.state_error_generic)
+    }
+
+    private fun reportAsMessage(throwable: Throwable) {
+        viewModelScope.launch {
+            eventsChannel.send(
+                ExerciseLibraryEvent.Message(
+                    throwable.message?.takeIf { it.isNotBlank() }
+                        ?: application.getString(R.string.state_error_generic),
+                ),
+            )
+        }
+    }
+
     fun onOpenHowTo(exercise: Exercise) {
         val url = exercise.howToUrl ?: return
         viewModelScope.launch {
@@ -94,7 +128,7 @@ class ExerciseLibraryViewModel @Inject constructor(
     }
 
     fun archive(exercise: Exercise, archived: Boolean) {
-        viewModelScope.launch {
+        launchSafely(::reportAsMessage) {
             exerciseRepository.setArchived(exercise.id, archived)
             eventsChannel.send(
                 ExerciseLibraryEvent.Message(
@@ -107,7 +141,7 @@ class ExerciseLibraryViewModel @Inject constructor(
     }
 
     fun delete(exercise: Exercise) {
-        viewModelScope.launch {
+        launchSafely(::reportAsMessage) {
             val hasHistory = exerciseRepository.hasSessionHistory(exercise.id)
             if (!ExerciseDeletePolicy.canHardDelete(hasHistory)) {
                 eventsChannel.send(
@@ -115,7 +149,7 @@ class ExerciseLibraryViewModel @Inject constructor(
                         application.getString(R.string.exercise_archive_instead),
                     ),
                 )
-                return@launch
+                return@launchSafely
             }
             exerciseRepository.deleteIfUnusedInSessions(exercise.id)
             eventsChannel.send(

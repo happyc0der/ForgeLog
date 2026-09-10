@@ -123,7 +123,7 @@ fun ExerciseLibraryScreen(
             uiState.isLoading -> LoadingState(modifier = Modifier.padding(innerPadding))
             uiState.errorMessage != null -> ErrorState(
                 message = uiState.errorMessage ?: stringResource(R.string.state_error_generic),
-                onRetry = {},
+                onRetry = viewModel::retry,
                 modifier = Modifier.padding(innerPadding),
             )
             else -> {

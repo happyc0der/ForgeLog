@@ -8,6 +8,8 @@ import dev.happyc0der.forgelog.domain.model.DEFAULT_PROGRAM_COLOR
 import dev.happyc0der.forgelog.domain.model.ProgramSummary
 import dev.happyc0der.forgelog.domain.model.WorkoutProgram
 import dev.happyc0der.forgelog.domain.repository.ProgramRepository
+import dev.happyc0der.forgelog.ui.common.launchSafely
+import dev.happyc0der.forgelog.ui.common.reportErrors
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
@@ -38,14 +40,26 @@ class ProgramsViewModel @Inject constructor(
     private val programRepository: ProgramRepository,
 ) : ViewModel() {
     private val includeArchived = MutableStateFlow(false)
+    private val errorMessage = MutableStateFlow<String?>(null)
+
+    /** Bumped by [retry] to re-subscribe after a failure, since `catch` ends the source flow. */
+    private val retryToken = MutableStateFlow(0)
 
     @OptIn(ExperimentalCoroutinesApi::class)
+    private val summaries = combine(includeArchived, retryToken) { archived, _ -> archived }
+        .flatMapLatest { archived ->
+            programRepository.observeProgramSummaries(archived)
+                .reportErrors(emptyList()) { reportError(it) }
+        }
+
     val uiState: StateFlow<ProgramsUiState> = combine(
         includeArchived,
-        includeArchived.flatMapLatest(programRepository::observeProgramSummaries),
-    ) { showArchived, programs ->
+        summaries,
+        errorMessage,
+    ) { showArchived, programs, error ->
         ProgramsUiState(
             isLoading = false,
+            errorMessage = error,
             includeArchived = showArchived,
             programs = programs,
         )
@@ -62,8 +76,29 @@ class ProgramsViewModel @Inject constructor(
         includeArchived.value = !includeArchived.value
     }
 
-    fun createProgram(name: String, description: String) {
+    fun retry() {
+        errorMessage.value = null
+        retryToken.value += 1
+    }
+
+    private fun reportError(throwable: Throwable) {
+        errorMessage.value = throwable.message?.takeIf { it.isNotBlank() }
+            ?: application.getString(R.string.state_error_generic)
+    }
+
+    private fun reportAsMessage(throwable: Throwable) {
         viewModelScope.launch {
+            eventsChannel.send(
+                ProgramsEvent.Message(
+                    throwable.message?.takeIf { it.isNotBlank() }
+                        ?: application.getString(R.string.state_error_generic),
+                ),
+            )
+        }
+    }
+
+    fun createProgram(name: String, description: String) {
+        launchSafely(::reportAsMessage) {
             programRepository.upsertProgram(
                 WorkoutProgram(
                     name = name,
@@ -77,7 +112,7 @@ class ProgramsViewModel @Inject constructor(
     }
 
     fun renameProgram(program: WorkoutProgram, name: String, description: String) {
-        viewModelScope.launch {
+        launchSafely(::reportAsMessage) {
             programRepository.upsertProgram(
                 program.copy(
                     name = name,
@@ -88,7 +123,7 @@ class ProgramsViewModel @Inject constructor(
     }
 
     fun duplicate(programId: Long) {
-        viewModelScope.launch {
+        launchSafely(::reportAsMessage) {
             programRepository.duplicateProgram(programId)
             eventsChannel.send(
                 ProgramsEvent.Message(application.getString(R.string.program_duplicated)),
@@ -97,7 +132,7 @@ class ProgramsViewModel @Inject constructor(
     }
 
     fun setArchived(programId: Long, archived: Boolean) {
-        viewModelScope.launch {
+        launchSafely(::reportAsMessage) {
             programRepository.setArchived(programId, archived)
             eventsChannel.send(
                 ProgramsEvent.Message(
@@ -113,7 +148,7 @@ class ProgramsViewModel @Inject constructor(
         programRepository.hasSessionHistory(programId)
 
     fun delete(programId: Long) {
-        viewModelScope.launch {
+        launchSafely(::reportAsMessage) {
             programRepository.deleteProgram(programId)
             eventsChannel.send(
                 ProgramsEvent.Message(application.getString(R.string.program_deleted)),
