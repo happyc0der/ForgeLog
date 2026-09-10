@@ -25,6 +25,7 @@ import dev.happyc0der.forgelog.ui.settings.SettingsScreen
 import dev.happyc0der.forgelog.ui.workout.ActiveWorkoutScreen
 import dev.happyc0der.forgelog.ui.workout.StartWorkoutScreen
 import dev.happyc0der.forgelog.ui.workout.StartWorkoutViewModel
+import dev.happyc0der.forgelog.ui.workout.WorkoutSummaryScreen
 import dev.happyc0der.forgelog.ui.workout.rememberWorkoutNotificationStarter
 import dev.happyc0der.forgelog.workout.WorkoutForegroundService
 
@@ -51,6 +52,18 @@ fun ForgeLogNavHost(
     fun leaveLogger() {
         WorkoutForegroundService.stop(context)
         navController.popBackStack(HomeRoute, inclusive = false)
+    }
+
+    /**
+     * Replaces the logger with the summary rather than stacking on it: the workout is over, and
+     * backing out of the summary must not land on a log that can no longer be added to.
+     */
+    fun openSummary(sessionId: Long) {
+        WorkoutForegroundService.stop(context)
+        navController.navigate(WorkoutSummaryRoute(sessionId)) {
+            launchSingleTop = true
+            popUpTo<ActiveWorkoutRoute> { inclusive = true }
+        }
     }
 
     NavHost(
@@ -132,10 +145,20 @@ fun ForgeLogNavHost(
                 viewModel = viewModel,
             )
         }
-        composable<ActiveWorkoutRoute> {
+        composable<ActiveWorkoutRoute> { entry ->
+            val sessionId = entry.toRoute<ActiveWorkoutRoute>().sessionId
             ActiveWorkoutScreen(
                 onBack = { navController.popBackStack() },
                 onLeave = { leaveLogger() },
+                onFinished = { openSummary(sessionId) },
+            )
+        }
+        composable<WorkoutSummaryRoute> {
+            WorkoutSummaryScreen(
+                onDone = { navController.popBackStack(HomeRoute, inclusive = false) },
+                onViewLog = { id ->
+                    navController.navigate(SessionDetailRoute(id)) { launchSingleTop = true }
+                },
             )
         }
         composable<ExerciseLibraryRoute> { entry ->

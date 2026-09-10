@@ -31,7 +31,19 @@ object Formatters {
         }
     }
 
-    /** A single load, as opposed to a session's total volume. */
+    /**
+     * A single load held in pounds, converted for display — for values the domain normalised, such
+     * as a personal record or an estimated 1RM.
+     *
+     * Distinct from [weight], which formats a load already expressed in [unit] and so must not
+     * convert. Mixing the two shows pounds under a kilogram label.
+     */
+    fun load(loadLb: Double, unit: ExerciseUnit): String = weight(
+        value = if (unit == ExerciseUnit.KG) loadLb / KG_TO_LB else loadLb,
+        unit = unit,
+    )
+
+    /** A single load already expressed in [unit]. Formats only; never converts. */
     fun weight(value: Double, unit: ExerciseUnit): String {
         val suffix = if (unit == ExerciseUnit.KG) "kg" else "lb"
         return if (value % 1.0 == 0.0) {

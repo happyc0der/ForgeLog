@@ -184,6 +184,25 @@
     <string name="workout_notification_channel">Workout timer</string>
     <string name="workout_notification_channel_description">Live elapsed time for the workout you are logging.</string>
 
+    <string name="summary_title">Workout complete</string>
+    <string name="summary_subtitle">%1$s · %2$s</string>
+    <string name="summary_breakdown_title">What you did</string>
+    <string name="summary_top_set">%1$d × %2$s</string>
+    <string name="summary_exercise_sets">%1$d sets</string>
+    <string name="summary_no_completed_sets">No sets completed</string>
+    <string name="summary_records_title">New personal bests</string>
+    <string name="summary_records_none_title">No new bests today</string>
+    <string name="summary_records_none_message">Records come from completed working sets. Consistency counts for more than any single session.</string>
+    <string name="summary_record_first">First time logged</string>
+    <string name="summary_record_was">was %1$s</string>
+    <string name="summary_record_heaviest">Heaviest weight</string>
+    <string name="summary_record_most_reps">Most reps</string>
+    <string name="summary_record_set_volume">Best set volume</string>
+    <string name="summary_record_duration">Longest hold</string>
+    <string name="summary_record_one_rep_max">Best estimated 1RM</string>
+    <string name="summary_action_done">Done</string>
+    <string name="summary_action_view_log">View full log</string>
+
     <string name="set_type_warmup">Warmup</string>
     <string name="set_type_working">Working</string>
     <string name="set_type_drop">Drop</string>

@@ -146,9 +146,9 @@ class ActiveWorkoutViewModel @Inject constructor(
                 }
             }
         }
-        // A failure to look up history must not take the whole screen down: the log is still usable
-        // without the "last time" column.
-        .reportErrors(emptyMap()) { reportLoadError(it) }
+        // A failure to look up history must not take the screen down, or even dominate it: the log
+        // is still usable without the "last time" column, so this is a snackbar.
+        .reportErrors(emptyMap()) { reportAsMessage(it) }
 
     val uiState: StateFlow<ActiveWorkoutUiState> = combine(
         combine(

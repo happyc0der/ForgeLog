@@ -82,7 +82,7 @@ object PersonalRecords {
      */
     fun byExercise(history: List<SessionDetail>): Map<String, ExerciseRecords> =
         candidates(history)
-            .groupBy { candidate -> candidate.exerciseId?.toString() ?: "name:${candidate.exerciseName}" }
+            .groupBy(::recordKey)
             .mapValues { (_, candidates) -> records(candidates) }
 
     fun records(candidates: List<PrCandidate>): ExerciseRecords {
@@ -103,6 +103,40 @@ object PersonalRecords {
                 .mapValues { (_, sets) -> sets.maxOf { it.reps!! } },
         )
     }
+
+    /**
+     * The records [session] set, judged against [priorHistory].
+     *
+     * [priorHistory] must exclude [session] itself, or every set would be compared against a table
+     * it is already in and nothing would ever count as a record.
+     *
+     * At most one entry per exercise and kind: three sets each heavier than the old best is one new
+     * heaviest weight, not three. Ordered heaviest-first within an exercise so the headline record
+     * leads.
+     */
+    fun achievedIn(session: SessionDetail, priorHistory: List<SessionDetail>): List<SessionRecord> {
+        val prior = byExercise(priorHistory)
+        return candidates(listOf(session))
+            .groupBy(::recordKey)
+            .flatMap { (key, sessionCandidates) ->
+                val existing = prior[key]
+                RecordKind.entries.mapNotNull { kind ->
+                    // The session's own best for this kind is the only one worth comparing: a
+                    // lesser set from the same session cannot be the record either way.
+                    val best = sessionCandidates.bestBy(kind.selector) ?: return@mapNotNull null
+                    if (kind !in beats(existing, best)) return@mapNotNull null
+                    SessionRecord(
+                        exerciseName = best.exerciseName,
+                        kind = kind,
+                        candidate = best,
+                        previousBest = existing?.let(kind.previous),
+                    )
+                }
+            }
+    }
+
+    private fun recordKey(candidate: PrCandidate): String =
+        candidate.exerciseId?.toString() ?: "name:${candidate.exerciseName}"
 
     /**
      * Whether [set] beats the stored records for its exercise.
@@ -162,10 +196,44 @@ object PersonalRecords {
     }
 }
 
+/**
+ * One record set in one session.
+ *
+ * [previousBest] is null when there was nothing to beat — a first-ever entry for that exercise is a
+ * record, but calling it an improvement would be a lie, and the UI needs to be able to tell.
+ */
+data class SessionRecord(
+    val exerciseName: String,
+    val kind: RecordKind,
+    val candidate: PrCandidate,
+    val previousBest: PrCandidate?,
+)
+
 enum class RecordKind {
     HEAVIEST_WEIGHT,
     MOST_REPS,
     BEST_SET_VOLUME,
     LONGEST_DURATION,
     BEST_ESTIMATED_1RM,
+    ;
+
+    /** The measure this record ranks by. Null means the set makes no claim of this kind. */
+    internal val selector: (PrCandidate) -> Double?
+        get() = when (this) {
+            HEAVIEST_WEIGHT -> { candidate -> candidate.weightLb }
+            MOST_REPS -> { candidate -> candidate.reps?.toDouble() }
+            BEST_SET_VOLUME -> { candidate -> candidate.setVolumeLb }
+            LONGEST_DURATION -> { candidate -> candidate.durationSeconds?.toDouble() }
+            BEST_ESTIMATED_1RM -> { candidate -> candidate.estimatedOneRepMaxLb }
+        }
+
+    /** Where this kind's standing record lives on an [ExerciseRecords]. */
+    internal val previous: (ExerciseRecords) -> PrCandidate?
+        get() = when (this) {
+            HEAVIEST_WEIGHT -> ExerciseRecords::heaviestWeight
+            MOST_REPS -> ExerciseRecords::mostReps
+            BEST_SET_VOLUME -> ExerciseRecords::bestSetVolume
+            LONGEST_DURATION -> ExerciseRecords::longestDuration
+            BEST_ESTIMATED_1RM -> ExerciseRecords::bestEstimatedOneRepMax
+        }
 }

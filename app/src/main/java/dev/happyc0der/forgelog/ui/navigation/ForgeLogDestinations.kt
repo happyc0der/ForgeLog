@@ -72,6 +72,17 @@ data class ActiveWorkoutRoute(
     val sessionId: Long,
 )
 
+/**
+ * What the workout came to, shown once, straight after finishing.
+ *
+ * Replaces the logger on the back stack rather than sitting on top of it: the session is over, and
+ * backing out of the summary must not land on a log that can no longer be added to.
+ */
+@Serializable
+data class WorkoutSummaryRoute(
+    val sessionId: Long,
+)
+
 enum class TopLevelDestination(
     val route: Any,
     @param:StringRes val labelRes: Int,

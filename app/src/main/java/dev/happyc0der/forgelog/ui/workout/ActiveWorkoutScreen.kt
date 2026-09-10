@@ -70,6 +70,7 @@ import kotlinx.coroutines.launch
 fun ActiveWorkoutScreen(
     onBack: () -> Unit,
     onLeave: () -> Unit,
+    onFinished: () -> Unit,
     viewModel: ActiveWorkoutViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -85,9 +86,10 @@ fun ActiveWorkoutScreen(
         viewModel.events.collect { event ->
             when (event) {
                 is ActiveWorkoutEvent.Message -> snackbarHostState.showSnackbar(event.value)
-                ActiveWorkoutEvent.Finished,
-                ActiveWorkoutEvent.Abandoned,
-                -> onLeave()
+                // Finishing and abandoning are not the same outcome: one earned a summary, the
+                // other has nothing to show.
+                ActiveWorkoutEvent.Finished -> onFinished()
+                ActiveWorkoutEvent.Abandoned -> onLeave()
                 ActiveWorkoutEvent.RestFinished -> RestTimerFeedback.signal(
                     context = context,
                     vibrate = uiState.vibrateOnRestEnd,
@@ -149,7 +151,10 @@ fun ActiveWorkoutScreen(
     ) { innerPadding ->
         when {
             uiState.isLoading -> LoadingState(modifier = Modifier.padding(innerPadding))
-            uiState.errorMessage != null || uiState.detail == null -> ErrorState(
+            // Only when there is genuinely nothing to render. A recoverable failure carries an
+            // errorMessage alongside a usable log, and belongs in a snackbar rather than replacing
+            // a workout in progress with an error page.
+            uiState.detail == null -> ErrorState(
                 message = uiState.errorMessage ?: stringResource(R.string.workout_session_missing),
                 onRetry = onBack,
                 modifier = Modifier.padding(innerPadding),
