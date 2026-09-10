@@ -63,7 +63,7 @@ data class ActiveWorkoutRoute(
 
 enum class TopLevelDestination(
     val route: Any,
-    @StringRes val labelRes: Int,
+    @param:StringRes val labelRes: Int,
     val selectedIcon: ImageVector,
     val unselectedIcon: ImageVector,
 ) {
