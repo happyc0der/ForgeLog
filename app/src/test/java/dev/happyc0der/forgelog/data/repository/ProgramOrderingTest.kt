@@ -91,4 +91,18 @@ class ProgramOrderingTest {
         assertEquals(listOf(1, 2), orders)
         assertEquals(2, env.programRepository.getDayDetail(duplicated)!!.day.dayOrder)
     }
+
+    @Test
+    fun `creating a day after a deletion does not reuse an occupied position`() = runTest {
+        env.programRepository.appendDay(programId, "Pull")
+        env.programRepository.appendDay(programId, "Legs")
+        // Delete the first of the three days, leaving positions 1 and 2 in use.
+        env.programRepository.deleteDay(dayId)
+
+        val created = env.programRepository.appendDay(programId, "Upper")
+
+        val orders = env.programRepository.getProgramDetail(programId)!!.days.map { it.day.dayOrder }
+        assertEquals("positions must stay unique", orders.size, orders.distinct().size)
+        assertEquals(3, env.programRepository.getDayDetail(created)!!.day.dayOrder)
+    }
 }

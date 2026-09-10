@@ -26,6 +26,12 @@ interface ProgramRepository {
     suspend fun deleteDay(id: Long)
     suspend fun duplicateDay(dayId: Long): Long
     suspend fun reorderDays(orderedDayIds: List<Long>)
+
+    /**
+     * Adds a day named [name] to the end of [programId], choosing the next order inside a
+     * transaction — for the same reason [appendProgramExercise] does.
+     */
+    suspend fun appendDay(programId: Long, name: String): Long
     /**
      * Adds [exerciseId] to the end of [programDayId], choosing the next order inside a transaction.
      *

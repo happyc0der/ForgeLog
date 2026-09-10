@@ -13,6 +13,8 @@ import dev.happyc0der.forgelog.domain.model.ProgramExerciseDetail
 import dev.happyc0der.forgelog.domain.model.ProgramExercise
 import dev.happyc0der.forgelog.domain.repository.ExerciseRepository
 import dev.happyc0der.forgelog.domain.repository.ProgramRepository
+import dev.happyc0der.forgelog.ui.common.launchSafely
+import dev.happyc0der.forgelog.ui.common.reportErrors
 import dev.happyc0der.forgelog.ui.exercise.ExerciseFormState
 import dev.happyc0der.forgelog.ui.navigation.ProgramDayBuilderRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -61,7 +63,9 @@ class ProgramDayBuilderViewModel @Inject constructor(
     private val draftExerciseOrder = MutableStateFlow<List<Long>?>(null)
 
     val uiState: StateFlow<ProgramDayBuilderUiState> = combine(
-        programRepository.observeDayDetail(dayId),
+        // Without the catch, a Room failure completes the flow exceptionally and the collecting
+        // stateIn crashes, so the error state below could never be reached.
+        programRepository.observeDayDetail(dayId).reportErrors(null) { reportAsMessage(it) },
         draftExerciseOrder,
     ) { detail, draft ->
         if (detail == null) {
@@ -87,14 +91,14 @@ class ProgramDayBuilderViewModel @Inject constructor(
      * like "warm up the hips properly" had nowhere to live.
      */
     fun setDayNotes(notes: String) {
-        viewModelScope.launch {
-            val day = programRepository.getDayDetail(dayId)?.day ?: return@launch
+        launchSafely(::reportAsMessage) {
+            val day = programRepository.getDayDetail(dayId)?.day ?: return@launchSafely
             programRepository.upsertDay(day.copy(notes = notes.trim().ifBlank { null }))
         }
     }
 
     fun addExercise(exerciseId: Long) {
-        viewModelScope.launch { appendExercise(exerciseId, announce = true) }
+        launchSafely(::reportAsMessage) { appendExercise(exerciseId, announce = true) }
     }
 
     /**
@@ -118,7 +122,7 @@ class ProgramDayBuilderViewModel @Inject constructor(
         if (name.isEmpty()) return false
         val url = HowToUrl.normalize(form.howToUrl).getOrNull()
         if (form.howToUrl.isNotBlank() && url == null) return false
-        viewModelScope.launch {
+        launchSafely(::reportAsMessage) {
             val newId = exerciseRepository.upsert(
                 Exercise(
                     name = name,
@@ -140,13 +144,13 @@ class ProgramDayBuilderViewModel @Inject constructor(
     }
 
     fun saveProgramExercise(exercise: ProgramExercise) {
-        viewModelScope.launch {
+        launchSafely(::reportAsMessage) {
             programRepository.upsertProgramExercise(exercise)
         }
     }
 
     fun removeProgramExercise(id: Long) {
-        viewModelScope.launch {
+        launchSafely(::reportAsMessage) {
             programRepository.deleteProgramExercise(id)
             eventsChannel.send(
                 ProgramDayBuilderEvent.Message(application.getString(R.string.program_exercise_removed)),
@@ -165,7 +169,7 @@ class ProgramDayBuilderViewModel @Inject constructor(
 
     fun persistExerciseOrder() {
         val order = draftExerciseOrder.value ?: return
-        viewModelScope.launch {
+        launchSafely(::reportAsMessage) {
             runCatching { programRepository.reorderProgramExercises(order) }
                 .onFailure { throwable ->
                     eventsChannel.send(
@@ -180,11 +184,23 @@ class ProgramDayBuilderViewModel @Inject constructor(
     }
 
     fun duplicateDay() {
-        viewModelScope.launch {
+        launchSafely(::reportAsMessage) {
             val newId = programRepository.duplicateDay(dayId)
             eventsChannel.send(ProgramDayBuilderEvent.Duplicated(newId))
             eventsChannel.send(
                 ProgramDayBuilderEvent.Message(application.getString(R.string.program_day_duplicated)),
+            )
+        }
+    }
+
+    /** A failed operation becomes a message rather than reaching the uncaught handler. */
+    private fun reportAsMessage(throwable: Throwable) {
+        viewModelScope.launch {
+            eventsChannel.send(
+                ProgramDayBuilderEvent.Message(
+                    throwable.message?.takeIf { it.isNotBlank() }
+                        ?: application.getString(R.string.state_error_generic),
+                ),
             )
         }
     }

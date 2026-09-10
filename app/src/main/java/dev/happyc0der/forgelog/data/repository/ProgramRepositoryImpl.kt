@@ -168,6 +168,19 @@ class ProgramRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun appendDay(programId: Long, name: String): Long =
+        withContext(ioDispatcher) {
+            database.withTransaction {
+                programDao.insertDay(
+                    ProgramDay(
+                        programId = programId,
+                        name = name,
+                        dayOrder = programDao.nextDayOrder(programId),
+                    ).toEntity(),
+                )
+            }
+        }
+
     override suspend fun upsertDay(day: ProgramDay): Long = withContext(ioDispatcher) {
         programDao.upsertDay(day.toEntity())
     }

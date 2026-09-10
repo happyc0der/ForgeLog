@@ -6,6 +6,7 @@ import dev.happyc0der.forgelog.domain.model.WorkoutSession
 import dev.happyc0der.forgelog.domain.repository.WorkoutSessionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -25,6 +26,10 @@ class WorkoutResumeViewModel @Inject constructor(
 
     val coldStart: StateFlow<ColdStartState> = workoutSessionRepository.observeInProgressSession()
         .map<WorkoutSession?, ColdStartState> { session -> ColdStartState.Ready(session) }
+        // This runs at cold start, before any screen exists to show an error. A failure means only
+        // that no session is offered for resuming, which is recoverable; letting it escape would
+        // take the app down on launch, which is not.
+        .catch { emit(ColdStartState.Ready(null)) }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.Eagerly,

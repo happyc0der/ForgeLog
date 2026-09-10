@@ -97,27 +97,24 @@ class ProgramDetailViewModel @Inject constructor(
     }
 
     fun createDay(name: String) {
-        viewModelScope.launch {
-            val detail = programRepository.getProgramDetail(programId) ?: return@launch
-            val id = programRepository.upsertDay(
-                ProgramDay(
-                    programId = programId,
-                    name = name,
-                    dayOrder = detail.days.size,
-                ),
-            )
+        launchSafely(::reportAsMessage) {
+            // The repository picks the order inside a transaction. Counting the days here and then
+            // inserting has the same two failure modes as anywhere else: a gap left by a deleted
+            // day makes the count collide with a position still in use, and two quick creates both
+            // read the same count.
+            val id = programRepository.appendDay(programId, name)
             eventsChannel.send(ProgramDetailEvent.OpenDay(id))
         }
     }
 
     fun renameDay(day: ProgramDay, name: String) {
-        viewModelScope.launch {
+        launchSafely(::reportAsMessage) {
             programRepository.upsertDay(day.copy(name = name))
         }
     }
 
     fun duplicateDay(dayId: Long) {
-        viewModelScope.launch {
+        launchSafely(::reportAsMessage) {
             programRepository.duplicateDay(dayId)
             eventsChannel.send(
                 ProgramDetailEvent.Message(application.getString(R.string.program_day_duplicated)),
@@ -126,7 +123,7 @@ class ProgramDetailViewModel @Inject constructor(
     }
 
     fun deleteDay(dayId: Long) {
-        viewModelScope.launch {
+        launchSafely(::reportAsMessage) {
             programRepository.deleteDay(dayId)
         }
     }
