@@ -123,6 +123,9 @@ class ActiveWorkoutViewModel @Inject constructor(
      */
     private var addSetJob: Job? = null
 
+    /** Serialises ticks, for the same reason; see [onSetCompleted]. */
+    private var completionJob: Job? = null
+
     /*
      * The rest countdown is not held here. It lives in [RestTimerController], for the app, because
      * this ViewModel is destroyed as soon as the user leaves the logger -- and the countdown, and
@@ -428,7 +431,13 @@ class ActiveWorkoutViewModel @Inject constructor(
      * was saved, and measured, as the old one.
      */
     fun onSetCompleted(set: SetLog, completed: Boolean) {
-        launchSafely(::reportAsMessage) {
+        // One at a time, each seeing the last one's writes: two ticks in quick succession each
+        // read the session before the other had written, so both measured from the same set.
+        // Timed at the tap, not whenever the queued work gets to run.
+        val tappedAt = timeProvider.nowEpochMs()
+        val previousCompletion = completionJob
+        completionJob = launchSafely(::reportAsMessage) {
+            previousCompletion?.join()
             val allSets = workoutSessionRepository.getSessionDetail(sessionId)
                 ?.exercises
                 ?.flatMap { it.sets }
@@ -445,18 +454,20 @@ class ActiveWorkoutViewModel @Inject constructor(
                 restTimerController.stopIfStartedBy(sessionId, set.id)
                 return@launchSafely
             }
-            val now = timeProvider.nowEpochMs()
+            val now = tappedAt
             val previous = SessionRest.previousCompleted(allSets.asSequence(), excludeSetId = set.id)
             workoutSessionRepository.upsertSetLog(current.copy(completed = true, completedAt = now))
-            if (previous != null) {
-                workoutSessionRepository.setRestAfter(
-                    setLogId = previous.id,
-                    seconds = SessionRest.restAfterSetSeconds(
-                        nowEpochMs = now,
-                        lastCompletedAt = previous.completedAt,
-                        nextSetDurationSeconds = current.durationSeconds,
-                    ),
+            val measured = previous?.let {
+                SessionRest.restAfterSetSeconds(
+                    nowEpochMs = now,
+                    lastCompletedAt = it.completedAt,
+                    nextSetDurationSeconds = current.durationSeconds,
                 )
+            }
+            // Null when there is nothing to measure -- the first set, or sets ticked off in a row
+            // after the fact -- and then the earlier set keeps the rest it already had.
+            if (previous != null && measured != null) {
+                workoutSessionRepository.setRestAfter(setLogId = previous.id, seconds = measured)
             }
             startRestTimer(set.sessionExerciseId, now, startedBySetId = set.id)
         }

@@ -65,4 +65,10 @@ class SessionRestTest {
             ),
         )
     }
+
+    @Test
+    fun `ticks seconds apart are catching up, not a rest`() {
+        assertNull(SessionRest.restAfterSetSeconds(nowEpochMs = 3_000L, lastCompletedAt = 1_000L))
+        assertEquals(10, SessionRest.restAfterSetSeconds(nowEpochMs = 11_000L, lastCompletedAt = 1_000L))
+    }
 }

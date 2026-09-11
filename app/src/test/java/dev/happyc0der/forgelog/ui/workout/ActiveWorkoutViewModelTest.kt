@@ -654,6 +654,50 @@ class ActiveWorkoutViewModelTest {
     }
 
     @Test
+    fun `sets ticked off in a row after the fact keep their planned rest`() = runTest {
+        val vm = viewModel()
+        loaded(vm)
+        val (first, second, third) = addSets(vm, sessionExerciseId, count = 3)
+
+        // The workout is over and the user is catching up: three ticks, a second or two apart.
+        vm.onSetCompleted(first, true)
+        env.time.now += 1_500L
+        vm.onSetCompleted(second, true)
+        env.time.now += 1_500L
+        vm.onSetCompleted(third, true)
+        runCurrent()
+        vm.viewModelScope.cancel()
+
+        val after = sets().sortedBy { it.setNumber }
+        assertTrue(after.all { it.completed })
+        // Not "rest 1s": nothing was measured, so each keeps the planned 120 s.
+        assertEquals(listOf(120, 120, 120), after.map { it.restAfterSetSeconds })
+    }
+
+    @Test
+    fun `ticks in quick succession are measured one after another`() = runTest {
+        val vm = viewModel()
+        loaded(vm)
+        val (first, second, third) = addSets(vm, sessionExerciseId, count = 3)
+        vm.onSetCompleted(first, true)
+        runCurrent()
+
+        // Both launched before either has run: the second must see the first's write.
+        env.time.now += 60_000L
+        vm.onSetCompleted(second, true)
+        env.time.now += 30_000L
+        vm.onSetCompleted(third, true)
+        runCurrent()
+        vm.viewModelScope.cancel()
+
+        val after = sets().sortedBy { it.setNumber }
+        assertEquals(60, after[0].restAfterSetSeconds)
+        // Measured from set 2, which the second tick could only see because it waited: racing,
+        // it measured from set 1 as well, overwrote set 1 with 90 and left set 2 unmeasured.
+        assertEquals(30, after[1].restAfterSetSeconds)
+    }
+
+    @Test
     fun `unticking a set leaves the recorded rest alone`() = runTest {
         val vm = viewModel()
         loaded(vm)

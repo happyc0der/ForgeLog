@@ -48,9 +48,15 @@ object SessionRest {
         nextSetDurationSeconds: Int? = null,
     ): Int? {
         if (lastCompletedAt == null) return null
+        // Seconds apart is the user ticking off sets already done, not a rest and a set. Measuring
+        // it recorded "rest 1s" over the planned rest of every set caught up on.
+        if (nowEpochMs - lastCompletedAt < CATCH_UP_GAP_MS) return null
         val gapSeconds = (nowEpochMs - lastCompletedAt) / 1000L
         return (gapSeconds - (nextSetDurationSeconds ?: 0)).coerceAtLeast(0L).toInt()
     }
+
+    /** Ticks closer together than this cannot have a rest and a set between them. */
+    const val CATCH_UP_GAP_MS = 10_000L
 
     fun sinceLastSetMs(nowEpochMs: Long, lastCompletedAt: Long?): Long? {
         if (lastCompletedAt == null) return null
