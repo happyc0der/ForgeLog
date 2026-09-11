@@ -237,6 +237,29 @@ class HistoryViewModelTest {
     }
 
     @Test
+    fun `the last date choice wins when two come in quick succession`() = runTest {
+        seedThree()
+        val vm = viewModel()
+        vm.uiState.test {
+            var state = awaitItem()
+            while (state.rows.size < 3) state = awaitItem()
+
+            // Both before either has run: "This week" must not land after "clear".
+            vm.onPresetSelected(DateRangePreset.THIS_WEEK)
+            vm.clearFilters()
+            advanceUntilIdle()
+
+            // Nothing new may have been emitted -- clearing restored the defaults -- so read the
+            // current value rather than waiting for an emission.
+            state = vm.uiState.value
+            assertEquals(DateRangePreset.ALL_TIME, state.preset)
+            assertEquals(null, state.filter.fromEpochMs)
+            assertEquals(3, state.rows.size)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun `clearing filters restores the full list`() = runTest {
         seedThree()
         val vm = viewModel()

@@ -22,6 +22,7 @@ import dev.happyc0der.forgelog.ui.common.launchSafely
 import dev.happyc0der.forgelog.ui.common.reportErrors
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -96,6 +97,7 @@ class HistoryViewModel @Inject constructor(
     private val preset = MutableStateFlow(DateRangePreset.ALL_TIME)
     private val errorMessage = MutableStateFlow<String?>(null)
     private val retryToken = MutableStateFlow(0)
+    private var presetJob: Job? = null
 
     private val eventsChannel = Channel<HistoryEvent>(Channel.BUFFERED)
     val events = eventsChannel.receiveAsFlow()
@@ -200,7 +202,10 @@ class HistoryViewModel @Inject constructor(
         // has been given real dates, so the chip cannot show as selected while the filter is
         // still whatever it was.
         if (value == DateRangePreset.CUSTOM) return
-        launchSafely(::reportAsMessage) {
+        // The latest tap wins: the setting is read asynchronously, so "This week" then "All time"
+        // in quick succession could otherwise finish the other way round.
+        presetJob?.cancel()
+        presetJob = launchSafely(::reportAsMessage) {
             val now = timeProvider.nowEpochMs()
             val zone = zoneProvider.zone()
             // The week starts where Settings says. It was always Monday here while Home and
@@ -224,6 +229,7 @@ class HistoryViewModel @Inject constructor(
 
     /** Explicit range, for when the presets do not cover what the user wants. */
     fun setDateRange(fromEpochMs: Long?, untilEpochMs: Long?) {
+        presetJob?.cancel()
         preset.value = if (fromEpochMs == null && untilEpochMs == null) {
             DateRangePreset.ALL_TIME
         } else {
@@ -233,6 +239,7 @@ class HistoryViewModel @Inject constructor(
     }
 
     fun clearFilters() {
+        presetJob?.cancel()
         preset.value = DateRangePreset.ALL_TIME
         filter.value = HistoryFilter()
     }
