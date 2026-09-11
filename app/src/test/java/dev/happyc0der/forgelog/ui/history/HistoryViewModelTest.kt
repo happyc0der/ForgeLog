@@ -340,6 +340,24 @@ class HistoryViewModelTest {
         }
     }
 
+    /**
+     * Two taps each found no workout running and started one. Only the newest is ever resumed, so the
+     * other stayed in progress for good, with no way to reach or finish it.
+     */
+    @Test
+    fun `two taps on repeat start one workout`() = runTest {
+        val sessionId = session("Push Day", day = 11, programId = pplId, exerciseId = benchId)
+        val vm = viewModel()
+
+        vm.repeatSession(sessionId)
+        vm.repeatSession(sessionId)
+        advanceUntilIdle()
+
+        val inProgress = env.database.backupDao().allSessions()
+            .count { it.status == SessionStatus.IN_PROGRESS }
+        assertEquals(1, inProgress)
+    }
+
     @Test
     fun `repeating a missing session reports a message instead of crashing`() = runTest {
         val vm = viewModel()

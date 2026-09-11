@@ -264,8 +264,19 @@ class HistoryViewModel @Inject constructor(
         }
     }
 
+    /**
+     * One repeat at a time, as on the session-detail screen.
+     *
+     * The check and the insert are two steps, so two of these running together both found no workout
+     * in progress and started one. Only the newest is ever resumed, which leaves the other in
+     * progress for good -- shown in History as still running, with no way to finish it. The menu item
+     * stays tappable through the menu's closing animation, which is long enough for a second tap.
+     */
+    private var repeatJob: Job? = null
+
     fun repeatSession(sessionId: Long) {
-        launchSafely(::reportAsMessage) {
+        if (repeatJob?.isActive == true) return
+        repeatJob = launchSafely(::reportAsMessage) {
             val existing = workoutSessionRepository.getInProgressSession()
             if (existing != null) {
                 eventsChannel.send(
