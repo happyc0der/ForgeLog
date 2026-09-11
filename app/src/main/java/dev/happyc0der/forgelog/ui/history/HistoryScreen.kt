@@ -229,7 +229,14 @@ fun HistoryScreen(
                         today = uiState.today,
                         zone = zone,
                         onOpen = onOpenSession,
-                        onRepeat = { viewModel.repeatSession(it.summary.sessionId) },
+                        // A workout still in progress is gone back into, not repeated.
+                        onRepeat = { row ->
+                            if (row.status == SessionStatus.IN_PROGRESS) {
+                                onResumeWorkout(row.summary.sessionId)
+                            } else {
+                                viewModel.repeatSession(row.summary.sessionId)
+                            }
+                        },
                         onSaveAsDay = { pendingSaveAsDayId = it.summary.sessionId },
                         onDelete = { pendingDeleteId = it.summary.sessionId },
                     )
@@ -386,7 +393,17 @@ private fun HistoryRowCard(
                                 },
                             )
                             DropdownMenuItem(
-                                text = { Text(text = stringResource(R.string.history_repeat)) },
+                                text = {
+                                    Text(
+                                        text = stringResource(
+                                            if (row.status == SessionStatus.IN_PROGRESS) {
+                                                R.string.home_resume_workout
+                                            } else {
+                                                R.string.history_repeat
+                                            },
+                                        ),
+                                    )
+                                },
                                 onClick = {
                                     menuOpen = false
                                     onRepeat(row)
