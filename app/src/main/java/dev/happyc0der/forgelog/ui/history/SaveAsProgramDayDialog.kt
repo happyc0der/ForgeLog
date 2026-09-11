@@ -10,7 +10,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -32,8 +32,16 @@ internal fun SaveAsProgramDayDialog(
     onConfirm: (programId: Long, dayName: String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var selectedProgram by remember(programs) { mutableStateOf(programs.firstOrNull()) }
-    var dayName by remember { mutableStateOf(sessionName.substringAfterLast(" · ").ifBlank { sessionName }) }
+    /*
+     * Saved, not merely remembered: the dialog itself survives a rotation, so a name typed into it
+     * and the program chosen for it have to as well. They used to reset to the session's own name
+     * and the first program in the list, silently, mid-edit.
+     */
+    var selectedProgramId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var dayName by rememberSaveable {
+        mutableStateOf(sessionName.substringAfterLast(" · ").ifBlank { sessionName })
+    }
+    val selectedProgram = programs.firstOrNull { it.id == selectedProgramId } ?: programs.firstOrNull()
     val canConfirm = selectedProgram != null && dayName.isNotBlank()
 
     AlertDialog(
@@ -50,7 +58,7 @@ internal fun SaveAsProgramDayDialog(
                         selected = selectedProgram,
                         options = programs,
                         optionLabel = WorkoutProgram::name,
-                        onSelect = { selectedProgram = it },
+                        onSelect = { selectedProgramId = it?.id },
                         anyLabel = stringResource(R.string.history_filter_any),
                         modifier = Modifier.fillMaxWidth(),
                     )

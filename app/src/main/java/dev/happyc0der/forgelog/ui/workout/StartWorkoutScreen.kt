@@ -44,6 +44,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -85,28 +86,36 @@ fun StartWorkoutScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     // Its duration and rest fields read "1m 30s" only once they lose focus.
     ClearFocusWhenKeyboardHides()
-    var alreadyRunning by remember { mutableStateOf<StartWorkoutEvent.AlreadyInProgress?>(null) }
+    /*
+     * Held as two saved values rather than the event itself, so a rotation does not close the
+     * question silently -- leaving the user back at the planner with no idea why Start did nothing.
+     */
+    var runningSessionId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var runningSessionName by rememberSaveable { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
             when (event) {
                 is StartWorkoutEvent.Message -> snackbarHostState.showSnackbar(event.value)
                 is StartWorkoutEvent.Started -> onStarted(event.sessionId)
-                is StartWorkoutEvent.AlreadyInProgress -> alreadyRunning = event
+                is StartWorkoutEvent.AlreadyInProgress -> {
+                    runningSessionId = event.sessionId
+                    runningSessionName = event.sessionName
+                }
             }
         }
     }
 
-    alreadyRunning?.let { running ->
+    runningSessionId?.let { sessionId ->
         ConfirmDialog(
             title = stringResource(R.string.workout_in_progress_title),
-            message = stringResource(R.string.workout_in_progress_message, running.sessionName),
+            message = stringResource(R.string.workout_in_progress_message, runningSessionName),
             confirmLabel = stringResource(R.string.workout_in_progress_resume),
             onConfirm = {
-                alreadyRunning = null
-                onStarted(running.sessionId)
+                runningSessionId = null
+                onStarted(sessionId)
             },
-            onDismiss = { alreadyRunning = null },
+            onDismiss = { runningSessionId = null },
         )
     }
 
