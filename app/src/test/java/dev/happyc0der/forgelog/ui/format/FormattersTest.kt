@@ -108,6 +108,10 @@ class FormattersTest {
         assertEquals("100 lb", Formatters.load(100.0, ExerciseUnit.LB))
         assertEquals("45.4 kg", Formatters.load(100.0, ExerciseUnit.KG))
         assertEquals("100 kg", Formatters.weight(100.0, ExerciseUnit.KG))
+        // Converted loads land a hair off whole numbers; they read as the whole number.
+        assertEquals("152 kg", Formatters.weight(151.95, ExerciseUnit.KG))
+        assertEquals("22.5 lb", Formatters.weight(22.5, ExerciseUnit.LB))
+        assertEquals("233.3 lb", Formatters.weight(233.333, ExerciseUnit.LB))
     }
 
     @Test

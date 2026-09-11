@@ -47,14 +47,16 @@ object Formatters {
         unit = unit,
     )
 
-    /** A single load already expressed in [unit]. Formats only; never converts. */
+    /**
+     * A single load already expressed in [unit]. Formats only; never converts.
+     *
+     * One decimal at most, and none when it rounds to a whole number: a converted 151.95 kg reads
+     * "152 kg", not "152.0 kg".
+     */
     fun weight(value: Double, unit: ExerciseUnit): String {
         val suffix = if (unit == ExerciseUnit.KG) "kg" else "lb"
-        return if (value % 1.0 == 0.0) {
-            String.format(Locale.US, "%.0f %s", value, suffix)
-        } else {
-            String.format(Locale.US, "%.1f %s", value, suffix)
-        }
+        val number = String.format(Locale.US, "%.1f", value).removeSuffix(".0")
+        return "$number $suffix"
     }
 
     /** Compact duration for stat tiles: `1h 12m`, `48m`, `< 1m`. Null renders as an em dash. */

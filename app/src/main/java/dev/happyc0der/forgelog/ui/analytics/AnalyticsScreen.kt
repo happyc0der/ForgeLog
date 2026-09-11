@@ -410,10 +410,12 @@ private fun RecordsCard(records: List<ExerciseRecords>, weightUnit: ExerciseUnit
 
 /** Only the record kinds an exercise can actually hold are shown; the rest are simply absent. */
 @Composable
-private fun RecordRow(records: ExerciseRecords, weightUnit: ExerciseUnit) {
+internal fun RecordRow(records: ExerciseRecords, weightUnit: ExerciseUnit) {
     val parts = buildList {
         records.heaviestWeight?.weightLb?.let {
-            add(stringResource(R.string.analytics_record_heaviest) + " " + Formatters.weight(it, weightUnit))
+            // Records are held in pounds: load() converts them. weight() only labels, and showed a
+            // 200 lb best as "200 kg" to anyone who works in kilograms.
+            add(stringResource(R.string.analytics_record_heaviest) + " " + Formatters.load(it, weightUnit))
         }
         records.mostReps?.reps?.let {
             add(stringResource(R.string.analytics_record_reps) + " " + it)
@@ -427,7 +429,7 @@ private fun RecordRow(records: ExerciseRecords, weightUnit: ExerciseUnit) {
             }
         }
         records.bestEstimatedOneRepMax?.estimatedOneRepMaxLb?.let {
-            add(stringResource(R.string.analytics_record_1rm) + " " + Formatters.weight(it, weightUnit))
+            add(stringResource(R.string.analytics_record_1rm) + " " + Formatters.load(it, weightUnit))
         }
     }
     if (parts.isEmpty()) return
