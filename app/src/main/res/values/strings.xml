@@ -406,7 +406,7 @@
     <string name="settings_section_about">About</string>
     <string name="settings_section_debug">Development</string>
     <string name="settings_seed">Load sample data</string>
-    <string name="settings_seed_detail">Writes a PPL program and twelve weeks of sessions, so the charts have something to draw. Debug builds only.</string>
+    <string name="settings_seed_detail">Writes a PPL program and twelve weeks of sessions, so the charts have something to draw. QA build only.</string>
     <string name="settings_seed_done">Sample data written.</string>
 
     <string name="settings_default_weight_unit">Default weight unit</string>

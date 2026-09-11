@@ -19,10 +19,11 @@ import javax.inject.Singleton
 import kotlin.random.Random
 
 /**
- * Debug-only sample data.
+ * Sample data, for the QA build only.
  *
- * Lives in the `debug` source set, so it cannot be compiled into a release build even by accident —
- * a runtime `BuildConfig.DEBUG` check alone would still ship the code. It is never invoked
+ * Lives in the `qa` source set, so it cannot be compiled into the debug build that holds real
+ * training, or into a release build, even by accident — a runtime `BuildConfig.DEBUG` check alone
+ * would still ship the code. It is never invoked
  * automatically: an empty app on first launch should stay empty, and a seeder that runs on its own
  * would be indistinguishable from a bug.
  *

@@ -42,7 +42,8 @@ Reuse before writing new: `VolumeCalculator`, `EstimatedOneRepMax`, `PreviousWor
 ./gradlew lintDebug                         # fails on errors; the only thing that catches an API above
                                             # minSdk 26 (tests run on a desktop JVM, which has them all)
 ./gradlew installDebug                      # install on the connected phone
-./gradlew installQa                         # "ForgeLog QA": same build, own database, installs beside it
+./gradlew installQa                         # "ForgeLog QA": same build, own database, installs beside it;
+                                            # the only build with Settings > Load sample data
 ./gradlew connectedDebugAndroidTest         # the same UI tests on a device (needs one attached)
 ```
 

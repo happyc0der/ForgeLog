@@ -253,7 +253,7 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    /** Debug builds only; the release implementation does nothing. */
+    /** The QA build only; the debug and release implementations do nothing. */
     fun seedSampleData() {
         if (!debugTools.isAvailable) return
         launchSafely(::reportAsMessage) {

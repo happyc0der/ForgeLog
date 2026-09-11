@@ -102,10 +102,6 @@ android {
             assets.directories.add("$projectDir/schemas")
             kotlin.directories.add("src/sharedTest/java")
         }
-        // The QA build is the debug build, debug tools included.
-        getByName("qa") {
-            kotlin.directories.add("src/debug/java")
-        }
     }
 }
 
