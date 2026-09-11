@@ -355,6 +355,118 @@ class ActiveWorkoutViewModelTest {
         restarted.viewModelScope.cancel()
     }
 
+    /*
+     * Rest is recorded on the set it came after. It used to land one set late: ticking Set 2 wrote
+     * the gap since Set 1 onto Set 2, so Set 1 never had a measured rest and the rest after the last
+     * set of an exercise was lost. The rest after Set 1 is only known once Set 2 is ticked, so that
+     * is when it is written -- onto Set 1.
+     */
+
+    /** Adds [count] sets to [exerciseId] and returns them in set order. */
+    private suspend fun kotlinx.coroutines.test.TestScope.addSets(
+        vm: ActiveWorkoutViewModel,
+        exerciseId: Long,
+        count: Int,
+    ): List<dev.happyc0der.forgelog.domain.model.SetLog> {
+        repeat(count) { vm.addSet(exerciseId) }
+        advanceUntilIdle()
+        return env.sessionRepository.getSessionDetail(sessionId)!!
+            .exercises.single { it.exercise.id == exerciseId }
+            .sets.sortedBy { it.setNumber }
+    }
+
+    private suspend fun kotlinx.coroutines.test.TestScope.loaded(vm: ActiveWorkoutViewModel) {
+        vm.uiState.test {
+            awaitUntil { it.detail != null }
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `ticking a set records the rest that just ended on the set before it`() = runTest {
+        val vm = viewModel()
+        loaded(vm)
+        val (first, second) = addSets(vm, sessionExerciseId, count = 2)
+
+        vm.onSetCompleted(first, true)
+        runCurrent()
+        env.time.now += 95_000L
+        vm.onSetCompleted(second, true)
+        runCurrent()
+        vm.viewModelScope.cancel()
+
+        val after = sets().sortedBy { it.setNumber }
+        assertEquals("the 95 s gap is the rest after set 1", 95, after[0].restAfterSetSeconds)
+        // Nothing has come after set 2 yet, so it still holds the planned 120, not a measurement.
+        assertEquals(120, after[1].restAfterSetSeconds)
+    }
+
+    @Test
+    fun `the first set ticked in a session records no rest anywhere`() = runTest {
+        val vm = viewModel()
+        loaded(vm)
+        val (first, second) = addSets(vm, sessionExerciseId, count = 2)
+
+        vm.onSetCompleted(first, true)
+        runCurrent()
+        vm.viewModelScope.cancel()
+
+        val after = sets().sortedBy { it.setNumber }
+        assertEquals(120, after[0].restAfterSetSeconds)
+        assertEquals(120, after[1].restAfterSetSeconds)
+        assertEquals(second.id, after[1].id)
+    }
+
+    @Test
+    fun `the gap to the next exercise is the rest after the last set of the previous one`() = runTest {
+        val plankId = env.sessionRepository.upsertSessionExercise(
+            dev.happyc0der.forgelog.domain.model.SessionExercise(
+                sessionId = sessionId,
+                displayNameSnapshot = "Plank",
+                exerciseOrder = 1,
+                startedAt = env.time.now,
+            ),
+        )
+        val vm = viewModel()
+        loaded(vm)
+        val bench = addSets(vm, sessionExerciseId, count = 1).single()
+        val plank = addSets(vm, plankId, count = 1).single()
+
+        vm.onSetCompleted(bench, true)
+        runCurrent()
+        env.time.now += 180_000L
+        vm.onSetCompleted(plank, true)
+        runCurrent()
+        vm.viewModelScope.cancel()
+
+        val benchAfter = env.sessionRepository.getSessionDetail(sessionId)!!
+            .exercises.single { it.exercise.id == sessionExerciseId }.sets.single()
+        assertEquals(180, benchAfter.restAfterSetSeconds)
+    }
+
+    @Test
+    fun `unticking a set leaves the recorded rest alone`() = runTest {
+        val vm = viewModel()
+        loaded(vm)
+        val (first, second) = addSets(vm, sessionExerciseId, count = 2)
+        vm.onSetCompleted(first, true)
+        runCurrent()
+        env.time.now += 75_000L
+        vm.onSetCompleted(second, true)
+        runCurrent()
+
+        // Unticking set 2 must not wipe the rest measured for set 1, nor set 2's own value.
+        vm.onSetCompleted(sets().sortedBy { it.setNumber }[1], false)
+        runCurrent()
+        vm.viewModelScope.cancel()
+
+        val after = sets().sortedBy { it.setNumber }
+        assertEquals(75, after[0].restAfterSetSeconds)
+        assertEquals(120, after[1].restAfterSetSeconds)
+        assertFalse(after[1].completed)
+        assertNull(after[1].completedAt)
+    }
+
 }
 
 private suspend fun <T> app.cash.turbine.ReceiveTurbine<T>.awaitUntil(predicate: (T) -> Boolean): T {

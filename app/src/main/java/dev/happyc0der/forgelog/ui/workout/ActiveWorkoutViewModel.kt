@@ -404,32 +404,41 @@ class ActiveWorkoutViewModel @Inject constructor(
         persistSet(set.copy(setType = type))
     }
 
+    /**
+     * Ticks or unticks a set, and records the rest that ticking it has just ended.
+     *
+     * The rest a completion measures is the gap since the *previous* completed set, so it is
+     * written onto that set as its rest-after. It used to be written onto the set being ticked,
+     * which put every rest one set late: Set 1 never showed a rest, Set 2 carried the rest that
+     * came before it, and the rest after the final set was never recorded at all. The set being
+     * ticked keeps its own planned rest until the next completion measures the real one.
+     *
+     * Read from the database rather than from UI state, which may not yet reflect a set completed
+     * a moment ago.
+     */
     fun onSetCompleted(set: SetLog, completed: Boolean) {
         launchSafely(::reportAsMessage) {
             if (!completed) {
-                workoutSessionRepository.upsertSetLog(
-                    set.copy(
-                        completed = false,
-                        completedAt = null,
-                        restAfterSetSeconds = null,
-                    ),
-                )
+                // Unticking touches only this set. Its planned rest stays; the rest recorded on the
+                // set before it is left as it was, because there is no way to know what it held
+                // before this completion overwrote it.
+                workoutSessionRepository.upsertSetLog(set.copy(completed = false, completedAt = null))
                 return@launchSafely
             }
             val now = timeProvider.nowEpochMs()
-            val otherSets = currentDetail()
+            val allSets = workoutSessionRepository.getSessionDetail(sessionId)
                 ?.exercises
                 ?.asSequence()
                 ?.flatMap { it.sets.asSequence() }
                 .orEmpty()
-            val lastCompletedAt = SessionRest.lastCompletedAt(otherSets, excludeSetId = set.id)
-            workoutSessionRepository.upsertSetLog(
-                set.copy(
-                    completed = true,
-                    completedAt = now,
-                    restAfterSetSeconds = SessionRest.restAfterSetSeconds(now, lastCompletedAt),
-                ),
-            )
+            val previous = SessionRest.previousCompleted(allSets, excludeSetId = set.id)
+            workoutSessionRepository.upsertSetLog(set.copy(completed = true, completedAt = now))
+            if (previous != null) {
+                workoutSessionRepository.setRestAfter(
+                    setLogId = previous.id,
+                    seconds = SessionRest.restAfterSetSeconds(now, previous.completedAt),
+                )
+            }
             startRestTimer(set.sessionExerciseId, now)
         }
     }

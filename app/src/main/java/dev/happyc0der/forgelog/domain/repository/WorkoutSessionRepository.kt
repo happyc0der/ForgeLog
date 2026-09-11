@@ -56,18 +56,22 @@ interface WorkoutSessionRepository {
         sessionName: String,
         exercises: List<SessionStartExercise>,
     ): Long
-    /**
-     * Starts a new in-progress session with the same exercises as [sessionId], in the same order.
-     *
-     * Set logs are deliberately not copied — the point is to repeat the *plan*, not to claim work
-     * that has not happened. Returns the new session id, or null if the source session is gone.
-     */
+
     /** Edits one field only, so a concurrent edit to another field cannot be lost. */
     suspend fun setOverallFeeling(sessionId: Long, feeling: Int?)
     suspend fun setOverallNotes(sessionId: Long, notes: String?)
     suspend fun setExerciseFeeling(sessionExerciseId: Long, feeling: Int?)
     suspend fun setExerciseNotes(sessionExerciseId: Long, notes: String?)
 
+    /** Records how long the rest after [setLogId] actually was. Touches no other column. */
+    suspend fun setRestAfter(setLogId: Long, seconds: Int?)
+
+    /**
+     * Starts a new in-progress session with the same exercises as [sessionId], in the same order.
+     *
+     * Set logs are deliberately not copied — the point is to repeat the *plan*, not to claim work
+     * that has not happened. Returns the new session id, or null if the source session is gone.
+     */
     suspend fun repeatSession(sessionId: Long): Long?
 
     suspend fun abandonSession(sessionId: Long)

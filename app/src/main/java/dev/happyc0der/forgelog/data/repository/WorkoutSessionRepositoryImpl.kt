@@ -119,6 +119,10 @@ class WorkoutSessionRepositoryImpl @Inject constructor(
         workoutSessionDao.deleteSession(id)
     }
 
+    override suspend fun setRestAfter(setLogId: Long, seconds: Int?) = withContext(ioDispatcher) {
+        workoutSessionDao.updateSetRestAfter(setLogId, seconds)
+    }
+
     override suspend fun deleteSetLog(id: Long) = withContext(ioDispatcher) {
         workoutSessionDao.deleteSetLog(id)
     }

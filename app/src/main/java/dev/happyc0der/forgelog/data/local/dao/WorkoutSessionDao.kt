@@ -188,6 +188,10 @@ interface WorkoutSessionDao {
     @Query("UPDATE session_exercises SET exerciseNotes = :notes WHERE id = :id")
     suspend fun updateExerciseNotes(id: Long, notes: String?)
 
+    /** Only the rest column, so recording rest cannot overwrite an edit to the set's numbers. */
+    @Query("UPDATE set_logs SET restAfterSetSeconds = :seconds WHERE id = :id")
+    suspend fun updateSetRestAfter(id: Long, seconds: Int?)
+
     @Query(
         """
         UPDATE workout_sessions
