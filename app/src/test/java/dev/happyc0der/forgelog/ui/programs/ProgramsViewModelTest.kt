@@ -76,7 +76,8 @@ class ProgramsViewModelTest {
             val summary = state.programs.single()
             assertEquals(2, summary.dayCount)
             assertEquals(1, summary.completedSessionCount)
-            assertEquals(8_000L, summary.lastPerformedAt)
+            // Dated by its start, as History dates it.
+            assertEquals(1_000L, summary.lastPerformedAt)
             cancelAndIgnoreRemainingEvents()
         }
     }

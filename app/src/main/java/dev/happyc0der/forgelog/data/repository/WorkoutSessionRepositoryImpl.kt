@@ -96,6 +96,19 @@ class WorkoutSessionRepositoryImpl @Inject constructor(
             .map { it.toDomain() }
     }
 
+    override suspend fun getCompletedDetailsWithExercises(
+        exerciseIds: Collection<Long>,
+        excludeSessionId: Long,
+        limit: Int,
+    ): List<SessionDetail> = withContext(ioDispatcher) {
+        if (exerciseIds.isEmpty()) return@withContext emptyList()
+        workoutSessionDao.getCompletedSessionDetailsWithExercises(
+            exerciseIds = exerciseIds.distinct(),
+            excludeSessionId = excludeSessionId,
+            limit = limit,
+        ).map { it.toDomain() }
+    }
+
     override suspend fun upsertSession(session: WorkoutSession): Long = withContext(ioDispatcher) {
         val now = timeProvider.nowEpochMs()
         val stamped = if (session.id == 0L) {
@@ -103,16 +116,16 @@ class WorkoutSessionRepositoryImpl @Inject constructor(
         } else {
             session.copy(updatedAt = now)
         }
-        workoutSessionDao.upsertSession(stamped.toEntity())
+        workoutSessionDao.upsertSession(stamped.toEntity()).orExistingId(stamped.id)
     }
 
     override suspend fun upsertSessionExercise(sessionExercise: SessionExercise): Long =
         withContext(ioDispatcher) {
-            workoutSessionDao.upsertSessionExercise(sessionExercise.toEntity())
+            workoutSessionDao.upsertSessionExercise(sessionExercise.toEntity()).orExistingId(sessionExercise.id)
         }
 
     override suspend fun upsertSetLog(setLog: SetLog): Long = withContext(ioDispatcher) {
-        workoutSessionDao.upsertSetLog(setLog.toEntity())
+        workoutSessionDao.upsertSetLog(setLog.toEntity()).orExistingId(setLog.id)
     }
 
     override suspend fun deleteSession(id: Long) = withContext(ioDispatcher) {
@@ -228,12 +241,21 @@ class WorkoutSessionRepositoryImpl @Inject constructor(
             source.exercises
                 .sortedBy { it.exercise.exerciseOrder }
                 .forEachIndexed { index, logged ->
+                    // The lift as the library has it now: a new session snapshots the current
+                    // name and how-to link, as starting from a program does. The old session's
+                    // were copied, so a lift renamed since came back under its old name. Pointers
+                    // and targets stay the old session's: they may have been the program's own.
+                    val current = logged.exercise.exerciseId
+                        ?.let { id -> database.exerciseDao().getExercise(id) }
                     workoutSessionDao.insertSessionExercise(
                         logged.exercise.copy(
                             id = 0L,
                             sessionId = newSessionId,
                             exerciseOrder = index,
                             startedAt = now,
+                            displayNameSnapshot = current?.name ?: logged.exercise.displayNameSnapshot,
+                            // The library's link, or none if it has been removed there.
+                            howToUrlSnapshot = if (current != null) current.howToUrl else logged.exercise.howToUrlSnapshot,
                             // Carried-over notes and feeling would describe the old session.
                             exerciseNotes = null,
                             feeling = null,

@@ -29,7 +29,8 @@ interface ProgramDao {
         SELECT p.*,
             (SELECT COUNT(*) FROM program_days d WHERE d.programId = p.id) AS dayCount,
             (
-                SELECT MAX(s.completedAt) FROM workout_sessions s
+                -- By start, as History and the rest of the app date a session.
+                SELECT MAX(s.startedAt) FROM workout_sessions s
                 WHERE s.programId = p.id AND s.status = 'completed'
             ) AS lastPerformedAt,
             (

@@ -78,7 +78,7 @@ class ProgramRepositoryImpl @Inject constructor(
         } else {
             program.copy(updatedAt = now)
         }
-        programDao.upsertProgram(stamped.toEntity())
+        programDao.upsertProgram(stamped.toEntity()).orExistingId(stamped.id)
     }
 
     override suspend fun setArchived(id: Long, archived: Boolean) = withContext(ioDispatcher) {
@@ -196,7 +196,7 @@ class ProgramRepositoryImpl @Inject constructor(
         }
 
     override suspend fun upsertDay(day: ProgramDay): Long = withContext(ioDispatcher) {
-        programDao.upsertDay(day.toEntity())
+        programDao.upsertDay(day.toEntity()).orExistingId(day.id)
     }
 
     override suspend fun deleteDay(id: Long) = withContext(ioDispatcher) {
@@ -251,7 +251,7 @@ class ProgramRepositoryImpl @Inject constructor(
 
     override suspend fun upsertProgramExercise(programExercise: ProgramExercise): Long =
         withContext(ioDispatcher) {
-            programDao.upsertProgramExercise(programExercise.toEntity())
+            programDao.upsertProgramExercise(programExercise.toEntity()).orExistingId(programExercise.id)
         }
 
     override suspend fun deleteProgramExercise(id: Long) = withContext(ioDispatcher) {

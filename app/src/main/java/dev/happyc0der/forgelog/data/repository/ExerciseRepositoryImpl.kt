@@ -51,7 +51,7 @@ class ExerciseRepositoryImpl @Inject constructor(
         } else {
             exercise.copy(updatedAt = now)
         }
-        exerciseDao.upsert(stamped.toEntity())
+        exerciseDao.upsert(stamped.toEntity()).orExistingId(stamped.id)
     }
 
     override suspend fun setArchived(id: Long, archived: Boolean) = withContext(ioDispatcher) {

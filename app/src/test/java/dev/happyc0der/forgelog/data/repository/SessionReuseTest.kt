@@ -107,6 +107,24 @@ class SessionReuseTest {
     }
 
     @Test
+    fun `a repeated session takes each lift's current name, and the old one's plan`() = runTest {
+        val sourceId = loggedSession()
+        val exerciseDao = env.database.exerciseDao()
+        exerciseDao.upsert(exerciseDao.getExercise(benchId)!!.copy(name = "Barbell bench press"))
+        env.time.now = 99_000L
+
+        val repeated = env.sessionRepository.getSessionDetail(env.sessionRepository.repeatSession(sourceId)!!)!!
+
+        assertEquals(
+            listOf("Barbell bench press", "Overhead Press"),
+            repeated.exercises.map { it.exercise.displayNameSnapshot },
+        )
+        // The old session keeps the name it was logged under.
+        val source = env.sessionRepository.getSessionDetail(sourceId)!!
+        assertEquals("Bench Press", source.exercises.first().exercise.displayNameSnapshot)
+    }
+
+    @Test
     fun `a repeated session starts empty and in progress`() = runTest {
         val sourceId = loggedSession()
         env.time.now = 99_000L

@@ -162,18 +162,28 @@ class AnalyticsViewModel @Inject constructor(
             )
         }
 
+    /**
+     * Every completed session, for personal bests: a best is a best however long ago it was set.
+     * They were taken from the trend window, so the heaviest squat dropped off the card twelve
+     * weeks after it was lifted, and the card showed a lesser one as the best.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val allSessions: Flow<List<SessionDetail>> = retryToken.flatMapLatest {
+        workoutSessionRepository.observeCompletedSessionDetailsBetween(Long.MIN_VALUE, Long.MAX_VALUE)
+    }
+
     @OptIn(ExperimentalCoroutinesApi::class)
     private val data: Flow<AnalyticsData> = combine(
         windowSessions,
-        trendSessions,
+        combine(trendSessions, allSessions, ::Pair),
         exerciseRepository.observeExercises(includeArchived = true),
         settingsRepository.settings,
         selectedExerciseId,
-    ) { windows, trend, exercises, settings, selected ->
+    ) { windows, (trend, all), exercises, settings, selected ->
         val (currentSessions, previousSessions, rangePair) = windows
         val zone = zoneProvider.zone()
         val categories = exercises.associate { it.id to it.category }
-        val recordsByKey = PersonalRecords.byExercise(trend)
+        val recordsByKey = PersonalRecords.byExercise(all)
         // An exercise the user trained in the window but has since deleted still appears, by name.
         val loggedExercises = trend
             .flatMap { detail -> detail.exercises }

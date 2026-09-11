@@ -156,6 +156,33 @@ interface WorkoutSessionDao {
         limit: Int,
     ): List<SessionDetailEntity>
 
+    /**
+     * The most recent completed sessions in which any of [exerciseIds] was logged.
+     *
+     * For "last time" and records, which are about particular lifts: the most recent sessions of any
+     * kind can be taken up entirely by others -- swims imported every evening, a run of pull days --
+     * and the last bench session fall outside them.
+     */
+    @Transaction
+    @Query(
+        """
+        SELECT * FROM workout_sessions s
+        WHERE s.status = 'completed'
+          AND s.id != :excludeSessionId
+          AND EXISTS (
+            SELECT 1 FROM session_exercises e
+            WHERE e.sessionId = s.id AND e.exerciseId IN (:exerciseIds)
+          )
+        ORDER BY s.completedAt DESC
+        LIMIT :limit
+        """,
+    )
+    suspend fun getCompletedSessionDetailsWithExercises(
+        exerciseIds: List<Long>,
+        excludeSessionId: Long,
+        limit: Int,
+    ): List<SessionDetailEntity>
+
     @Insert
     suspend fun insertSession(entity: WorkoutSessionEntity): Long
 

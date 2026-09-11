@@ -79,8 +79,8 @@ class AnalyticsViewModelTest {
         zoneProvider = env.zone,
     ).also(created::add)
 
-    private fun epochAt(month: Int, day: Int, hour: Int = 18): Long =
-        LocalDateTime.of(2026, month, day, hour, 0).atZone(zone).toInstant().toEpochMilli()
+    private fun epochAt(month: Int, day: Int, hour: Int = 18, year: Int = 2026): Long =
+        LocalDateTime.of(year, month, day, hour, 0).atZone(zone).toInstant().toEpochMilli()
 
     private suspend fun logSession(
         day: Int,
@@ -93,9 +93,10 @@ class AnalyticsViewModelTest {
         setType: SetType = SetType.WORKING,
         status: SessionStatus = SessionStatus.COMPLETED,
         durationMs: Long = 3_600_000L,
+        year: Int = 2026,
     ) {
         val dao = env.database.workoutSessionDao()
-        val started = epochAt(month, day, 17)
+        val started = epochAt(month, day, 17, year)
         val sessionId = dao.insertSession(
             sessionEntity(
                 sessionName = "Session $month-$day",
@@ -375,6 +376,23 @@ class AnalyticsViewModelTest {
             var state = awaitItem()
             while (state.errorMessage == null) state = awaitItem()
             assertNotNull(state.errorMessage)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    /** A best is a best however long ago: not only within the twelve weeks the charts show. */
+    @Test
+    fun `personal bests reach back past the chart window`() = runTest {
+        // August 2025, well outside twelve weeks, and a lighter bench this week.
+        logSession(day = 1, month = 8, year = 2025, weight = 300.0)
+        logSession(day = 10, weight = 100.0)
+
+        val vm = viewModel()
+        vm.uiState.test {
+            var state = awaitItem()
+            while (state.records.isEmpty()) state = awaitItem()
+            val bench = state.records.single { it.exerciseId == benchId }
+            assertEquals(300.0, bench.heaviestWeight?.weightLb ?: 0.0, 0.001)
             cancelAndIgnoreRemainingEvents()
         }
     }

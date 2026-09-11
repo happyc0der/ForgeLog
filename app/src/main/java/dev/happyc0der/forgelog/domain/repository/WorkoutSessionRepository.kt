@@ -34,6 +34,16 @@ interface WorkoutSessionRepository {
         excludeSessionId: Long = 0L,
         limit: Int = 40,
     ): List<SessionDetail>
+
+    /**
+     * The most recent completed sessions that include any of [exerciseIds], newest first, up to
+     * [limit] -- for what was done last time, and for records, which are about particular lifts.
+     */
+    suspend fun getCompletedDetailsWithExercises(
+        exerciseIds: Collection<Long>,
+        excludeSessionId: Long = 0L,
+        limit: Int = 40,
+    ): List<SessionDetail>
     suspend fun upsertSession(session: WorkoutSession): Long
     suspend fun upsertSessionExercise(sessionExercise: SessionExercise): Long
     suspend fun upsertSetLog(setLog: SetLog): Long

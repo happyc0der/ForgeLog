@@ -81,9 +81,24 @@ class WorkoutSummaryViewModel @Inject constructor(
                 } else {
                     // Excluding this session is what makes a record a record: compared against a
                     // table it is already in, nothing the user just did could ever beat anything.
-                    val history = workoutSessionRepository.getRecentCompletedDetails(
+                    // Every earlier session with these lifts, not the latest forty of any kind: a
+                    // best from months ago, or behind a run of imported activities, is still the
+                    // best, and a lighter set today announced as a record would be wrong.
+                    val ids = detail.exercises.mapNotNull { it.exercise.exerciseId }
+                    val byLift = workoutSessionRepository.getCompletedDetailsWithExercises(
+                        exerciseIds = ids,
                         excludeSessionId = sessionId,
+                        limit = Int.MAX_VALUE,
                     )
+                    val unlinked = if (detail.exercises.any { it.exercise.exerciseId == null }) {
+                        workoutSessionRepository.getRecentCompletedDetails(
+                            excludeSessionId = sessionId,
+                            limit = Int.MAX_VALUE,
+                        )
+                    } else {
+                        emptyList()
+                    }
+                    val history = (byLift + unlinked).distinctBy { it.session.id }
                     emit(detail to PersonalRecords.achievedIn(detail, history))
                 }
             }

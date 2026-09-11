@@ -291,7 +291,7 @@ class StartWorkoutViewModel @Inject constructor(
     fun addExercise(exerciseId: Long) {
         launchSafely(::reportAsMessage) {
             val exercise = exerciseRepository.getExercise(exerciseId) ?: return@launchSafely
-            val history = workoutSessionRepository.getRecentCompletedDetails(excludeSessionId = 0L)
+            val history = workoutSessionRepository.getCompletedDetailsWithExercises(listOf(exercise.id))
             val item = PlannedExerciseItem(
                 localId = localIds.getAndIncrement(),
                 exercise = exercise,
@@ -395,7 +395,11 @@ class StartWorkoutViewModel @Inject constructor(
         programName.value = program?.name
         dayName.value = detail.day.name
         dayNotes.value = detail.day.notes?.takeIf { it.isNotBlank() }
-        val history = workoutSessionRepository.getRecentCompletedDetails(excludeSessionId = 0L)
+        // The sessions these lifts were in, not the latest sessions of any kind, which other days
+        // or imported activities can fill.
+        val history = workoutSessionRepository.getCompletedDetailsWithExercises(
+            exerciseIds = detail.exercises.map { it.exercise.id },
+        )
         roster.value = detail.exercises.mapIndexed { index, item ->
             PlannedExerciseItem(
                 localId = localIds.getAndIncrement(),

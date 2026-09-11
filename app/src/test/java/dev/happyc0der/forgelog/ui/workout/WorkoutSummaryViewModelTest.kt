@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import androidx.test.core.app.ApplicationProvider
 import app.cash.turbine.test
 import dev.happyc0der.forgelog.data.local.exerciseEntity
+import dev.happyc0der.forgelog.data.local.sessionEntity
+import dev.happyc0der.forgelog.data.local.sessionExerciseEntity
 import dev.happyc0der.forgelog.domain.analytics.RecordKind
 import dev.happyc0der.forgelog.domain.model.Exercise
 import dev.happyc0der.forgelog.domain.model.ExerciseCategory
@@ -281,6 +283,29 @@ class WorkoutSummaryViewModelTest {
         viewModel(sessionId).uiState.test {
             val state = awaitUntil { it.summary?.totalSets == 5 }
             assertEquals(5, state.exercises.single().completedSets)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    /**
+     * The heaviest bench was months and forty-odd sessions ago -- here, sixty swims. A lighter bench
+     * today is not a record, however many sessions of other things came in between.
+     */
+    @Test
+    fun `a best set long ago still counts against today's`() = runTest {
+        loggedSession(weights = listOf(300.0), startedAt = 1_000_000L)
+        val swimId = env.database.exerciseDao().upsert(exerciseEntity(name = "Swim"))
+        val dao = env.database.workoutSessionDao()
+        (1..60).forEach { day ->
+            val at = 10_000_000L + day * 86_400_000L
+            val swim = dao.insertSession(sessionEntity(sessionName = "Swim", startedAt = at, completedAt = at + 1_800_000L))
+            dao.insertSessionExercise(sessionExerciseEntity(sessionId = swim, exerciseId = swimId, displayNameSnapshot = "Swim"))
+        }
+        val today = loggedSession(weights = listOf(200.0), startedAt = 10_000_000L + 61 * 86_400_000L)
+
+        viewModel(today).uiState.test {
+            val state = awaitUntil { it.summary != null }
+            assertTrue(state.records.none { it.kind == RecordKind.HEAVIEST_WEIGHT })
             cancelAndIgnoreRemainingEvents()
         }
     }

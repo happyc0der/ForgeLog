@@ -79,16 +79,17 @@ class ProgramSummaryQueryTest {
     }
 
     @Test
-    fun `last performed is the latest completion`() = runTest {
+    fun `last performed is the start of the latest completed session`() = runTest {
         val programId = dao.insertProgram(programEntity(name = "PPL"))
         sessionDao.insertSession(
             sessionEntity(sessionName = "Old", programId = programId, startedAt = 0L, completedAt = 1_000L),
         )
         sessionDao.insertSession(
-            sessionEntity(sessionName = "New", programId = programId, startedAt = 0L, completedAt = 9_000L),
+            sessionEntity(sessionName = "New", programId = programId, startedAt = 8_000L, completedAt = 9_000L),
         )
 
-        assertEquals(9_000L, summaryFor("PPL").lastPerformedAt)
+        // Dated by its start, as History dates it.
+        assertEquals(8_000L, summaryFor("PPL").lastPerformedAt)
     }
 
     @Test
@@ -123,7 +124,7 @@ class ProgramSummaryQueryTest {
         val mine = dao.insertProgram(programEntity(name = "Mine"))
         val theirs = dao.insertProgram(programEntity(name = "Theirs"))
         sessionDao.insertSession(
-            sessionEntity(sessionName = "Theirs", programId = theirs, startedAt = 0L, completedAt = 5_000L),
+            sessionEntity(sessionName = "Theirs", programId = theirs, startedAt = 4_000L, completedAt = 5_000L),
         )
         dao.insertDay(dayEntity(programId = mine, name = "Day"))
 
@@ -131,7 +132,7 @@ class ProgramSummaryQueryTest {
         assertEquals(1, mineSummary.dayCount)
         assertNull(mineSummary.lastPerformedAt)
         assertEquals(0, mineSummary.completedSessionCount)
-        assertEquals(5_000L, summaryFor("Theirs").lastPerformedAt)
+        assertEquals(4_000L, summaryFor("Theirs").lastPerformedAt)
     }
 
     @Test

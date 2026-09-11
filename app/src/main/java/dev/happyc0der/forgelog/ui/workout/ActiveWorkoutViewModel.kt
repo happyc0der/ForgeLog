@@ -172,7 +172,20 @@ class ActiveWorkoutViewModel @Inject constructor(
                 if (detail == null) {
                     emit(emptyMap())
                 } else {
-                    val history = workoutSessionRepository.getRecentCompletedDetails(detail.session.id)
+                    // The sessions these lifts were in -- not the latest sessions of any kind,
+                    // which other days or imported activities can fill -- plus, for a lift whose
+                    // library entry is gone and is matched by name, the latest of any kind.
+                    val ids = detail.exercises.mapNotNull { it.exercise.exerciseId }
+                    val byLift = workoutSessionRepository.getCompletedDetailsWithExercises(
+                        exerciseIds = ids,
+                        excludeSessionId = detail.session.id,
+                    )
+                    val unlinked = if (detail.exercises.any { it.exercise.exerciseId == null }) {
+                        workoutSessionRepository.getRecentCompletedDetails(detail.session.id)
+                    } else {
+                        emptyList()
+                    }
+                    val history = (byLift + unlinked).distinctBy { it.session.id }
                     emit(
                         detail.exercises.associate { item ->
                             item.exercise.id to PreviousWorkoutMatcher.findPrevious(
