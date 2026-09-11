@@ -41,18 +41,22 @@ interface WorkoutSessionDao {
     fun observeLastCompletedSessionDetail(): Flow<SessionDetailEntity?>
 
     /**
-     * Completed sessions in a half-open window, `[from, until)`, matching
+     * Completed sessions that started in a half-open window, `[from, until)`, matching
      * [dev.happyc0der.forgelog.domain.time.WeekBoundary.Range] so adjacent weeks cannot
      * double-count a session logged exactly on a boundary.
+     *
+     * By start, as History dates a session. This went by the finish, so a workout from 23:30 on
+     * the last day of a week to 00:40 was listed under that week in History and counted in the
+     * next on Home and in Analytics.
      */
     @Transaction
     @Query(
         """
         SELECT * FROM workout_sessions
         WHERE status = 'completed'
-          AND completedAt >= :fromEpochMs
-          AND completedAt < :untilEpochMs
-        ORDER BY completedAt DESC
+          AND startedAt >= :fromEpochMs
+          AND startedAt < :untilEpochMs
+        ORDER BY startedAt DESC
         """,
     )
     fun observeCompletedSessionDetailsBetween(

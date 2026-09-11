@@ -361,10 +361,10 @@ fun PreviousSessionPanel(
         ) {
             Text(
                 text = previous?.let { performance ->
-                    val stamp = performance.session.completedAt ?: performance.session.startedAt
+                    // Dated by its start, as History dates it.
                     stringResource(
                         R.string.workout_previous_title_dated,
-                        relativeDate(stamp, LocalDate.now(zone), zone),
+                        relativeDate(performance.session.startedAt, LocalDate.now(zone), zone),
                     )
                 } ?: stringResource(R.string.workout_previous_title),
                 style = MaterialTheme.typography.titleSmall,

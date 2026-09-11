@@ -117,9 +117,9 @@ object AnalyticsAggregator {
         days: List<WeekBoundary.Range>,
         includeWarmup: Boolean = false,
     ): List<DayVolume> = days.map { range ->
+        // The day it started on, as History and the rest of Analytics count it.
         val inDay = details.filter { detail ->
-            detail.session.status == SessionStatus.COMPLETED &&
-                (detail.session.completedAt ?: detail.session.startedAt) in range
+            detail.session.status == SessionStatus.COMPLETED && detail.session.startedAt in range
         }
         val volume = VolumeCalculator.sessionVolume(
             sessionExercises = inDay.flatMap { detail -> detail.exercises.map { it.sets } },
@@ -175,7 +175,7 @@ object AnalyticsAggregator {
                 .maxOrNull()
                 ?: return@mapNotNull null
             TrendPoint(
-                epochMs = detail.session.completedAt ?: detail.session.startedAt,
+                epochMs = detail.session.startedAt,
                 value = best,
             )
         }
@@ -193,7 +193,7 @@ object AnalyticsAggregator {
                 .maxOrNull()
                 ?: return@mapNotNull null
             TrendPoint(
-                epochMs = detail.session.completedAt ?: detail.session.startedAt,
+                epochMs = detail.session.startedAt,
                 value = best,
             )
         }

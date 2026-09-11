@@ -142,6 +142,23 @@ class AnalyticsAggregatorTest {
     }
 
     @Test
+    fun `a workout past midnight counts on the day it started`() {
+        val week = WeekBoundary.daysOfWeek(epochAt(11), zone, DayOfWeek.MONDAY)
+        // Monday the 9th, 23:30 to 00:40 on Tuesday.
+        val lateNight = session(
+            1L,
+            startedAt = epochAt(9, hour = 23) + 30 * 60_000L,
+            completedAt = epochAt(10, hour = 0) + 40 * 60_000L,
+            sets = listOf(setLog(id = 1L, reps = 5, weight = 100.0)),
+        )
+
+        val byDay = AnalyticsAggregator.volumeByDay(listOf(lateNight), week)
+
+        assertEquals(500.0, byDay[0].loadLb, 0.001)
+        assertEquals(0.0, byDay[1].loadLb, 0.001)
+    }
+
+    @Test
     fun `sets by category uses the library category and falls back to other`() {
         val details = listOf(
             session(1L, epochAt(9), epochAt(9), exerciseId = 7L, sets = listOf(setLog(id = 1L))),

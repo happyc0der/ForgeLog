@@ -104,9 +104,9 @@ class WorkoutSessionDaoTest {
 
     @Test
     fun `the window is half-open — start is included, end is excluded`() = runTest {
-        insertSession("On the start boundary", startedAt = 0L, completedAt = 1_000L)
-        insertSession("Inside", startedAt = 0L, completedAt = 1_500L)
-        insertSession("On the end boundary", startedAt = 0L, completedAt = 2_000L)
+        insertSession("On the start boundary", startedAt = 1_000L, completedAt = 1_100L)
+        insertSession("Inside", startedAt = 1_500L, completedAt = 1_600L)
+        insertSession("On the end boundary", startedAt = 2_000L, completedAt = 2_100L)
 
         val names = dao.observeCompletedSessionDetailsBetween(1_000L, 2_000L)
             .first()
@@ -118,7 +118,7 @@ class WorkoutSessionDaoTest {
 
     @Test
     fun `adjacent windows cannot double-count a session on their shared boundary`() = runTest {
-        insertSession("Boundary", startedAt = 0L, completedAt = 2_000L)
+        insertSession("Boundary", startedAt = 2_000L, completedAt = 2_500L)
 
         val first = dao.observeCompletedSessionDetailsBetween(1_000L, 2_000L).first()
         val second = dao.observeCompletedSessionDetailsBetween(2_000L, 3_000L).first()
@@ -129,14 +129,23 @@ class WorkoutSessionDaoTest {
 
     @Test
     fun `the window excludes unfinished and abandoned sessions`() = runTest {
-        insertSession("Done", startedAt = 0L, completedAt = 1_500L)
-        insertSession("Running", startedAt = 0L, completedAt = null, status = SessionStatus.IN_PROGRESS)
-        insertSession("Quit", startedAt = 0L, completedAt = 1_600L, status = SessionStatus.ABANDONED)
+        insertSession("Done", startedAt = 1_500L, completedAt = 1_700L)
+        insertSession("Running", startedAt = 1_500L, completedAt = null, status = SessionStatus.IN_PROGRESS)
+        insertSession("Quit", startedAt = 1_600L, completedAt = 1_800L, status = SessionStatus.ABANDONED)
 
         val details = dao.observeCompletedSessionDetailsBetween(1_000L, 2_000L).first()
 
         assertEquals(1, details.size)
         assertEquals("Done", details.first().session.sessionName)
+    }
+
+    /** A workout from 23:30 to 00:40 belongs to the day, and the week, it was started in. */
+    @Test
+    fun `a session counts in the window it started in, not the one it finished in`() = runTest {
+        insertSession("Late night", startedAt = 1_900L, completedAt = 2_300L)
+
+        assertEquals(1, dao.observeCompletedSessionDetailsBetween(1_000L, 2_000L).first().size)
+        assertEquals(0, dao.observeCompletedSessionDetailsBetween(2_000L, 3_000L).first().size)
     }
 
     @Test
@@ -147,8 +156,8 @@ class WorkoutSessionDaoTest {
 
     @Test
     fun `window results are newest first`() = runTest {
-        insertSession("Older", startedAt = 0L, completedAt = 1_100L)
-        insertSession("Newer", startedAt = 0L, completedAt = 1_900L)
+        insertSession("Older", startedAt = 1_100L, completedAt = 1_200L)
+        insertSession("Newer", startedAt = 1_900L, completedAt = 1_950L)
 
         val names = dao.observeCompletedSessionDetailsBetween(1_000L, 2_000L)
             .first()
