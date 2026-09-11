@@ -11,8 +11,12 @@ import dev.happyc0der.forgelog.domain.home.TrainingSummaries
 import dev.happyc0der.forgelog.domain.model.ExerciseUnit
 import dev.happyc0der.forgelog.domain.model.SessionDetail
 import dev.happyc0der.forgelog.domain.model.SetLog
+import dev.happyc0der.forgelog.domain.repository.ExerciseRepository
 import dev.happyc0der.forgelog.domain.repository.WorkoutSessionRepository
 import dev.happyc0der.forgelog.domain.settings.SettingsRepository
+import dev.happyc0der.forgelog.domain.workout.SetPrefill
+import dev.happyc0der.forgelog.domain.workout.SetTargets
+import dev.happyc0der.forgelog.domain.workout.asWeightUnit
 import dev.happyc0der.forgelog.ui.common.launchSafely
 import dev.happyc0der.forgelog.ui.common.reportErrors
 import dev.happyc0der.forgelog.ui.navigation.SessionDetailRoute
@@ -34,6 +38,8 @@ data class SessionDetailUiState(
     val detail: SessionDetail? = null,
     val summary: SessionSummary? = null,
     val weightUnit: ExerciseUnit = ExerciseUnit.LB,
+    /** Each library exercise's own unit, which a planned weight is read in. */
+    val exerciseUnits: Map<Long, ExerciseUnit> = emptyMap(),
     /** True when the session row itself is gone, which is different from a load failure. */
     val isMissing: Boolean = false,
 )
@@ -49,6 +55,7 @@ class SessionDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val application: Application,
     private val workoutSessionRepository: WorkoutSessionRepository,
+    exerciseRepository: ExerciseRepository,
     settingsRepository: SettingsRepository,
 ) : ViewModel() {
 
@@ -63,9 +70,11 @@ class SessionDetailViewModel @Inject constructor(
         workoutSessionRepository.observeSessionDetail(sessionId)
             .reportErrors(null) { reportError(it) },
         settingsRepository.settings,
+        exerciseRepository.observeExercises(includeArchived = true)
+            .reportErrors(emptyList()) { reportError(it) },
         isEditing,
         errorMessage,
-    ) { detail, settings, editing, error ->
+    ) { detail, settings, exercises, editing, error ->
         SessionDetailUiState(
             isLoading = false,
             errorMessage = error,
@@ -75,6 +84,7 @@ class SessionDetailViewModel @Inject constructor(
                 TrainingSummaries.summarize(it, settings.includeWarmupInVolume)
             },
             weightUnit = settings.defaultWeightUnit,
+            exerciseUnits = exercises.associate { it.id to it.defaultUnit },
             isMissing = detail == null && error == null,
         )
     }.stateIn(
@@ -124,9 +134,65 @@ class SessionDetailViewModel @Inject constructor(
     /** Saves an edited set. The caller hands back a whole [SetLog] so partial edits cannot half-apply. */
     fun saveSet(set: SetLog) {
         launchSafely(::reportAsMessage) {
-            workoutSessionRepository.upsertSetLog(set)
+            // Unticked here means not done, as in the logger, so it keeps no completion time.
+            workoutSessionRepository.upsertSetLog(
+                if (set.completed) set else set.copy(completedAt = null),
+            )
             eventsChannel.send(
                 SessionDetailEvent.Message(application.getString(R.string.session_detail_set_saved)),
+            )
+        }
+    }
+
+    /**
+     * A set to add to [sessionExerciseId] -- one done at the time and never logged -- prefilled as the
+     * logger would: from the set before it, else the plan. Ticked, since the point is that it was
+     * done. Null if the exercise is not in this session.
+     */
+    fun newSet(sessionExerciseId: Long): SetLog? {
+        val state = uiState.value
+        val logged = state.detail?.exercises?.firstOrNull { it.exercise.id == sessionExerciseId }
+            ?: return null
+        val plan = logged.exercise
+        val exerciseUnit = plan.exerciseId?.let(state.exerciseUnits::get) ?: state.weightUnit
+        return SetPrefill.nextSet(
+            sessionExerciseId = sessionExerciseId,
+            existing = logged.sets,
+            defaultUnit = exerciseUnit.asWeightUnit(fallback = state.weightUnit),
+            historical = null,
+            targets = SetTargets(
+                targetRepMin = plan.targetRepMin,
+                targetRepMax = plan.targetRepMax,
+                targetWeight = plan.targetWeight,
+                targetDurationSeconds = plan.targetDurationSeconds,
+                targetRestSeconds = plan.targetRestSeconds,
+            ),
+        ).copy(completed = true)
+    }
+
+    /**
+     * Adds a set that was done but never logged.
+     *
+     * Numbered after the exercise's last set as the database has it now, rather than as the dialog
+     * was opened with. Its completion time is left empty: it is not known, and a made-up one would
+     * be taken for real by anything that orders sets by when they were done.
+     */
+    fun addSet(set: SetLog) {
+        launchSafely(::reportAsMessage) {
+            val existing = workoutSessionRepository.getSessionDetail(sessionId)
+                ?.exercises
+                ?.firstOrNull { it.exercise.id == set.sessionExerciseId }
+                ?.sets
+                ?: return@launchSafely
+            workoutSessionRepository.upsertSetLog(
+                set.copy(
+                    id = 0L,
+                    setNumber = (existing.maxOfOrNull { it.setNumber } ?: 0) + 1,
+                    completedAt = null,
+                ),
+            )
+            eventsChannel.send(
+                SessionDetailEvent.Message(application.getString(R.string.session_detail_set_added)),
             )
         }
     }

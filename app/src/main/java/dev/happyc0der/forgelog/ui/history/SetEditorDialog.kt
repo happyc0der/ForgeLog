@@ -52,8 +52,10 @@ import dev.happyc0der.forgelog.ui.util.label
 internal fun SetEditorDialog(
     set: SetLog,
     onSave: (SetLog) -> Unit,
-    onDelete: () -> Unit,
+    /** Null for a set being added: there is nothing to delete yet. */
+    onDelete: (() -> Unit)?,
     onDismiss: () -> Unit,
+    isNew: Boolean = false,
 ) {
     // rememberSaveable throughout: eleven fields of hand-entered corrections, and rotating the
     // phone mid-edit used to discard every one of them. Enums are stored by name, which survives
@@ -118,7 +120,14 @@ internal fun SetEditorDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(text = stringResource(R.string.session_detail_edit_set, set.setNumber)) },
+        title = {
+            Text(
+                text = stringResource(
+                    if (isNew) R.string.session_detail_add_set_title else R.string.session_detail_edit_set,
+                    set.setNumber,
+                ),
+            )
+        },
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
@@ -237,11 +246,13 @@ internal fun SetEditorDialog(
         },
         dismissButton = {
             Row {
-                TextButton(onClick = onDelete) {
-                    Text(
-                        text = stringResource(R.string.session_detail_delete_set),
-                        color = MaterialTheme.colorScheme.error,
-                    )
+                onDelete?.let { delete ->
+                    TextButton(onClick = delete) {
+                        Text(
+                            text = stringResource(R.string.session_detail_delete_set),
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
                 }
                 TextButton(onClick = onDismiss) {
                     Text(text = stringResource(R.string.action_cancel))

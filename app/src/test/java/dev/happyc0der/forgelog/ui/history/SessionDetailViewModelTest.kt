@@ -83,6 +83,7 @@ class SessionDetailViewModelTest {
         savedStateHandle = SavedStateHandle(mapOf("sessionId" to id)),
         application = ApplicationProvider.getApplicationContext<Application>(),
         workoutSessionRepository = env.sessionRepository,
+        exerciseRepository = env.exerciseRepository,
         settingsRepository = env.settingsRepository,
     ).also(created::add)
 
@@ -199,6 +200,147 @@ class SessionDetailViewModelTest {
             assertEquals(9, updated.rpe)
             assertEquals("last set", updated.notes)
             assertEquals(8 * 145.0, state.summary?.loadLb ?: 0.0, 0.001)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    /*
+     * Adding a set that was done and never logged -- forgotten between sets, or the last of the day.
+     * History could only edit and delete sets, so a forgotten one could never be recorded.
+     */
+
+    private suspend fun app.cash.turbine.ReceiveTurbine<SessionDetailUiState>.loaded(): SessionDetailUiState {
+        var state = awaitItem()
+        while (state.detail == null) state = awaitItem()
+        return state
+    }
+
+    @Test
+    fun `a forgotten set is prefilled from the set before it, and ticked`() = runTest {
+        val vm = viewModel()
+        vm.uiState.test {
+            loaded()
+            val set = vm.newSet(sessionExerciseId)!!
+
+            assertEquals(2, set.setNumber)
+            assertEquals(5, set.reps)
+            assertEquals(135.0, set.weight!!, 0.0)
+            assertEquals(ExerciseUnit.LB, set.weightUnit)
+            assertTrue("it was done; that is why it is being added", set.completed)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `adding a forgotten set saves it after the last one, and the summary counts it`() = runTest {
+        val vm = viewModel()
+        vm.uiState.test {
+            loaded()
+            vm.addSet(vm.newSet(sessionExerciseId)!!.copy(reps = 6))
+
+            var state = awaitItem()
+            while (state.detail!!.exercises.first().sets.size < 2) state = awaitItem()
+            val added = state.detail!!.exercises.first().sets.maxBy { it.setNumber }
+            assertEquals(2, added.setNumber)
+            assertEquals(6, added.reps)
+            assertTrue(added.completed)
+            // When it was done is not known, and a made-up time would be taken for a real one.
+            assertNull(added.completedAt)
+            assertEquals(2, state.summary?.totalSets)
+            assertEquals(5 * 135.0 + 6 * 135.0, state.summary?.loadLb ?: 0.0, 0.001)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `the new set is numbered from the database at save time, not when the dialog opened`() = runTest {
+        val vm = viewModel()
+        vm.uiState.test {
+            loaded()
+            val template = vm.newSet(sessionExerciseId)!!
+            assertEquals(2, template.setNumber)
+            // Meanwhile another set 2 lands, as a quick second add would.
+            env.database.workoutSessionDao().upsertSetLog(
+                setLogEntity(sessionExerciseId = sessionExerciseId, setNumber = 2, reps = 5, weight = 135.0),
+            )
+
+            vm.addSet(template)
+            var state = awaitItem()
+            while (state.detail!!.exercises.first().sets.size < 3) state = awaitItem()
+            assertEquals(listOf(1, 2, 3), state.detail!!.exercises.first().sets.map { it.setNumber }.sorted())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `a set added to a skipped exercise takes the plan`() = runTest {
+        val squatId = env.database.exerciseDao().upsert(exerciseEntity(name = "Squat"))
+        val skippedId = env.sessionRepository.upsertSessionExercise(
+            dev.happyc0der.forgelog.domain.model.SessionExercise(
+                sessionId = sessionId,
+                exerciseId = squatId,
+                displayNameSnapshot = "Squat",
+                exerciseOrder = 1,
+                startedAt = 1_000L,
+                plannedSets = 3,
+                targetRepMin = 8,
+                targetWeight = 155.0,
+                targetRestSeconds = 180,
+            ),
+        )
+        val vm = viewModel()
+        vm.uiState.test {
+            var state = loaded()
+            while (state.detail!!.exercises.size < 2) state = awaitItem()
+            val set = vm.newSet(skippedId)!!
+
+            assertEquals(1, set.setNumber)
+            assertEquals(8, set.reps)
+            assertEquals(155.0, set.weight!!, 0.0)
+            assertEquals(180, set.restAfterSetSeconds)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `a timed lift's planned weight is added in a weight unit`() = runTest {
+        val holdId = env.database.exerciseDao().upsert(
+            exerciseEntity(name = "Back-extension hold", defaultUnit = ExerciseUnit.SECONDS),
+        )
+        val holdEntryId = env.sessionRepository.upsertSessionExercise(
+            dev.happyc0der.forgelog.domain.model.SessionExercise(
+                sessionId = sessionId,
+                exerciseId = holdId,
+                displayNameSnapshot = "Back-extension hold",
+                exerciseOrder = 1,
+                startedAt = 1_000L,
+                targetWeight = 25.0,
+                targetDurationSeconds = 30,
+            ),
+        )
+        val vm = viewModel()
+        vm.uiState.test {
+            var state = loaded()
+            while (state.detail!!.exercises.size < 2 || state.exerciseUnits[holdId] == null) state = awaitItem()
+            val set = vm.newSet(holdEntryId)!!
+
+            assertEquals(30, set.durationSeconds)
+            assertEquals(25.0, set.weight!!, 0.0)
+            assertEquals(ExerciseUnit.LB, set.weightUnit)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `unticking a set in the editor clears its completion time`() = runTest {
+        val vm = viewModel()
+        vm.uiState.test {
+            val original = loaded().detail!!.exercises.first().sets.first()
+
+            vm.saveSet(original.copy(completed = false))
+            var state = awaitItem()
+            while (state.detail!!.exercises.first().sets.first().completed) state = awaitItem()
+            assertNull(state.detail!!.exercises.first().sets.first().completedAt)
             cancelAndIgnoreRemainingEvents()
         }
     }

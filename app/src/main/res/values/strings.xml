@@ -72,6 +72,9 @@
     <string name="session_detail_edit">Edit</string>
     <string name="session_detail_done">Done</string>
     <string name="session_detail_missing">This session is no longer available.</string>
+    <string name="session_detail_add_set">Add set</string>
+    <string name="session_detail_add_set_title">Add set %1$d</string>
+    <string name="session_detail_set_added">Set added.</string>
     <string name="session_detail_set_saved">Set updated.</string>
     <string name="session_detail_overall_notes">Session notes</string>
     <string name="session_detail_exercise_notes">Exercise notes</string>

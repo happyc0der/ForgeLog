@@ -84,6 +84,12 @@ fun SessionDetailScreen(
         uiState.detail?.exercises?.asSequence()?.flatMap { it.sets.asSequence() }
             ?.firstOrNull { it.id == id }
     }
+    // The same, for a set being added: the exercise is held by id, and the new set is built again
+    // from it -- so a rotation keeps the dialog, and the dialog keeps what was typed.
+    var addingToExerciseId by rememberSaveable { mutableStateOf<Long?>(null) }
+    val newSet = addingToExerciseId?.let { id ->
+        remember(id, uiState.detail != null) { viewModel.newSet(id) }
+    }
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -108,6 +114,19 @@ fun SessionDetailScreen(
                 editingSetId = null
             },
             onDismiss = { editingSetId = null },
+        )
+    }
+
+    newSet?.let { set ->
+        SetEditorDialog(
+            set = set,
+            isNew = true,
+            onSave = {
+                viewModel.addSet(it)
+                addingToExerciseId = null
+            },
+            onDelete = null,
+            onDismiss = { addingToExerciseId = null },
         )
     }
 
@@ -212,6 +231,7 @@ fun SessionDetailScreen(
                         weightUnit = uiState.weightUnit,
                         isEditing = uiState.isEditing,
                         onEditSet = { editingSetId = it.id },
+                        onAddSet = { addingToExerciseId = logged.exercise.id },
                         onFeelingChange = { viewModel.setExerciseFeeling(logged.exercise.id, it) },
                         onNotesChange = { viewModel.setExerciseNotes(logged.exercise.id, it) },
                     )
@@ -317,6 +337,7 @@ private fun ExerciseLogCard(
     weightUnit: ExerciseUnit,
     isEditing: Boolean,
     onEditSet: (SetLog) -> Unit,
+    onAddSet: () -> Unit,
     onFeelingChange: (Int?) -> Unit,
     onNotesChange: (String) -> Unit,
 ) {
@@ -341,6 +362,15 @@ private fun ExerciseLogCard(
             }
         }
         if (isEditing) {
+            // A set done but never logged -- forgotten between sets, or the last one of the day.
+            OutlinedButton(
+                onClick = onAddSet,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp),
+            ) {
+                Text(text = stringResource(R.string.session_detail_add_set))
+            }
             CardHeader(title = stringResource(R.string.session_detail_feeling))
             FeelingRow(feeling = logged.exercise.feeling, enabled = true, onChange = onFeelingChange)
             NotesField(
