@@ -250,6 +250,7 @@ private fun BreakdownCard(exercises: List<SummaryExerciseUi>, weightUnit: Exerci
                         text = exercise.volumeLb
                             .takeIf { it > 0.0 }
                             ?.let { Formatters.volume(it, weightUnit) }
+                            ?: exercise.unloadedTotalLabel
                             ?: EM_DASH,
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,

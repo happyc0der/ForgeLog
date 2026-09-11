@@ -183,6 +183,95 @@ class WorkoutSummaryViewModelTest {
         }
     }
 
+    /** Logs one finished session of [sets], each built from its set number. */
+    private suspend fun loggedSessionOf(
+        startedAt: Long,
+        sets: (sessionExerciseId: Long) -> List<dev.happyc0der.forgelog.domain.model.SetLog>,
+    ): Long {
+        env.time.now = startedAt
+        val sessionId = env.sessionRepository.startSession(
+            programId = null,
+            programDayId = null,
+            sessionName = "Core",
+            exercises = listOf(SessionStartExercise(exercise = bench())),
+        )
+        val sessionExerciseId = env.sessionRepository.getSessionDetail(sessionId)!!
+            .exercises.single().exercise.id
+        sets(sessionExerciseId).forEach { env.sessionRepository.upsertSetLog(it) }
+        env.time.now = startedAt + 3_600_000L
+        env.sessionRepository.completeSession(sessionId)
+        return sessionId
+    }
+
+    private fun unloadedSet(
+        sessionExerciseId: Long,
+        setNumber: Int,
+        reps: Int? = null,
+        durationSeconds: Int? = null,
+    ) = dev.happyc0der.forgelog.domain.model.SetLog(
+        sessionExerciseId = sessionExerciseId,
+        setNumber = setNumber,
+        reps = reps,
+        durationSeconds = durationSeconds,
+        weightUnit = ExerciseUnit.LB,
+        completed = true,
+        completedAt = 1_000_000L + setNumber * 60_000L,
+    )
+
+    /*
+     * Found finishing a workout on the test device: Plank summarised as "—" and "—". The breakdown
+     * knew only weight × reps, so every timed or bodyweight exercise said nothing at all.
+     */
+    @Test
+    fun `a timed exercise is summarised by its longest hold and total time`() = runTest {
+        val sessionId = loggedSessionOf(startedAt = 1_000_000L) { id ->
+            listOf(
+                unloadedSet(id, setNumber = 1, durationSeconds = 45),
+                unloadedSet(id, setNumber = 2, durationSeconds = 60),
+                unloadedSet(id, setNumber = 3, durationSeconds = 30),
+            )
+        }
+
+        viewModel(sessionId).uiState.test {
+            val exercise = awaitUntil { it.summary != null }.exercises.single()
+            assertEquals("1m", exercise.topSetLabel)
+            assertEquals(0.0, exercise.volumeLb, 0.0)
+            assertEquals("2m 15s", exercise.unloadedTotalLabel)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `bodyweight work is summarised by its most reps and total reps`() = runTest {
+        val sessionId = loggedSessionOf(startedAt = 1_000_000L) { id ->
+            listOf(unloadedSet(id, setNumber = 1, reps = 12), unloadedSet(id, setNumber = 2, reps = 9))
+        }
+
+        viewModel(sessionId).uiState.test {
+            val exercise = awaitUntil { it.summary != null }.exercises.single()
+            assertEquals("12 reps", exercise.topSetLabel)
+            assertEquals("21 reps", exercise.unloadedTotalLabel)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `the heaviest set is judged in one unit`() = runTest {
+        val sessionId = loggedSessionOf(startedAt = 1_000_000L) { id ->
+            listOf(
+                unloadedSet(id, setNumber = 1, reps = 5).copy(weight = 200.0, weightUnit = ExerciseUnit.LB),
+                unloadedSet(id, setNumber = 2, reps = 5).copy(weight = 100.0, weightUnit = ExerciseUnit.KG),
+            )
+        }
+
+        viewModel(sessionId).uiState.test {
+            val exercise = awaitUntil { it.summary != null }.exercises.single()
+            // 100 kg is about 220 lb, so it is the heavier set despite the smaller number.
+            assertEquals("5 × 100 kg", exercise.topSetLabel)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
     @Test
     fun `warmups do not claim records`() = runTest {
         val sessionId = loggedSession(

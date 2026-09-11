@@ -18,6 +18,7 @@ import dev.happyc0der.forgelog.domain.repository.WorkoutSessionRepository
 import dev.happyc0der.forgelog.domain.settings.AppSettings
 import dev.happyc0der.forgelog.domain.settings.SettingsRepository
 import dev.happyc0der.forgelog.domain.workout.VolumeCalculator
+import dev.happyc0der.forgelog.domain.workout.toPounds
 import dev.happyc0der.forgelog.ui.common.reportErrors
 import dev.happyc0der.forgelog.ui.format.Formatters
 import dev.happyc0der.forgelog.ui.navigation.WorkoutSummaryRoute
@@ -38,6 +39,11 @@ data class SummaryExerciseUi(
     val completedSets: Int,
     val volumeLb: Double,
     val topSetLabel: String?,
+    /**
+     * What the exercise added up to when it moved no load: total time held, reps, or distance.
+     * Shown in place of volume, which for a plank or a pull-up is always zero.
+     */
+    val unloadedTotalLabel: String? = null,
 )
 
 data class WorkoutSummaryUiState(
@@ -101,13 +107,20 @@ class WorkoutSummaryViewModel @Inject constructor(
                 errorMessage = error,
                 summary = TrainingSummaries.summarize(detail, settings.includeWarmupInVolume),
                 exercises = detail.exercises.map { logged ->
+                    val totals = VolumeCalculator.calculate(logged.sets, settings.includeWarmupInVolume)
                     SummaryExerciseUi(
                         name = logged.exercise.displayNameSnapshot,
                         completedSets = logged.sets.count { it.completed },
-                        volumeLb = VolumeCalculator
-                            .calculate(logged.sets, settings.includeWarmupInVolume)
-                            .loadLb,
+                        volumeLb = totals.loadLb,
                         topSetLabel = topSetLabel(logged.sets),
+                        unloadedTotalLabel = when {
+                            totals.totalDurationSeconds > 0 -> Formatters.seconds(totals.totalDurationSeconds)
+                            totals.totalReps > 0 ->
+                                application.getString(R.string.session_detail_reps_value, totals.totalReps)
+                            totals.totalDistanceMeters > 0.0 ->
+                                Formatters.distanceMeters(totals.totalDistanceMeters)
+                            else -> null
+                        },
                     )
                 },
                 records = records,
@@ -132,17 +145,31 @@ class WorkoutSummaryViewModel @Inject constructor(
             ?: application.getString(R.string.state_error_generic)
     }
 
-    /** The heaviest working set actually completed, in the unit it was logged in. */
+    /**
+     * The best working set actually completed, in whatever the exercise measures: the heaviest set
+     * of a loaded lift, else the longest hold, else the most reps, else the longest distance.
+     *
+     * It knew only weight × reps, so every timed and bodyweight exercise summarised as a dash.
+     */
     private fun topSetLabel(sets: List<SetLog>): String? {
-        val heaviest = sets
-            .filter { it.completed && it.setType != SetType.WARMUP }
+        val working = sets.filter { it.completed && it.setType != SetType.WARMUP }
+        working
             .filter { it.weight != null && it.reps != null }
-            .maxByOrNull { it.weight ?: 0.0 }
-            ?: return null
-        return application.getString(
-            R.string.summary_top_set,
-            heaviest.reps ?: 0,
-            Formatters.weight(heaviest.weight ?: return null, heaviest.weightUnit),
-        )
+            // Compared in pounds, so a 100 kg set is not ranked below a 200 lb one.
+            .maxByOrNull { set -> set.weight?.toPounds(set.weightUnit) ?: set.weight ?: 0.0 }
+            ?.let { heaviest ->
+                return application.getString(
+                    R.string.summary_top_set,
+                    heaviest.reps ?: 0,
+                    Formatters.weight(heaviest.weight ?: 0.0, heaviest.weightUnit),
+                )
+            }
+        working.mapNotNull { it.durationSeconds }.filter { it > 0 }.maxOrNull()
+            ?.let { return Formatters.seconds(it) }
+        working.mapNotNull { it.reps }.filter { it > 0 }.maxOrNull()
+            ?.let { return application.getString(R.string.session_detail_reps_value, it) }
+        working.mapNotNull { it.distanceMeters }.filter { it > 0.0 }.maxOrNull()
+            ?.let { return Formatters.distanceMeters(it) }
+        return null
     }
 }
