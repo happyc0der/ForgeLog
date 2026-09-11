@@ -190,6 +190,42 @@ class WorkoutFlowUiTest {
     }
 
     @Test
+    fun thePlannerSuggestsTheNextWeightAndTakesItForToday() {
+        // Last time: all three planned sets reached 8 at 135.
+        val earlier = startSession()
+        runBlocking {
+            (1..3).forEach { number -> logSet(earlier, reps = 8, weight = 135.0, setNumber = number) }
+            env.sessionRepository.completeSession(earlier)
+        }
+        var startedId: Long? = null
+        composeRule.setContent {
+            ForgeLogTheme {
+                StartWorkoutScreen(
+                    onBack = {},
+                    onPickFromLibrary = {},
+                    onStarted = { startedId = it },
+                    viewModel = planner(),
+                )
+            }
+        }
+
+        composeRule.waitUntil(WAIT_MS) {
+            settle { composeRule.onAllNodesWithTag(TestTags.PROGRESSION_HINT).fetchSemanticsNodes().isNotEmpty() }
+        }
+        composeRule.onNodeWithText("Use 140 lb").performScrollTo().performClick()
+        composeRule.waitUntil(WAIT_MS) {
+            composeRule.onAllNodesWithText("@ 140 lb", substring = true).fetchSemanticsNodes().isNotEmpty()
+        }
+        // Taken: nothing left to suggest.
+        assertTrue(composeRule.onAllNodesWithTag(TestTags.PROGRESSION_HINT).fetchSemanticsNodes().isEmpty())
+
+        composeRule.onNodeWithTag(TestTags.START_WORKOUT_CONFIRM).performScrollTo().performClick()
+        composeRule.waitUntil(WAIT_MS) { settle { startedId != null } }
+        val started = runBlocking { env.sessionRepository.getSessionDetail(startedId!!) }!!
+        assertEquals(140.0, started.exercises.single().exercise.targetWeight ?: 0.0, 0.001)
+    }
+
+    @Test
     fun addingSetsInTheLoggerPersistsThem() {
         val sessionId = startSession()
         composeRule.setContent {

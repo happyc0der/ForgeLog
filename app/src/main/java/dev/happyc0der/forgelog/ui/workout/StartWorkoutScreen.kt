@@ -56,6 +56,7 @@ import dev.happyc0der.forgelog.R
 import dev.happyc0der.forgelog.domain.model.SetLog
 import dev.happyc0der.forgelog.domain.model.ExerciseUnit
 import dev.happyc0der.forgelog.domain.workout.PreviousPerformance
+import dev.happyc0der.forgelog.domain.workout.Progression
 import dev.happyc0der.forgelog.domain.workout.asWeightUnit
 import dev.happyc0der.forgelog.ui.format.Formatters
 import dev.happyc0der.forgelog.ui.format.relativeDate
@@ -217,6 +218,7 @@ fun StartWorkoutScreen(
                             onTargetChange = { field, value ->
                                 viewModel.setTarget(item.localId, field, value)
                             },
+                            onUseWeight = { weight -> viewModel.applyProgression(item.localId, weight) },
                             onSkip = { viewModel.skipExercise(item.localId) },
                         )
                     }
@@ -288,8 +290,10 @@ private fun PlannedExerciseCard(
     dragModifier: Modifier,
     weightUnit: ExerciseUnit,
     onTargetChange: (TargetField, Double?) -> Unit,
+    onUseWeight: (Double) -> Unit,
     onSkip: () -> Unit,
 ) {
+    val liftWeightUnit = item.exercise.defaultUnit.asWeightUnit(fallback = weightUnit)
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -327,9 +331,15 @@ private fun PlannedExerciseCard(
                 item = item,
                 // The exercise's own unit for a loaded lift, as the logger uses. The planner used
                 // the default for every lift, so a kg exercise's target read "@ 100 lb" here.
-                weightUnit = item.exercise.defaultUnit.asWeightUnit(fallback = weightUnit),
+                weightUnit = liftWeightUnit,
                 onTargetChange = onTargetChange,
             )
+            Progression.hint(
+                targets = item,
+                lastSets = item.previous?.exercise?.sets.orEmpty(),
+                category = item.exercise.category,
+                unit = liftWeightUnit,
+            )?.let { hint -> ProgressionHintBlock(hint = hint, onUse = onUseWeight) }
             PreviousSessionPanel(previous = item.previous)
             OutlinedButton(onClick = onSkip, modifier = Modifier.fillMaxWidth()) {
                 Text(text = stringResource(R.string.workout_skip_exercise))

@@ -258,6 +258,87 @@ class ActiveWorkoutViewModelTest {
         assertTrue(remaining.none { it.id == toDelete.id })
     }
 
+    /** A finished bench session before today's: [reps] at [weight] for each set. */
+    private suspend fun lastBench(weight: Double, vararg reps: Int) {
+        val earlier = env.sessionRepository.startSession(
+            programId = null,
+            programDayId = null,
+            sessionName = "Earlier",
+            exercises = listOf(
+                SessionStartExercise(
+                    exercise = Exercise(
+                        id = benchId,
+                        name = "Bench Press",
+                        category = ExerciseCategory.PUSH,
+                        defaultUnit = ExerciseUnit.LB,
+                        howToUrl = null,
+                        defaultPointers = null,
+                        isArchived = false,
+                        createdAt = 0L,
+                        updatedAt = 0L,
+                    ),
+                ),
+            ),
+        )
+        val entryId = env.sessionRepository.getSessionDetail(earlier)!!.exercises.single().exercise.id
+        reps.forEachIndexed { index, count ->
+            env.sessionRepository.upsertSetLog(
+                dev.happyc0der.forgelog.domain.model.SetLog(
+                    sessionExerciseId = entryId,
+                    setNumber = index + 1,
+                    reps = count,
+                    weight = weight,
+                    weightUnit = ExerciseUnit.LB,
+                    completed = true,
+                    completedAt = env.time.now,
+                ),
+            )
+        }
+        env.sessionRepository.completeSession(earlier)
+    }
+
+    @Test
+    fun `a lift that hit every rep last time suggests the next weight until today's set is at it`() = runTest {
+        // Today's plan: 3 x 8 at 135. Last time: all three sets reached 8 at 135.
+        lastBench(135.0, 8, 8, 8)
+        val vm = viewModel()
+        try {
+            vm.uiState.test {
+                val hint = awaitUntil { it.exercises.singleOrNull()?.progression != null }
+                    .exercises.single().progression!!
+                assertEquals(listOf(140.0), hint.options)
+                assertEquals(135.0, hint.fromWeight, 0.0)
+
+                vm.addSet(sessionExerciseId)
+                val set = awaitUntil { it.exercises.single().item.sets.isNotEmpty() }
+                    .exercises.single().item.sets.single()
+                // Prefilled from the plan, 135: still worth saying.
+                assertEquals(135.0, set.weight ?: 0.0, 0.0)
+
+                vm.onSetText(set, ActiveWorkoutViewModel.FIELD_WEIGHT, "140")
+                awaitUntil { it.exercises.single().progression == null }
+                cancelAndIgnoreRemainingEvents()
+            }
+        } finally {
+            vm.viewModelScope.cancel()
+        }
+    }
+
+    @Test
+    fun `a lift that fell short last time suggests nothing`() = runTest {
+        lastBench(135.0, 8, 8, 7)
+        val vm = viewModel()
+        try {
+            vm.uiState.test {
+                val state = awaitUntil { it.exercises.singleOrNull()?.previous != null }
+                assertNull(state.exercises.single().progression)
+                cancelAndIgnoreRemainingEvents()
+            }
+        } finally {
+            vm.viewModelScope.cancel()
+        }
+    }
+
     @Test
     fun `a pending edit does not resurrect a deleted set`() = runTest {
         val vm = viewModel()

@@ -361,6 +361,7 @@ private fun ExerciseLoggerCard(
                     color = MaterialTheme.colorScheme.primary,
                 )
             }
+            exerciseUi.progression?.let { hint -> ProgressionHintBlock(hint = hint) }
             if (!exerciseUi.expanded) {
                 val planned = exercise.plannedSets
                 val done = exerciseUi.item.sets.count { it.completed }

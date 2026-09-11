@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import dev.happyc0der.forgelog.R
 import dev.happyc0der.forgelog.ui.format.Formatters
+import dev.happyc0der.forgelog.domain.model.ExerciseCategory
 import dev.happyc0der.forgelog.domain.model.ExerciseUnit
 import dev.happyc0der.forgelog.domain.model.SessionDetail
 import dev.happyc0der.forgelog.domain.model.SessionExerciseWithSets
@@ -24,12 +25,15 @@ import dev.happyc0der.forgelog.domain.workout.PreviousWorkoutMatcher
 import dev.happyc0der.forgelog.domain.workout.SessionRest
 import dev.happyc0der.forgelog.domain.workout.SetFieldVisibility
 import dev.happyc0der.forgelog.domain.workout.SetInputField
+import dev.happyc0der.forgelog.domain.workout.Progression
+import dev.happyc0der.forgelog.domain.workout.ProgressionHint
 import dev.happyc0der.forgelog.domain.workout.SetPrefill
 import dev.happyc0der.forgelog.domain.workout.SetsLeft
 import dev.happyc0der.forgelog.domain.workout.SetTargets
 import dev.happyc0der.forgelog.domain.workout.asWeightUnit
 import dev.happyc0der.forgelog.domain.workout.formatElapsed
 import dev.happyc0der.forgelog.domain.workout.formatSeconds
+import dev.happyc0der.forgelog.domain.workout.toPounds
 import dev.happyc0der.forgelog.ui.common.launchSafely
 import dev.happyc0der.forgelog.ui.common.reportErrors
 import dev.happyc0der.forgelog.ui.common.ticker
@@ -73,6 +77,8 @@ data class ActiveExerciseUi(
     val notesDraft: String,
     /** The program's notes for this exercise, when the session came from a program day. */
     val planNotes: String? = null,
+    /** The weight this lift has earned since last time, until today's sets are at it. */
+    val progression: ProgressionHint? = null,
 )
 
 /** The logger's clocks, resolved against the current time. See [ActiveWorkoutViewModel.clock]. */
@@ -236,6 +242,7 @@ class ActiveWorkoutViewModel @Inject constructor(
                 drafts = draftMap,
                 revealed = revealedMap,
                 units = exercises.associate { it.id to it.defaultUnit },
+                categories = exercises.associate { it.id to it.category },
                 defaultWeightUnit = defaultWeightUnit,
             )
         }.reportErrors(null) { reportLoadError(it) },
@@ -250,10 +257,11 @@ class ActiveWorkoutViewModel @Inject constructor(
             dayNotes = plan.dayNotes,
             exercises = detail.exercises.map { item ->
                 val unit = item.exercise.exerciseId?.let(partial.units::get) ?: ExerciseUnit.LB
+                val targetWeightUnit = unit.asWeightUnit(fallback = partial.defaultWeightUnit)
                 ActiveExerciseUi(
                     item = item,
                     unit = unit,
-                    targetWeightUnit = unit.asWeightUnit(fallback = partial.defaultWeightUnit),
+                    targetWeightUnit = targetWeightUnit,
                     previous = previous[item.exercise.id],
                     expanded = item.exercise.id == expandedId,
                     revealedFields = partial.revealed[item.exercise.id].orEmpty(),
@@ -264,6 +272,12 @@ class ActiveWorkoutViewModel @Inject constructor(
                     notesDraft = partial.drafts[exerciseNotesKey(item.exercise.id)]
                         ?: item.exercise.exerciseNotes.orEmpty(),
                     planNotes = item.exercise.exerciseId?.let(plan.notesByExerciseId::get),
+                    progression = Progression.hint(
+                        targets = item.exercise,
+                        lastSets = previous[item.exercise.id]?.exercise?.sets.orEmpty(),
+                        category = item.exercise.exerciseId?.let(partial.categories::get),
+                        unit = targetWeightUnit,
+                    )?.takeUnless { hint -> item.sets.any { set -> set.reachesWeight(hint) } },
                 )
             },
             drafts = partial.drafts,
@@ -789,6 +803,7 @@ class ActiveWorkoutViewModel @Inject constructor(
         val drafts: Map<String, String>,
         val revealed: Map<Long, Set<SetInputField>>,
         val units: Map<Long, ExerciseUnit>,
+        val categories: Map<Long, ExerciseCategory>,
         val defaultWeightUnit: ExerciseUnit,
     )
 
@@ -803,4 +818,11 @@ class ActiveWorkoutViewModel @Inject constructor(
         fun setFieldKey(setId: Long, field: String): String = "$setId:$field"
         fun exerciseNotesKey(sessionExerciseId: Long): String = "ex:$sessionExerciseId:notes"
     }
+}
+
+/** Already at the suggested weight today: the suggestion has been taken, typed straight in. */
+private fun SetLog.reachesWeight(hint: ProgressionHint): Boolean {
+    val pounds = weight?.toPounds(weightUnit) ?: return false
+    val target = hint.options.first().toPounds(hint.unit) ?: return false
+    return pounds >= target - 0.01
 }

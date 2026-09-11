@@ -95,6 +95,7 @@ internal fun TargetSection(
                         onChange = { onTargetChange(TargetField.WEIGHT, it) },
                         decimal = true,
                         modifier = Modifier.weight(1f),
+                        resetKey = item.targetsRevision,
                     )
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -145,6 +146,8 @@ private fun TargetField(
     onChange: (Double?) -> Unit,
     modifier: Modifier = Modifier,
     decimal: Boolean = false,
+    /** Changes when the value was set from elsewhere, and the draft must start again from it. */
+    resetKey: Int = 0,
 ) {
     /*
      * The draft is the field's own state and is NOT re-keyed on [value].
@@ -152,9 +155,10 @@ private fun TargetField(
      * Keying it on [value] fed the field its own output: typing "1" stored 1.0, which came back as
      * "1.0", which changed the key, which reset the draft — so "12" was entered as "1.02". The
      * roster this edits is in-memory and the user is its only writer, so there is nothing to
-     * re-sync from. [value] is the initial text and nothing more.
+     * re-sync from. [value] is the initial text, again whenever [resetKey] changes -- a suggestion
+     * taken from outside the field.
      */
-    var draft by rememberSaveable { mutableStateOf(value.orEmpty()) }
+    var draft by rememberSaveable(resetKey) { mutableStateOf(value.orEmpty()) }
     OutlinedTextField(
         value = draft,
         onValueChange = { raw ->

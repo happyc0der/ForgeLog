@@ -171,6 +171,14 @@
     </plurals>
     <string name="workout_finish_left_note">Sets you added and did not tick are kept, marked not done.</string>
     <string name="workout_finish_keep_going">Keep going</string>
+    <string name="progression_title">Ready to progress</string>
+    <!-- "All 3 sets reached 5 reps at 155 lb last time." -->
+    <plurals name="progression_reason">
+        <item quantity="one">The set reached %2$s at %3$s last time.</item>
+        <item quantity="other">All %1$d sets reached %2$s at %3$s last time.</item>
+    </plurals>
+    <string name="progression_use">Use %1$s</string>
+    <string name="progression_try">Try %1$s today.</string>
     <string name="workout_abandon_message">This marks the session as abandoned. Logged sets are kept.</string>
     <string name="workout_add_set">Add set</string>
     <string name="workout_more_fields">More fields</string>

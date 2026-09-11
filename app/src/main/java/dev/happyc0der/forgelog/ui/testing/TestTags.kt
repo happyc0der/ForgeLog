@@ -42,6 +42,7 @@ object TestTags {
     const val WORKOUT_SUMMARY_SCREEN = "workout_summary_screen"
     const val WORKOUT_SUMMARY_RECORDS = "workout_summary_records"
     const val WORKOUT_SUMMARY_DONE = "workout_summary_done"
+    const val PROGRESSION_HINT = "progression_hint"
 
     const val PROGRAMS_SCREEN = "programs_screen"
     const val PROGRAM_DETAIL_SCREEN = "program_detail_screen"

@@ -68,6 +68,11 @@ data class PlannedExerciseItem(
     override val targetDurationSeconds: Int? = null,
     override val targetRestSeconds: Int? = null,
     val previous: PreviousPerformance? = null,
+    /**
+     * Bumped when a target is set from outside its field -- a progression suggestion taken -- so
+     * the field shows the new value rather than what was last typed into it.
+     */
+    val targetsRevision: Int = 0,
 ) : ExerciseTargets
 
 /** Which target a planner edit applies to. */
@@ -260,6 +265,19 @@ class StartWorkoutViewModel @Inject constructor(
                         TargetField.DURATION_SECONDS -> item.copy(targetDurationSeconds = value?.toInt())
                         TargetField.REST_SECONDS -> item.copy(targetRestSeconds = value?.toInt())
                     }
+                }
+            }
+        }
+    }
+
+    /** Makes a suggested weight today's target, as if it had been typed in. */
+    fun applyProgression(localId: Long, weight: Double) {
+        roster.update { items ->
+            items.map { item ->
+                if (item.localId != localId) {
+                    item
+                } else {
+                    item.copy(targetWeight = weight, targetsRevision = item.targetsRevision + 1)
                 }
             }
         }
