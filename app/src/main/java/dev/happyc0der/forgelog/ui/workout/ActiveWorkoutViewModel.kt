@@ -39,6 +39,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -51,6 +52,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -65,6 +67,13 @@ data class ActiveExerciseUi(
     val notesDraft: String,
     /** The program's notes for this exercise, when the session came from a program day. */
     val planNotes: String? = null,
+)
+
+/** The logger's clocks, resolved against the current time. See [ActiveWorkoutViewModel.clock]. */
+data class LoggerClockUi(
+    val sessionElapsedLabel: String = "0:00",
+    val sinceLastSetLabel: String? = null,
+    val restTimer: RestTimerUi = RestTimerUi(),
 )
 
 /** Everything the rest countdown needs to render, already resolved against the clock. */
@@ -189,65 +198,114 @@ class ActiveWorkoutViewModel @Inject constructor(
         // Reference text only: losing it must not cost the log.
         .reportErrors(PlanContext()) { reportAsMessage(it) }
 
-    val uiState: StateFlow<ActiveWorkoutUiState> = combine(
+    /*
+     * Everything on the logger except its clocks, which tick every second while this changes only
+     * when the data does. They used to be one flow, so every tick rebuilt every exercise card as a
+     * new object and the whole screen recomposed once a second -- on the test device, a frame of
+     * 22 ms (over budget) each second, for nothing but the session clock. Kept apart, the cards are
+     * the same objects from one tick to the next, and Compose skips them.
+     */
+    private val content: Flow<LoggerContent?> = combine(
         combine(
             workoutSessionRepository.observeSessionDetail(sessionId),
-            ticker(timeProvider),
             drafts,
             revealed,
             exerciseRepository.observeExercises(includeArchived = true),
-        ) { detail, now, draftMap, revealedMap, exercises ->
+        ) { detail, draftMap, revealedMap, exercises ->
             ActiveWorkoutPartial(
                 detail = detail,
-                now = now,
                 drafts = draftMap,
                 revealed = revealedMap,
                 units = exercises.associate { it.id to it.defaultUnit },
             )
         }.reportErrors(null) { reportLoadError(it) },
         combine(previousByExercise, planContext, ::Pair),
-        restTimerController.observe(sessionId),
-        loadError,
-    ) { partial, context, timer, error ->
+    ) { partial, context ->
         val (previous, plan) = context
-        val detail = partial?.detail
-        if (partial == null || detail == null) {
+        val detail = partial?.detail ?: return@combine null
+        val expandedId = detail.session.expandedSessionExerciseId
+            ?: detail.exercises.firstOrNull()?.exercise?.id
+        LoggerContent(
+            detail = detail,
+            dayNotes = plan.dayNotes,
+            exercises = detail.exercises.map { item ->
+                val unit = item.exercise.exerciseId?.let(partial.units::get) ?: ExerciseUnit.LB
+                ActiveExerciseUi(
+                    item = item,
+                    unit = unit,
+                    previous = previous[item.exercise.id],
+                    expanded = item.exercise.id == expandedId,
+                    revealedFields = partial.revealed[item.exercise.id].orEmpty(),
+                    notesDraft = partial.drafts[exerciseNotesKey(item.exercise.id)]
+                        ?: item.exercise.exerciseNotes.orEmpty(),
+                    planNotes = item.exercise.exerciseId?.let(plan.notesByExerciseId::get),
+                )
+            },
+            drafts = partial.drafts,
+            lastCompletedAt = SessionRest.lastCompletedAt(
+                detail.exercises.asSequence().flatMap { it.sets.asSequence() },
+            ),
+        )
+    }.shareIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), replay = 1)
+
+    /**
+     * The logger without its clocks: what the screen's body draws. It changes only when the data
+     * does, so a clock tick recomposes nothing but the clock.
+     */
+    val contentState: StateFlow<ActiveWorkoutUiState> = combine(content, loadError) { loaded, error ->
+        if (loaded == null) {
             ActiveWorkoutUiState(
                 isLoading = false,
                 errorMessage = error ?: application.getString(R.string.workout_session_missing),
             )
         } else {
-            val expandedId = detail.session.expandedSessionExerciseId
-                ?: detail.exercises.firstOrNull()?.exercise?.id
-            val lastCompletedAt = SessionRest.lastCompletedAt(
-                detail.exercises.asSequence().flatMap { it.sets.asSequence() },
-            )
-            val sinceLastSetMs = SessionRest.sinceLastSetMs(partial.now, lastCompletedAt)
             ActiveWorkoutUiState(
                 isLoading = false,
                 // Non-fatal: the log still renders, with the failure shown alongside it.
                 errorMessage = error,
-                detail = detail,
-                dayNotes = plan.dayNotes,
-                exercises = detail.exercises.map { item ->
-                    val unit = item.exercise.exerciseId?.let(partial.units::get) ?: ExerciseUnit.LB
-                    ActiveExerciseUi(
-                        item = item,
-                        unit = unit,
-                        previous = previous[item.exercise.id],
-                        expanded = item.exercise.id == expandedId,
-                        revealedFields = partial.revealed[item.exercise.id].orEmpty(),
-                        notesDraft = partial.drafts[exerciseNotesKey(item.exercise.id)]
-                            ?: item.exercise.exerciseNotes.orEmpty(),
-                        planNotes = item.exercise.exerciseId?.let(plan.notesByExerciseId::get),
-                    )
-                },
-                sessionElapsedLabel = formatElapsed(partial.now - detail.session.startedAt),
-                sinceLastSetLabel = sinceLastSetMs?.let(::formatElapsed),
-                drafts = partial.drafts,
-                restTimer = timer.toUi(partial.now),
+                detail = loaded.detail,
+                dayNotes = loaded.dayNotes,
+                exercises = loaded.exercises,
+                drafts = loaded.drafts,
             )
         }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = ActiveWorkoutUiState(),
+    )
+
+    /**
+     * The clocks alone -- session time, time since the last set, the rest countdown -- for the header
+     * and the rest bar, the only parts of the screen that change every second.
+     *
+     * One state used to carry both, so each tick recomposed the whole logger: on the test device a
+     * frame of 34 ms every second, where the budget is 8. Split, a tick recomposes three lines of
+     * text and the rest bar.
+     */
+    val clock: StateFlow<LoggerClockUi> = combine(
+        content.map { it?.detail?.session?.startedAt to it?.lastCompletedAt }.distinctUntilChanged(),
+        ticker(timeProvider),
+        restTimerController.observe(sessionId),
+    ) { (startedAt, lastCompletedAt), now, timer ->
+        LoggerClockUi(
+            sessionElapsedLabel = startedAt?.let { formatElapsed(now - it) } ?: LoggerClockUi().sessionElapsedLabel,
+            sinceLastSetLabel = SessionRest.sinceLastSetMs(now, lastCompletedAt)?.let(::formatElapsed),
+            restTimer = timer.toUi(now),
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = LoggerClockUi(),
+    )
+
+    /** Both together, for a caller that wants the whole picture in one state. */
+    val uiState: StateFlow<ActiveWorkoutUiState> = combine(contentState, clock) { screen, time ->
+        screen.copy(
+            sessionElapsedLabel = time.sessionElapsedLabel,
+            sinceLastSetLabel = time.sinceLastSetLabel,
+            restTimer = time.restTimer,
+        )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
@@ -315,7 +373,7 @@ class ActiveWorkoutViewModel @Inject constructor(
                 ?.exercises
                 ?.firstOrNull { it.exercise.id == sessionExerciseId }
                 ?: return@launchSafely
-            val exerciseUnit = uiState.value.exercises
+            val exerciseUnit = contentState.value.exercises
                 .firstOrNull { it.item.exercise.id == sessionExerciseId }
                 ?.unit
                 ?: ExerciseUnit.LB
@@ -358,7 +416,7 @@ class ActiveWorkoutViewModel @Inject constructor(
             ?: application.getString(R.string.state_error_generic)
 
     private fun previousByExerciseSnapshot(sessionExerciseId: Long) =
-        uiState.value.exercises
+        contentState.value.exercises
             .firstOrNull { it.item.exercise.id == sessionExerciseId }
             ?.previous
             ?.exercise
@@ -581,7 +639,7 @@ class ActiveWorkoutViewModel @Inject constructor(
     }
 
     fun fieldValue(set: SetLog, field: String): String {
-        val draft = uiState.value.drafts[setFieldKey(set.id, field)]
+        val draft = contentState.value.drafts[setFieldKey(set.id, field)]
         if (draft != null) return draft
         return when (field) {
             FIELD_REPS -> set.reps?.toString().orEmpty()
@@ -657,18 +715,25 @@ class ActiveWorkoutViewModel @Inject constructor(
     }
 
     private fun setFromState(setId: Long): SetLog? =
-        uiState.value.exercises.asSequence().flatMap { it.item.sets.asSequence() }.firstOrNull { it.id == setId }
+        contentState.value.exercises.asSequence().flatMap { it.item.sets.asSequence() }.firstOrNull { it.id == setId }
 
-    private fun currentDetail(): SessionDetail? = uiState.value.detail
+    private fun currentDetail(): SessionDetail? = contentState.value.detail
 
     private data class PlanContext(
         val dayNotes: String? = null,
         val notesByExerciseId: Map<Long, String> = emptyMap(),
     )
 
+    private data class LoggerContent(
+        val detail: SessionDetail,
+        val dayNotes: String?,
+        val exercises: List<ActiveExerciseUi>,
+        val drafts: Map<String, String>,
+        val lastCompletedAt: Long?,
+    )
+
     private data class ActiveWorkoutPartial(
         val detail: SessionDetail?,
-        val now: Long,
         val drafts: Map<String, String>,
         val revealed: Map<Long, Set<SetInputField>>,
         val units: Map<Long, ExerciseUnit>,

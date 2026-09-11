@@ -89,7 +89,9 @@ fun ActiveWorkoutScreen(
     onFinished: () -> Unit,
     viewModel: ActiveWorkoutViewModel = hiltViewModel(),
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    // Without the clocks, which only the header lines and the rest bar below read: a tick
+    // recomposes those and nothing else.
+    val uiState by viewModel.contentState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var abandonConfirm by rememberSaveable { mutableStateOf(false) }
     // Held by id so a rotation does not silently close the confirmation.
@@ -125,18 +127,7 @@ fun ActiveWorkoutScreen(
                 title = {
                     Column {
                         Text(text = uiState.detail?.session?.sessionName ?: stringResource(R.string.workout_active_title))
-                        Text(
-                            text = stringResource(R.string.workout_session_timer, uiState.sessionElapsedLabel),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.secondary,
-                        )
-                        Text(
-                            text = uiState.sinceLastSetLabel?.let { label ->
-                                stringResource(R.string.workout_since_last_set, label)
-                            } ?: stringResource(R.string.workout_since_last_set_none),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        LoggerClockLines(viewModel)
                     }
                 },
                 navigationIcon = {
@@ -162,8 +153,9 @@ fun ActiveWorkoutScreen(
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         bottomBar = {
+            val clock by viewModel.clock.collectAsStateWithLifecycle()
             RestTimerBar(
-                state = uiState.restTimer,
+                state = clock.restTimer,
                 onPause = viewModel::pauseRestTimer,
                 onResume = viewModel::resumeRestTimer,
                 onAdjust = viewModel::adjustRestTimer,
@@ -250,6 +242,24 @@ fun ActiveWorkoutScreen(
             onDismiss = { abandonConfirm = false },
         )
     }
+}
+
+/** Session time and time since the last set: the header's two ticking lines, and all that ticks. */
+@Composable
+private fun LoggerClockLines(viewModel: ActiveWorkoutViewModel) {
+    val clock by viewModel.clock.collectAsStateWithLifecycle()
+    Text(
+        text = stringResource(R.string.workout_session_timer, clock.sessionElapsedLabel),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.secondary,
+    )
+    Text(
+        text = clock.sinceLastSetLabel?.let { label ->
+            stringResource(R.string.workout_since_last_set, label)
+        } ?: stringResource(R.string.workout_since_last_set_none),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 @Composable
