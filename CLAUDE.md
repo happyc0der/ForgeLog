@@ -19,7 +19,7 @@ app/src/main/java/dev/happyc0der/forgelog/
 │   ├── mapper/       EntityMappers.kt — entity ↔ domain, and where relation lists get sorted
 │   ├── repository/   repository implementations
 │   └── settings/     DataStore-backed settings
-├── di/               Hilt modules: DatabaseModule, RepositoryModule, DispatchersModule
+├── di/               Hilt modules: DatabaseModule, RepositoryModule, DispatchersModule, WorkoutModule
 ├── domain/
 │   ├── model/        pure data classes + enums with storageValue/fromStorage
 │   ├── repository/   repository interfaces
@@ -27,7 +27,9 @@ app/src/main/java/dev/happyc0der/forgelog/
 │   ├── time/         TimeProvider, ZoneProvider, WeekBoundary
 │   └── workout/      volume, estimated 1RM, previous-workout matching, rest, set prefill/visibility
 ├── ui/               one package per feature; each has Screen + ViewModel
-└── workout/          WorkoutForegroundService (live session timer notification)
+└── workout/          WorkoutForegroundService (live session timer notification),
+                      RestTimerController (the rest countdown and its alert, app-wide -- not in the
+                      logger's ViewModel, which dies when the logger is left)
 ```
 
 Reuse before writing new: `VolumeCalculator`, `EstimatedOneRepMax`, `PreviousWorkoutMatcher`, `SessionRest`, `SetPrefill`, `SetFieldVisibility`, `DurationInput`, `formatElapsed`/`formatSeconds`, `WeekBoundary`, `ConfirmDialog`, `EmptyState`/`LoadingState`/`ErrorState`, `TextInputDialog`.

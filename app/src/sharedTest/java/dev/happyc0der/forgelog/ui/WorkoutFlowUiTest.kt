@@ -33,7 +33,11 @@ import dev.happyc0der.forgelog.ui.workout.StartWorkoutScreen
 import dev.happyc0der.forgelog.ui.workout.StartWorkoutViewModel
 import dev.happyc0der.forgelog.ui.workout.WorkoutSummaryScreen
 import dev.happyc0der.forgelog.ui.workout.WorkoutSummaryViewModel
+import dev.happyc0der.forgelog.workout.RestTimerController
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.TestCoroutineScheduler
@@ -79,6 +83,10 @@ class WorkoutFlowUiTest {
 
     private val application: Application get() = ApplicationProvider.getApplicationContext()
 
+    /** The app-wide rest countdown; cancelled after each test, as the app never needs to. */
+    private val restScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private val restTimerController by lazy { RestTimerController(restScope, env.time) {} }
+
     @Before
     fun setUp(): Unit = runBlocking {
         env = TestEnvironment(UnconfinedTestDispatcher(scheduler))
@@ -103,6 +111,7 @@ class WorkoutFlowUiTest {
     fun tearDown() {
         created.forEach { it.viewModelScope.cancel() }
         created.clear()
+        restScope.cancel()
         env.tearDown()
     }
 
@@ -135,6 +144,7 @@ class WorkoutFlowUiTest {
         programRepository = env.programRepository,
         timeProvider = env.time,
         settingsRepository = env.settingsRepository,
+        restTimerController = restTimerController,
     ).also(created::add)
 
     private fun summary(sessionId: Long) = WorkoutSummaryViewModel(

@@ -16,8 +16,12 @@ import dev.happyc0der.forgelog.domain.model.SessionStartExercise
 import dev.happyc0der.forgelog.domain.model.SessionStatus
 import dev.happyc0der.forgelog.testing.MainDispatcherRule
 import dev.happyc0der.forgelog.testing.TestEnvironment
+import dev.happyc0der.forgelog.workout.RestAlert
+import dev.happyc0der.forgelog.workout.RestTimerController
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -103,7 +107,14 @@ class ActiveWorkoutViewModelTest {
         env.tearDown()
     }
 
-    private fun viewModel() = ActiveWorkoutViewModel(
+    /**
+     * A fresh countdown holder, as a new process would have. On runTest's background scope, which
+     * is cancelled with the test, so a countdown still pending cannot hang it.
+     */
+    private fun TestScope.newRestTimer(alert: RestAlert = RestAlert {}) =
+        RestTimerController(backgroundScope, env.time, alert)
+
+    private fun TestScope.viewModel(restTimer: RestTimerController = newRestTimer()) = ActiveWorkoutViewModel(
         savedStateHandle = SavedStateHandle(mapOf("sessionId" to sessionId)),
         application = ApplicationProvider.getApplicationContext<Application>(),
         workoutSessionRepository = env.sessionRepository,
@@ -111,6 +122,7 @@ class ActiveWorkoutViewModelTest {
         programRepository = env.programRepository,
         timeProvider = env.time,
         settingsRepository = env.settingsRepository,
+        restTimerController = restTimer,
     ).also(created::add)
 
     private suspend fun sets() = env.sessionRepository.getSessionDetail(sessionId)!!
@@ -570,6 +582,75 @@ class ActiveWorkoutViewModelTest {
             assertEquals("Warm-up: row 4 min", awaitUntil { it.dayNotes == "Warm-up: row 4 min" }.dayNotes)
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    /*
+     * The rest outlives the logger. It used to live in the logger's ViewModel, so leaving the
+     * logger mid-rest -- to check History, say -- killed the countdown and its alert; on the test
+     * device a 30-second rest ran out on the Home screen and nothing buzzed.
+     */
+    @Test
+    fun `rest still alerts when it runs out after the logger is gone`() = runTest {
+        var alerts = 0
+        val restTimer = newRestTimer { alerts++ }
+        val vm = viewModel(restTimer)
+        loaded(vm)
+        val set = addSets(vm, sessionExerciseId, count = 1).single()
+        vm.onSetCompleted(set, true)
+        runCurrent()
+
+        // Leaving the logger destroys its ViewModel.
+        vm.viewModelScope.cancel()
+        env.time.now += 121_000L // the plan's rest is 120 s
+        advanceTimeBy(2_000L)
+        runCurrent()
+
+        assertEquals(1, alerts)
+    }
+
+    @Test
+    fun `an adjusted rest is still adjusted after leaving the logger and coming back`() = runTest {
+        val restTimer = newRestTimer()
+        val vm = viewModel(restTimer)
+        loaded(vm)
+        val set = addSets(vm, sessionExerciseId, count = 1).single()
+        vm.onSetCompleted(set, true)
+        runCurrent()
+        vm.adjustRestTimer(-60)
+        vm.viewModelScope.cancel()
+
+        val reopened = viewModel(restTimer)
+        try {
+            reopened.uiState.test {
+                val state = awaitUntil { it.restTimer.isActive }
+                // Not rebuilt at the planned 120 s: the -60 the user asked for stands.
+                assertEquals(60, state.restTimer.targetSeconds)
+                cancelAndIgnoreRemainingEvents()
+            }
+        } finally {
+            reopened.viewModelScope.cancel()
+        }
+    }
+
+    @Test
+    fun `finishing the workout ends its rest`() = runTest {
+        var alerts = 0
+        val restTimer = newRestTimer { alerts++ }
+        val vm = viewModel(restTimer)
+        loaded(vm)
+        val set = addSets(vm, sessionExerciseId, count = 1).single()
+        vm.onSetCompleted(set, true)
+        runCurrent()
+
+        vm.finish()
+        runCurrent()
+        vm.viewModelScope.cancel()
+        env.time.now += 121_000L
+        advanceTimeBy(2_000L)
+        runCurrent()
+
+        assertNull(restTimer.current(sessionId))
+        assertEquals("no buzz for a workout that is over", 0, alerts)
     }
 
     @Test

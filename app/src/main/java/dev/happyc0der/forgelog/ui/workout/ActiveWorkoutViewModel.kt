@@ -15,7 +15,6 @@ import dev.happyc0der.forgelog.domain.model.SetType
 import dev.happyc0der.forgelog.domain.repository.ExerciseRepository
 import dev.happyc0der.forgelog.domain.repository.ProgramRepository
 import dev.happyc0der.forgelog.domain.repository.WorkoutSessionRepository
-import dev.happyc0der.forgelog.domain.settings.AppSettings
 import dev.happyc0der.forgelog.domain.settings.SettingsRepository
 import dev.happyc0der.forgelog.domain.time.TimeProvider
 import dev.happyc0der.forgelog.domain.workout.PreviousPerformance
@@ -33,6 +32,7 @@ import dev.happyc0der.forgelog.ui.common.launchSafely
 import dev.happyc0der.forgelog.ui.common.reportErrors
 import dev.happyc0der.forgelog.ui.common.ticker
 import dev.happyc0der.forgelog.ui.navigation.ActiveWorkoutRoute
+import dev.happyc0der.forgelog.workout.RestTimerController
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -51,7 +51,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.transformWhile
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -90,17 +89,12 @@ data class ActiveWorkoutUiState(
     val sinceLastSetLabel: String? = null,
     val drafts: Map<String, String> = emptyMap(),
     val restTimer: RestTimerUi = RestTimerUi(),
-    val vibrateOnRestEnd: Boolean = true,
-    val soundOnRestEnd: Boolean = false,
 )
 
 sealed interface ActiveWorkoutEvent {
     data class Message(val value: String) : ActiveWorkoutEvent
     data object Finished : ActiveWorkoutEvent
     data object Abandoned : ActiveWorkoutEvent
-
-    /** Rest reached zero. Raised once per timer, not once per tick. */
-    data object RestFinished : ActiveWorkoutEvent
 }
 
 @HiltViewModel
@@ -112,6 +106,7 @@ class ActiveWorkoutViewModel @Inject constructor(
     programRepository: ProgramRepository,
     private val timeProvider: TimeProvider,
     private val settingsRepository: SettingsRepository,
+    private val restTimerController: RestTimerController,
 ) : ViewModel() {
     private val sessionId = savedStateHandle.toRoute<ActiveWorkoutRoute>().sessionId
     private val drafts = MutableStateFlow<Map<String, String>>(emptyMap())
@@ -127,22 +122,11 @@ class ActiveWorkoutViewModel @Inject constructor(
      */
     private var addSetJob: Job? = null
 
-    /**
-     * In memory on purpose. The countdown is anchored to the completion time of the set that started
-     * it, so the remaining time is recomputed from the database rather than stored — a rest timer
-     * survives rotation and backgrounding without a column of its own. Only a deliberate pause or
-     * dismiss is transient, and losing either on process death is the right behaviour.
+    /*
+     * The rest countdown is not held here. It lives in [RestTimerController], for the app, because
+     * this ViewModel is destroyed as soon as the user leaves the logger -- and the countdown, and
+     * its alert, went with it. This class starts, adjusts and displays it.
      */
-    private val restTimer = MutableStateFlow<RestTimerState?>(null)
-
-    /**
-     * The set whose tick started the running rest, if a tick did.
-     *
-     * Unticking that set stops the rest with it. It used to keep counting -- a mis-tapped set left
-     * a countdown running for rest that never started, and one the next launch would not have
-     * restored, because by then that set was no longer completed.
-     */
-    private var restStartedBySetId: Long? = null
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private val previousByExercise = workoutSessionRepository.observeSessionDetail(sessionId)
@@ -218,10 +202,9 @@ class ActiveWorkoutViewModel @Inject constructor(
             )
         }.reportErrors(null) { reportLoadError(it) },
         combine(previousByExercise, planContext, ::Pair),
-        restTimer,
-        settingsRepository.settings.reportErrors(AppSettings()) { reportLoadError(it) },
+        restTimerController.observe(sessionId),
         loadError,
-    ) { partial, context, timer, settings, error ->
+    ) { partial, context, timer, error ->
         val (previous, plan) = context
         val detail = partial?.detail
         if (partial == null || detail == null) {
@@ -259,8 +242,6 @@ class ActiveWorkoutViewModel @Inject constructor(
                 sinceLastSetLabel = sinceLastSetMs?.let(::formatElapsed),
                 drafts = partial.drafts,
                 restTimer = timer.toUi(partial.now),
-                vibrateOnRestEnd = settings.restTimerVibration,
-                soundOnRestEnd = settings.restTimerSound,
             )
         }
     }.stateIn(
@@ -273,7 +254,6 @@ class ActiveWorkoutViewModel @Inject constructor(
     val events = eventsChannel.receiveAsFlow()
 
     init {
-        observeRestCompletion()
         restoreRestTimer()
     }
 
@@ -285,15 +265,16 @@ class ActiveWorkoutViewModel @Inject constructor(
      * two minutes of rest — the moment Android is most likely to reclaim the app — lost the
      * countdown entirely.
      *
-     * Runs once, and only while nothing is already counting: a live timer, including a paused one,
-     * always wins over a reconstruction.
+     * Runs once, and only while this session has no countdown already: a live one -- running,
+     * paused or skipped, and now surviving the logger being left and reopened -- always wins over
+     * a reconstruction.
      */
     private fun restoreRestTimer() {
         launchSafely(::reportAsMessage) {
             val detail = workoutSessionRepository.observeSessionDetail(sessionId)
                 .filterNotNull()
                 .first()
-            if (restTimer.value != null) return@launchSafely
+            if (restTimerController.current(sessionId) != null) return@launchSafely
             val lastCompleted = detail.exercises
                 .asSequence()
                 .flatMap { logged -> logged.sets.asSequence().map { logged to it } }
@@ -306,39 +287,9 @@ class ActiveWorkoutViewModel @Inject constructor(
                 plannedRestSeconds = logged.exercise.targetRestSeconds,
                 defaultRestSeconds = settingsRepository.settings.first().defaultRestSeconds,
             )
-            restTimer.value = RestTimer.restore(anchor, target, timeProvider.nowEpochMs())
-            restStartedBySetId = set.id
-        }
-    }
-
-    @OptIn(ExperimentalCoroutinesApi::class)
-    private fun observeRestCompletion() {
-        /*
-         * Announces the end of rest exactly once per timer.
-         *
-         * The ticker runs only while a timer is active AND still counting: transformWhile stops it
-         * on the tick that reaches zero, so a finished timer is not still waking this coroutine
-         * once a second for as long as the screen stays on the back stack. distinctUntilChanged
-         * keeps it to one event per timer even across a restart.
-         */
-        launchSafely(::reportAsMessage) {
-            restTimer
-                .flatMapLatest { state ->
-                    if (state == null || !state.isActive) {
-                        flowOf(false)
-                    } else {
-                        ticker(timeProvider)
-                            .map { now -> RestTimer.hasFinished(state, now) }
-                            .transformWhile { finished ->
-                                emit(finished)
-                                !finished
-                            }
-                    }
-                }
-                .distinctUntilChanged()
-                .collect { finished ->
-                    if (finished) eventsChannel.send(ActiveWorkoutEvent.RestFinished)
-                }
+            val restored = RestTimer.restore(anchor, target, timeProvider.nowEpochMs())
+                ?: return@launchSafely
+            restTimerController.restore(sessionId, restored, startedBySetId = set.id)
         }
     }
 
@@ -440,8 +391,7 @@ class ActiveWorkoutViewModel @Inject constructor(
      */
     fun startRestTimer(sessionExerciseId: Long) {
         launchSafely(::reportAsMessage) {
-            startRestTimer(sessionExerciseId, timeProvider.nowEpochMs())
-            restStartedBySetId = null
+            startRestTimer(sessionExerciseId, timeProvider.nowEpochMs(), startedBySetId = null)
         }
     }
 
@@ -485,10 +435,8 @@ class ActiveWorkoutViewModel @Inject constructor(
                 // set before it is left as it was, because there is no way to know what it held
                 // before this completion overwrote it.
                 workoutSessionRepository.upsertSetLog(current.copy(completed = false, completedAt = null))
-                if (restStartedBySetId == set.id) {
-                    restTimer.value = null
-                    restStartedBySetId = null
-                }
+                // A mis-tapped set must not leave rest running that never began.
+                restTimerController.stopIfStartedBy(sessionId, set.id)
                 return@launchSafely
             }
             val now = timeProvider.nowEpochMs()
@@ -504,8 +452,7 @@ class ActiveWorkoutViewModel @Inject constructor(
                     ),
                 )
             }
-            startRestTimer(set.sessionExerciseId, now)
-            restStartedBySetId = set.id
+            startRestTimer(set.sessionExerciseId, now, startedBySetId = set.id)
         }
     }
 
@@ -513,37 +460,35 @@ class ActiveWorkoutViewModel @Inject constructor(
      * Rest begins the moment a set is ticked, using the exercise's planned rest where the program
      * specified one and the user's default otherwise. This is what the planned-rest target is for.
      */
-    private suspend fun startRestTimer(sessionExerciseId: Long, anchorEpochMs: Long) {
+    private suspend fun startRestTimer(sessionExerciseId: Long, anchorEpochMs: Long, startedBySetId: Long?) {
         val plannedRest = currentDetail()
             ?.exercises
             ?.firstOrNull { it.exercise.id == sessionExerciseId }
             ?.exercise
             ?.targetRestSeconds
         val defaultRest = settingsRepository.settings.first().defaultRestSeconds
-        restTimer.value = RestTimer.start(
+        restTimerController.start(
+            sessionId = sessionId,
             targetSeconds = RestTimer.suggestedTarget(plannedRest, defaultRest),
             anchorEpochMs = anchorEpochMs,
+            startedBySetId = startedBySetId,
         )
     }
 
     fun pauseRestTimer() {
-        restTimer.update { current ->
-            current?.let { RestTimer.pause(it, timeProvider.nowEpochMs()) }
-        }
+        restTimerController.update(sessionId) { RestTimer.pause(it, timeProvider.nowEpochMs()) }
     }
 
     fun resumeRestTimer() {
-        restTimer.update { current ->
-            current?.let { RestTimer.resume(it, timeProvider.nowEpochMs()) }
-        }
+        restTimerController.update(sessionId) { RestTimer.resume(it, timeProvider.nowEpochMs()) }
     }
 
     fun adjustRestTimer(deltaSeconds: Int) {
-        restTimer.update { current -> current?.let { RestTimer.adjust(it, deltaSeconds) } }
+        restTimerController.update(sessionId) { RestTimer.adjust(it, deltaSeconds) }
     }
 
     fun skipRestTimer() {
-        restTimer.update { current -> current?.let(RestTimer::dismiss) }
+        restTimerController.update(sessionId, RestTimer::dismiss)
     }
 
     private fun RestTimerState?.toUi(nowEpochMs: Long): RestTimerUi {
@@ -604,6 +549,7 @@ class ActiveWorkoutViewModel @Inject constructor(
         launchSafely(::reportAsMessage) {
             flushDrafts()
             workoutSessionRepository.completeSession(sessionId)
+            restTimerController.clear(sessionId)
             eventsChannel.send(ActiveWorkoutEvent.Finished)
         }
     }
@@ -612,6 +558,7 @@ class ActiveWorkoutViewModel @Inject constructor(
         launchSafely(::reportAsMessage) {
             flushDrafts()
             workoutSessionRepository.abandonSession(sessionId)
+            restTimerController.clear(sessionId)
             eventsChannel.send(ActiveWorkoutEvent.Abandoned)
         }
     }
