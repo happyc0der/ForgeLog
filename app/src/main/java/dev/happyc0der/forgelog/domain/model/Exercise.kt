@@ -11,17 +11,3 @@ data class Exercise(
     val createdAt: Long,
     val updatedAt: Long,
 )
-
-fun Exercise.toSessionExercise(
-    sessionId: Long,
-    exerciseOrder: Int,
-    startedAt: Long,
-): SessionExercise = SessionExercise(
-    sessionId = sessionId,
-    exerciseId = id,
-    displayNameSnapshot = name,
-    exerciseOrder = exerciseOrder,
-    startedAt = startedAt,
-    howToUrlSnapshot = howToUrl,
-    pointersSnapshot = defaultPointers,
-)

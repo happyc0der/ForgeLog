@@ -48,13 +48,4 @@ object DurationInput {
         if (trimmed.isEmpty()) return true
         return parseSeconds(trimmed, unit) != null
     }
-
-    fun formatWithUnit(seconds: Int?, unit: DurationInputUnit): String? {
-        if (seconds == null) return null
-        val suffix = when (unit) {
-            DurationInputUnit.SECONDS -> "s"
-            DurationInputUnit.MINUTES -> "m"
-        }
-        return "${toDisplay(seconds, unit)}$suffix"
-    }
 }

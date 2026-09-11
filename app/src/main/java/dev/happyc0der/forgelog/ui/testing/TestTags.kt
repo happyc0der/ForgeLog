@@ -46,7 +46,4 @@ object TestTags {
     const val PROGRAMS_SCREEN = "programs_screen"
     const val PROGRAM_DETAIL_SCREEN = "program_detail_screen"
     const val PROGRAM_DAY_BUILDER_SCREEN = "program_day_builder_screen"
-
-    /** Drag handle for reorderable rows; suffixed with the row's stable id. */
-    fun dragHandle(id: Any): String = "drag_handle_$id"
 }

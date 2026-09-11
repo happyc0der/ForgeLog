@@ -282,10 +282,6 @@ class AnalyticsViewModel @Inject constructor(
         customRange.value = WeekBoundary.Range(start = fromEpochMs, endExclusive = untilEpochMs)
     }
 
-    fun clearCustomRange() {
-        customRange.value = null
-    }
-
     fun setTrendWindow(window: TrendWindow) {
         trendWindow.value = window
     }

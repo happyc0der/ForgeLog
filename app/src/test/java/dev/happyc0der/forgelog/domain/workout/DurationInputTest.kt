@@ -53,12 +53,4 @@ class DurationInputTest {
         val parsed = DurationInput.parseSeconds("999999999999", DurationInputUnit.MINUTES)
         assertEquals(Int.MAX_VALUE, parsed)
     }
-
-    @Test
-    fun formatWithUnitUsesChosenSuffix() {
-        assertEquals("90s", DurationInput.formatWithUnit(90, DurationInputUnit.SECONDS))
-        assertEquals("1.5m", DurationInput.formatWithUnit(90, DurationInputUnit.MINUTES))
-        assertEquals("2m", DurationInput.formatWithUnit(120, DurationInputUnit.MINUTES))
-        assertNull(DurationInput.formatWithUnit(null, DurationInputUnit.MINUTES))
-    }
 }
