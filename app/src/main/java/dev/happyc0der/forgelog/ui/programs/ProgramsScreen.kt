@@ -44,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -286,8 +287,14 @@ private fun ProgramRow(
             }
             val description = summary.program.description?.takeIf { it.isNotBlank() }
             Column {
+                // Its own line, cut at two. Run together with the counts, a long description --
+                // a program's rules, say -- filled the card and pushed the day count out of sight.
+                // The program's own screen shows it in full.
+                description?.let {
+                    Text(text = it, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
                 Text(
-                    text = listOfNotNull(description, days, completions).joinToString(" • ") + archived,
+                    text = listOfNotNull(days, completions).joinToString(" • ") + archived,
                 )
                 // "Not performed yet" rather than an absent line, so a never-used program is
                 // distinguishable from one whose date simply failed to load.
