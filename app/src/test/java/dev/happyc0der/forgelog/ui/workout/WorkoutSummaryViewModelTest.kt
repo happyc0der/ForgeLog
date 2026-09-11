@@ -208,10 +208,12 @@ class WorkoutSummaryViewModelTest {
         setNumber: Int,
         reps: Int? = null,
         durationSeconds: Int? = null,
+        weight: Double? = null,
     ) = dev.happyc0der.forgelog.domain.model.SetLog(
         sessionExerciseId = sessionExerciseId,
         setNumber = setNumber,
         reps = reps,
+        weight = weight,
         durationSeconds = durationSeconds,
         weightUnit = ExerciseUnit.LB,
         completed = true,
@@ -237,6 +239,24 @@ class WorkoutSummaryViewModelTest {
             assertEquals("1m", exercise.topSetLabel)
             assertEquals(0.0, exercise.volumeLb, 0.0)
             assertEquals("2m 15s", exercise.unloadedTotalLabel)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `a loaded carry is summarised by its weight and time`() = runTest {
+        val sessionId = loggedSessionOf(startedAt = 1_000_000L) { id ->
+            listOf(
+                unloadedSet(id, setNumber = 1, durationSeconds = 50, weight = 60.0),
+                unloadedSet(id, setNumber = 2, durationSeconds = 40, weight = 70.0),
+                unloadedSet(id, setNumber = 3, durationSeconds = 30, weight = 70.0),
+            )
+        }
+
+        viewModel(sessionId).uiState.test {
+            val exercise = awaitUntil { it.summary != null }.exercises.single()
+            assertEquals("70 lb for 40s", exercise.topSetLabel)
+            assertEquals("2m", exercise.unloadedTotalLabel)
             cancelAndIgnoreRemainingEvents()
         }
     }

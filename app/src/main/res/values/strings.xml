@@ -203,6 +203,8 @@
     <string name="summary_subtitle">%1$s · %2$s</string>
     <string name="summary_breakdown_title">What you did</string>
     <string name="summary_top_set">%1$d × %2$s</string>
+    <!-- A loaded carry or hold: "70 lb for 40s". -->
+    <string name="summary_top_set_timed">%1$s for %2$s</string>
     <string name="summary_no_completed_sets">No sets completed</string>
     <string name="summary_records_title">New personal bests</string>
     <string name="summary_records_none_title">No new bests today</string>

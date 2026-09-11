@@ -147,9 +147,11 @@ class WorkoutSummaryViewModel @Inject constructor(
 
     /**
      * The best working set actually completed, in whatever the exercise measures: the heaviest set
-     * of a loaded lift, else the longest hold, else the most reps, else the longest distance.
+     * of a loaded lift, else the heaviest loaded carry or hold, else the longest hold, else the most
+     * reps, else the longest distance.
      *
-     * It knew only weight × reps, so every timed and bodyweight exercise summarised as a dash.
+     * It knew only weight × reps, so every timed and bodyweight exercise summarised as a dash. A
+     * loaded carry then summarised by its time alone: a 70 lb farmer's walk read "40s".
      */
     private fun topSetLabel(sets: List<SetLog>): String? {
         val working = sets.filter { it.completed && it.setType != SetType.WARMUP }
@@ -162,6 +164,21 @@ class WorkoutSummaryViewModel @Inject constructor(
                     R.string.summary_top_set,
                     heaviest.reps ?: 0,
                     Formatters.weight(heaviest.weight ?: 0.0, heaviest.weightUnit),
+                )
+            }
+        working
+            .filter { it.weight != null && (it.durationSeconds ?: 0) > 0 }
+            .maxWithOrNull(
+                compareBy<SetLog>(
+                    { set -> set.weight?.toPounds(set.weightUnit) ?: set.weight ?: 0.0 },
+                    { set -> set.durationSeconds ?: 0 },
+                ),
+            )
+            ?.let { loaded ->
+                return application.getString(
+                    R.string.summary_top_set_timed,
+                    Formatters.weight(loaded.weight ?: 0.0, loaded.weightUnit),
+                    Formatters.seconds(loaded.durationSeconds ?: 0),
                 )
             }
         working.mapNotNull { it.durationSeconds }.filter { it > 0 }.maxOrNull()
