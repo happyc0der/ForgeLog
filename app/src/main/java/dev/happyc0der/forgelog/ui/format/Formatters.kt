@@ -10,6 +10,8 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.math.BigDecimal
+import java.math.RoundingMode
 import java.util.Locale
 
 /**
@@ -42,21 +44,29 @@ object Formatters {
      * Distinct from [weight], which formats a load already expressed in [unit] and so must not
      * convert. Mixing the two shows pounds under a kilogram label.
      */
-    fun load(loadLb: Double, unit: ExerciseUnit): String = weight(
-        value = if (unit == ExerciseUnit.KG) loadLb / KG_TO_LB else loadLb,
-        unit = unit,
-    )
+    fun load(loadLb: Double, unit: ExerciseUnit): String {
+        val value = if (unit == ExerciseUnit.KG) loadLb / KG_TO_LB else loadLb
+        // One decimal at most, and none when it rounds to a whole number: a converted load lands a
+        // hair off, and 151.95 kg reads "152 kg".
+        return decimals(value, places = 1) + " " + weightSuffix(unit)
+    }
 
     /**
-     * A single load already expressed in [unit]. Formats only; never converts.
+     * A single load already expressed in [unit], as it was logged. Formats only; never converts.
      *
-     * One decimal at most, and none when it rounds to a whole number: a converted 151.95 kg reads
-     * "152 kg", not "152.0 kg".
+     * Up to two decimals, the most a weight field takes: a 22.75 kg set rounded to one read
+     * "22.8 kg" in History and the summary, which is not what was lifted.
      */
-    fun weight(value: Double, unit: ExerciseUnit): String {
-        val suffix = if (unit == ExerciseUnit.KG) "kg" else "lb"
-        val number = String.format(Locale.US, "%.1f", value).removeSuffix(".0")
-        return "$number $suffix"
+    fun weight(value: Double, unit: ExerciseUnit): String =
+        decimals(value, places = 2) + " " + weightSuffix(unit)
+
+    private fun weightSuffix(unit: ExerciseUnit): String = if (unit == ExerciseUnit.KG) "kg" else "lb"
+
+    /** [value] to at most [places] decimals, trailing zeros dropped. */
+    private fun decimals(value: Double, places: Int): String {
+        if (!value.isFinite()) return value.toString()
+        // valueOf rounds the decimal a person would read -- 151.95 -- not the binary value just below it.
+        return BigDecimal.valueOf(value).setScale(places, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString()
     }
 
     /** Compact duration for stat tiles: `1h 12m`, `48m`, `< 1m`. Null renders as an em dash. */
@@ -88,8 +98,17 @@ object Formatters {
         }
     }
 
-    /** A distance in metres, without a Double's trailing `.0`. */
-    fun distanceMeters(value: Double): String = plainNumber(value) + "m"
+    /**
+     * A distance: "400 m", or "5.02 km" from a kilometre up.
+     *
+     * It was "400m" -- the suffix every duration here uses for minutes, so "400m · rest 2m" read as
+     * four hundred minutes -- and a 10 km run would have been "10000m".
+     */
+    fun distanceMeters(value: Double): String = if (value >= 1_000.0) {
+        decimals(value / 1_000.0, places = 2) + " km"
+    } else {
+        decimals(value, places = 0) + " m"
+    }
 
     /** See [dev.happyc0der.forgelog.domain.format.plainNumber]. */
     fun plainNumber(value: Double): String = domainPlainNumber(value)

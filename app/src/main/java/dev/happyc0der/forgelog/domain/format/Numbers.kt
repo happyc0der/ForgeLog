@@ -15,9 +15,15 @@ import kotlin.math.abs
  *
  * It lives in the domain because the screens and the CSV exporter both need it and must agree — an
  * exported figure should read exactly as the app displayed it.
+ *
+ * NaN and the infinities come back as Kotlin writes them rather than throwing: BigDecimal refuses
+ * them, and this runs while a screen is drawn, so one such value -- which typing cannot produce,
+ * but an import could -- would take down every screen that showed it.
  */
 fun plainNumber(value: Double): String =
-    if (value % 1.0 == 0.0 && abs(value) < 1e15) {
+    if (!value.isFinite()) {
+        value.toString()
+    } else if (value % 1.0 == 0.0 && abs(value) < 1e15) {
         String.format(Locale.US, "%.0f", value)
     } else {
         BigDecimal(value).setScale(6, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString()

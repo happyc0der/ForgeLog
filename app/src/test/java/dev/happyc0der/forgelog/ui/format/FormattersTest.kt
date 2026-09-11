@@ -109,9 +109,25 @@ class FormattersTest {
         assertEquals("45.4 kg", Formatters.load(100.0, ExerciseUnit.KG))
         assertEquals("100 kg", Formatters.weight(100.0, ExerciseUnit.KG))
         // Converted loads land a hair off whole numbers; they read as the whole number.
-        assertEquals("152 kg", Formatters.weight(151.95, ExerciseUnit.KG))
+        assertEquals("152 kg", Formatters.load(151.95 * 2.2046226218, ExerciseUnit.KG))
+        assertEquals("233.3 lb", Formatters.load(233.333, ExerciseUnit.LB))
         assertEquals("22.5 lb", Formatters.weight(22.5, ExerciseUnit.LB))
-        assertEquals("233.3 lb", Formatters.weight(233.333, ExerciseUnit.LB))
+    }
+
+    @Test
+    fun `a logged weight reads as it was logged, to two decimals`() {
+        // Microplates: 22.75 kg is not 22.8 kg.
+        assertEquals("22.75 kg", Formatters.weight(22.75, ExerciseUnit.KG))
+        assertEquals("5.5 lb", Formatters.weight(5.5, ExerciseUnit.LB))
+        assertEquals("190 lb", Formatters.weight(190.0, ExerciseUnit.LB))
+    }
+
+    @Test
+    fun `a distance is metres with a space, and kilometres from a kilometre up`() {
+        assertEquals("400 m", Formatters.distanceMeters(400.0))
+        assertEquals("1.5 km", Formatters.distanceMeters(1_500.0))
+        assertEquals("10 km", Formatters.distanceMeters(10_000.0))
+        assertEquals("5.02 km", Formatters.distanceMeters(5_021.0))
     }
 
     @Test
