@@ -17,6 +17,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -74,6 +75,19 @@ fun <T> ReorderableColumn(
     var dragOffset by remember { mutableFloatStateOf(0f) }
     val scope = rememberCoroutineScope()
 
+    /*
+     * The gesture detector below is set up once per row and deliberately not restarted while a drag
+     * is under way -- restarting it would cancel the drag. So it must not close over the list it saw
+     * at the time: every move, including its own, leaves that copy stale, and every index worked out
+     * from it is then wrong. It read one that never changed, so a second drag on the same screen did
+     * nothing at all, or moved a row the user had not grabbed, until the screen was left and opened
+     * again. Held here, the gesture always reads the list as it now stands.
+     */
+    val currentItems by rememberUpdatedState(items)
+    val currentKey by rememberUpdatedState(key)
+    val currentOnMove by rememberUpdatedState(onMove)
+    val currentOnDragEnd by rememberUpdatedState(onDragEnd)
+
     Column(modifier = modifier.fillMaxWidth()) {
         items.forEachIndexed { index, item ->
             val itemKey = key(item)
@@ -122,18 +136,20 @@ fun <T> ReorderableColumn(
                                 onDragCancel = {
                                     draggingKey = null
                                     dragOffset = 0f
-                                    onDragEnd()
+                                    currentOnDragEnd()
                                 },
                                 onDragEnd = {
                                     draggingKey = null
                                     dragOffset = 0f
                                     // The single persistence point for a whole drag.
-                                    onDragEnd()
+                                    currentOnDragEnd()
                                 },
                                 onDrag = { change, dragAmount ->
                                     change.consume()
                                     dragOffset += dragAmount.y
-                                    val currentIndex = items.indexOfFirst { key(it) == draggingKey }
+                                    val rows = currentItems
+                                    val rowKey = currentKey
+                                    val currentIndex = rows.indexOfFirst { rowKey(it) == draggingKey }
                                     if (currentIndex < 0) return@detectDragGesturesAfterLongPress
 
                                     scrollState?.let { state ->
@@ -143,8 +159,8 @@ fun <T> ReorderableColumn(
                                     val target = targetIndex(
                                         currentIndex = currentIndex,
                                         offset = dragOffset,
-                                        items = items,
-                                        key = key,
+                                        items = rows,
+                                        key = rowKey,
                                         heights = heights,
                                     )
                                     if (target != currentIndex) {
@@ -153,11 +169,11 @@ fun <T> ReorderableColumn(
                                         dragOffset -= travelled(
                                             from = currentIndex,
                                             to = target,
-                                            items = items,
-                                            key = key,
+                                            items = rows,
+                                            key = rowKey,
                                             heights = heights,
                                         )
-                                        onMove(currentIndex, target)
+                                        currentOnMove(currentIndex, target)
                                     }
                                 },
                             )
