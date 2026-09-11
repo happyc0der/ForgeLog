@@ -8,7 +8,7 @@ No accounts, no backend, no analytics, no ads. Your training data lives on your 
 
 - **Build programs** — programs, days, and per-exercise targets (planned sets, rep range, weight, duration, rest, pointers, notes). Duplicate a day to make a variation; drag to reorder.
 - **Exercise library** — search and filter by category, custom exercises, a how-to link that opens in the browser, and training pointers shown every time you log the lift.
-- **Run a workout** — pre-workout panel showing what you actually did last time, targets you can adjust for today without touching the program, reorder/skip/add on the fly, and a rest countdown that keeps running wherever you go in the app, survives rotation and the app being killed, and buzzes on time even with the phone asleep face down (it is an exact alarm, like the Clock app's timer). Rest is recorded against the set it followed, and a timed set's hold is not counted as rest.
+- **Run a workout** — pre-workout panel showing what you actually did last time, targets you can adjust for today without touching the program, reorder/skip/add on the fly, and a rest countdown that keeps running wherever you go in the app, counts down on the lock screen in the workout notification, comes back as you left it -- paused, skipped or extended -- if Android closes the app, and buzzes on time even with the phone asleep face down (it is an exact alarm, like the Clock app's timer). Rest is recorded against the set it followed, and a timed set's hold is not counted as rest.
 - **Progression hints** — when every planned set reached the top of its rep range last time, the planner and logger say so and suggest the next weight: +5 lb for upper-body lifts, +5–10 lb for legs (2.5 / 2.5–5 kg). One tap in the planner makes it today's target; the program itself is left alone.
 - **Log fast** — one exercise expanded at a time, fields hidden when they are not relevant and revealable when they are, prefill from the last set or last session, autosave on every change, and an in-progress session that survives a restart.
 - **Review** — Home shows the last workout and the week so far; History is searchable and filterable, with a full read-only log you can correct; sessions can be repeated or promoted into a program day.
@@ -72,7 +72,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 ## Tests
 
-572 tests, all runnable on a laptop with no device attached. Room runs under Robolectric, so the DAO queries, the migrations and the backup round-trip are genuinely executed rather than mocked — and so do the Compose UI tests, which drive the real screens.
+593 tests, all runnable on a laptop with no device attached. Room runs under Robolectric, so the DAO queries, the migrations and the backup round-trip are genuinely executed rather than mocked — and so do the Compose UI tests, which drive the real screens.
 
 The UI tests live in `app/src/sharedTest/` and run twice from one source: on the JVM with `testDebugUnitTest`, and on a device with `connectedDebugAndroidTest`.
 
