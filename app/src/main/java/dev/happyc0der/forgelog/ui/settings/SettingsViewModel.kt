@@ -27,6 +27,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -315,23 +316,30 @@ class SettingsViewModel @Inject constructor(
     }
 
     private suspend fun csv(range: CsvRange): String {
-        val bounds = csvRangeBounds(range)
+        val bounds = csvRangeBounds(range, settingsRepository.settings.first().weekStartDay)
         return backupRepository.exportCsv(bounds?.start, bounds?.endExclusive)
     }
 
-    private fun csvRangeBounds(range: CsvRange): WeekBoundary.Range? {
+    /**
+     * The week starts where Settings says it does.
+     *
+     * This was fixed to Monday while Home, History and Analytics all followed the setting, so with a
+     * Sunday week a CSV of "this week" covered a different seven days from the ones the app had just
+     * shown -- and omitted today's session on the Sunday itself.
+     */
+    private fun csvRangeBounds(range: CsvRange, weekStart: DayOfWeek): WeekBoundary.Range? {
         val now = timeProvider.nowEpochMs()
         val zone = zoneProvider.zone()
         val endExclusive = WeekBoundary.dayRange(now, zone).endExclusive
         return when (range) {
             CsvRange.ALL_TIME -> null
-            CsvRange.THIS_WEEK -> WeekBoundary.weekRange(now, zone)
+            CsvRange.THIS_WEEK -> WeekBoundary.weekRange(now, zone, weekStart)
             CsvRange.LAST_4_WEEKS -> WeekBoundary.Range(
-                start = WeekBoundary.weekRangeOffset(now, zone, weeksAgo = 3).start,
+                start = WeekBoundary.weekRangeOffset(now, zone, weeksAgo = 3, weekStart = weekStart).start,
                 endExclusive = endExclusive,
             )
             CsvRange.LAST_YEAR -> WeekBoundary.Range(
-                start = WeekBoundary.weekRangeOffset(now, zone, weeksAgo = 52).start,
+                start = WeekBoundary.weekRangeOffset(now, zone, weeksAgo = 52, weekStart = weekStart).start,
                 endExclusive = endExclusive,
             )
         }

@@ -91,15 +91,21 @@ class SettingsViewModelTest {
     }
 
     private suspend fun seed() {
+        seedSession(name = "Push Day", startedAt = 1_000L)
+    }
+
+    /** One completed session with one set, so it has a row in a CSV. */
+    private suspend fun seedSession(name: String, startedAt: Long): Long {
         val dao = env.database.workoutSessionDao()
         val benchId = env.database.exerciseDao().upsert(exerciseEntity(name = "Bench Press"))
         val sessionId = dao.insertSession(
-            sessionEntity(sessionName = "Push Day", startedAt = 1_000L, completedAt = 2_000L),
+            sessionEntity(sessionName = name, startedAt = startedAt, completedAt = startedAt + 1_000L),
         )
         val sessionExerciseId = dao.insertSessionExercise(
             sessionExerciseEntity(sessionId = sessionId, exerciseId = benchId),
         )
         dao.upsertSetLog(setLogEntity(sessionExerciseId = sessionExerciseId))
+        return sessionId
     }
 
     private fun viewModel(
@@ -216,6 +222,31 @@ class SettingsViewModelTest {
         assertTrue(written!!.startsWith("session_id,"))
         // The only session is from 1970: in an all-time export, not in this week's.
         assertFalse(written.contains("Push Day"))
+    }
+
+    /**
+     * "This week" in a CSV has to mean the same week the rest of the app means.
+     *
+     * The range was fixed to Monday here, so with a Sunday week the export covered a different seven
+     * days from the ones History and Analytics had just shown -- and left out the Sunday's training.
+     */
+    @Test
+    fun `a CSV of this week follows the week-start setting`() = runTest {
+        // Now is Wednesday 15 November 2023 in the test's zone; this is the Sunday of a Sunday week,
+        // which a Monday week does not contain.
+        seedSession(name = "Sunday Session", startedAt = 1_699_770_600_000L)
+        env.settingsRepository.setWeekStartDay(DayOfWeek.SUNDAY)
+        val vm = viewModel()
+        vm.setCsvRange(CsvRange.THIS_WEEK)
+
+        vm.beginCsvExport()
+        advanceUntilIdle()
+        vm.onExportDestinationChosen(FakeDocumentStore.Handle)
+        advanceUntilIdle()
+
+        val written = documents.written
+        assertNotNull(written)
+        assertTrue(written!!.contains("Sunday Session"))
     }
 
     @Test
