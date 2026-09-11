@@ -415,7 +415,8 @@
     <string name="settings_rest_unit">Rest entry</string>
     <string name="settings_duration_unit">Duration entry</string>
     <string name="settings_default_rest">Default rest</string>
-    <string name="settings_default_rest_value">%1$d seconds</string>
+    <string name="settings_default_rest_value">%1$s</string>
+    <string name="settings_default_rest_hint">For lifts with no rest in their plan: ad-hoc workouts, and exercises added on the day.</string>
     <string name="settings_rest_vibration">Vibrate when rest ends</string>
     <string name="settings_rest_sound">Sound when rest ends</string>
     <string name="settings_week_start">Week starts on</string>

@@ -4,6 +4,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -49,6 +51,7 @@ import dev.happyc0der.forgelog.ui.components.ErrorState
 import dev.happyc0der.forgelog.ui.components.ForgeCard
 import dev.happyc0der.forgelog.ui.components.LoadingState
 import dev.happyc0der.forgelog.ui.components.OptionDropdown
+import dev.happyc0der.forgelog.ui.format.Formatters
 import dev.happyc0der.forgelog.ui.testing.TestTags
 import dev.happyc0der.forgelog.ui.util.label
 import java.time.DayOfWeek
@@ -241,21 +244,31 @@ private fun UnitsCard(settings: AppSettings, viewModel: SettingsViewModel) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun RestCard(settings: AppSettings, viewModel: SettingsViewModel) {
     ForgeCard {
         CardHeader(title = stringResource(R.string.settings_section_rest))
         Text(
             text = stringResource(R.string.settings_default_rest) + ": " +
-                stringResource(R.string.settings_default_rest_value, settings.defaultRestSeconds),
+                stringResource(R.string.settings_default_rest_value, Formatters.seconds(settings.defaultRestSeconds)),
             style = MaterialTheme.typography.bodyMedium,
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = stringResource(R.string.settings_default_rest_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        // Wraps rather than running off the edge of a narrower phone, and reads "1m 30s" like every
+        // other rest in the app rather than "90s" and "240s".
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             listOf(60, 90, 120, 180, 240).forEach { seconds ->
                 FilterChip(
                     selected = settings.defaultRestSeconds == seconds,
                     onClick = { viewModel.setDefaultRestSeconds(seconds) },
-                    label = { Text(text = "${seconds}s") },
+                    label = { Text(text = Formatters.seconds(seconds)) },
                 )
             }
         }
