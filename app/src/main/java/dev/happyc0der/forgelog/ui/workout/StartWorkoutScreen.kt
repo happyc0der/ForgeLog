@@ -158,6 +158,7 @@ fun StartWorkoutScreen(
             uiState.errorMessage != null -> ErrorState(
                 message = uiState.errorMessage ?: stringResource(R.string.state_error_generic),
                 onRetry = onBack,
+                actionLabel = stringResource(R.string.action_back),
                 modifier = Modifier.padding(innerPadding),
             )
             uiState.needsDaySelection && uiState.dayChoices.isEmpty() -> EmptyState(

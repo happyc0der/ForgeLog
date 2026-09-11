@@ -144,21 +144,27 @@ class HistoryViewModel @Inject constructor(
      * flow killed the whole combine, so the screen emitted nothing at all and the error state could
      * never render. One catch around all of them is what makes the error branch reachable.
      */
-    private val data: Flow<HistoryData> = combine(
-        combine(filter, preset, rows, days) { activeFilter, activePreset, historyRows, programDays ->
-            HistoryPartial(activeFilter, activePreset, historyRows, programDays)
-        },
-        programRepository.observePrograms(includeArchived = true),
-        workoutSessionRepository.observeLoggedExercises(),
-        settingsRepository.settings,
-    ) { partial, programs, logged, settings ->
-        HistoryData(
-            partial = partial,
-            programs = programs,
-            loggedExercises = logged,
-            weightUnit = settings.defaultWeightUnit,
-        )
-    }.reportErrors(HistoryData.EMPTY) { reportError(it) }
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val data: Flow<HistoryData> = retryToken.flatMapLatest {
+        // Rebuilt on retry as a whole: the catch ends everything above it, so restarting only the
+        // rows left a failed programs or exercises source dead, and Retry cleared the message over
+        // a screen that would never update again.
+        combine(
+            combine(filter, preset, rows, days) { activeFilter, activePreset, historyRows, programDays ->
+                HistoryPartial(activeFilter, activePreset, historyRows, programDays)
+            },
+            programRepository.observePrograms(includeArchived = true),
+            workoutSessionRepository.observeLoggedExercises(),
+            settingsRepository.settings,
+        ) { partial, programs, logged, settings ->
+            HistoryData(
+                partial = partial,
+                programs = programs,
+                loggedExercises = logged,
+                weightUnit = settings.defaultWeightUnit,
+            )
+        }.reportErrors(HistoryData.EMPTY) { reportError(it) }
+    }
 
     val uiState: StateFlow<HistoryUiState> = combine(
         data,

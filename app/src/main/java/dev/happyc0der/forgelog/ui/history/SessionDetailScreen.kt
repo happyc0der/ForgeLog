@@ -197,6 +197,7 @@ fun SessionDetailScreen(
             uiState.errorMessage != null -> ErrorState(
                 message = uiState.errorMessage ?: stringResource(R.string.state_error_generic),
                 onRetry = onBack,
+                actionLabel = stringResource(R.string.action_back),
                 modifier = Modifier.padding(innerPadding),
             )
             detail == null -> EmptyState(

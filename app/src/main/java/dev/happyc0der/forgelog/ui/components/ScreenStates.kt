@@ -33,11 +33,16 @@ fun LoadingState(
     }
 }
 
+/**
+ * [actionLabel] says what [onRetry] does. Screens whose only way out is back used to show "Retry"
+ * on a button that went back.
+ */
 @Composable
 fun ErrorState(
     message: String,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
+    actionLabel: String = stringResource(R.string.action_retry),
 ) {
     EmptyState(
         icon = Icons.Outlined.ErrorOutline,
@@ -46,7 +51,7 @@ fun ErrorState(
         modifier = modifier,
         action = {
             Button(onClick = onRetry) {
-                Text(text = stringResource(R.string.action_retry))
+                Text(text = actionLabel)
             }
         },
     )

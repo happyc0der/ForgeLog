@@ -188,11 +188,13 @@ fun ProgramDayBuilderScreen(
             uiState.errorMessage != null -> ErrorState(
                 message = uiState.errorMessage ?: stringResource(R.string.state_error_generic),
                 onRetry = onBack,
+                actionLabel = stringResource(R.string.action_back),
                 modifier = Modifier.padding(innerPadding),
             )
             detail == null -> ErrorState(
                 message = stringResource(R.string.program_day_missing),
                 onRetry = onBack,
+                actionLabel = stringResource(R.string.action_back),
                 modifier = Modifier.padding(innerPadding),
             )
             detail.exercises.isEmpty() -> EmptyState(

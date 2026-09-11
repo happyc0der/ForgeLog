@@ -179,6 +179,7 @@ fun ActiveWorkoutScreen(
             uiState.detail == null -> ErrorState(
                 message = uiState.errorMessage ?: stringResource(R.string.workout_session_missing),
                 onRetry = onBack,
+                actionLabel = stringResource(R.string.action_back),
                 modifier = Modifier.padding(innerPadding),
             )
             else -> {

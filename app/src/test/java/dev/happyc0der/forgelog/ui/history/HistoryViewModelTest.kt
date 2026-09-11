@@ -12,10 +12,14 @@ import dev.happyc0der.forgelog.data.local.sessionEntity
 import dev.happyc0der.forgelog.data.local.sessionExerciseEntity
 import dev.happyc0der.forgelog.data.local.setLogEntity
 import dev.happyc0der.forgelog.domain.model.SessionStatus
+import dev.happyc0der.forgelog.domain.model.WorkoutProgram
+import dev.happyc0der.forgelog.domain.repository.ProgramRepository
 import dev.happyc0der.forgelog.testing.MainDispatcherRule
 import dev.happyc0der.forgelog.testing.TestEnvironment
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -28,6 +32,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.io.IOException
 import java.time.LocalDateTime
 import java.time.ZoneId
 
@@ -67,10 +72,10 @@ class HistoryViewModelTest {
         env.tearDown()
     }
 
-    private fun viewModel(): HistoryViewModel = HistoryViewModel(
+    private fun viewModel(programs: ProgramRepository = env.programRepository): HistoryViewModel = HistoryViewModel(
         application = ApplicationProvider.getApplicationContext<Application>(),
         workoutSessionRepository = env.sessionRepository,
-        programRepository = env.programRepository,
+        programRepository = programs,
         settingsRepository = env.settingsRepository,
         timeProvider = env.time,
         zoneProvider = env.zone,
@@ -382,6 +387,28 @@ class HistoryViewModelTest {
             var state = awaitItem()
             while (state.errorMessage == null) state = awaitItem()
             assertNotNull(state.errorMessage)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    /** Retry starts every source again, not only the session list. */
+    @Test
+    fun `retry recovers from a failed programs list`() = runTest {
+        env.database.programDao().insertProgram(programEntity(name = "PPL"))
+        var failing = true
+        val flaky = object : ProgramRepository by env.programRepository {
+            override fun observePrograms(includeArchived: Boolean): Flow<List<WorkoutProgram>> =
+                if (failing) flow { throw IOException("Disk busy") } else env.programRepository.observePrograms(includeArchived)
+        }
+        val vm = viewModel(programs = flaky)
+        vm.uiState.test {
+            var state = awaitItem()
+            while (state.errorMessage == null) state = awaitItem()
+
+            failing = false
+            vm.retry()
+            while (state.errorMessage != null || state.programs.isEmpty()) state = awaitItem()
+            assertTrue("PPL" in state.programs.map { it.name })
             cancelAndIgnoreRemainingEvents()
         }
     }

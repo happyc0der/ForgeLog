@@ -8,6 +8,7 @@ import android.content.Intent
 import android.os.Build
 import dagger.hilt.android.EntryPointAccessors
 import dev.happyc0der.forgelog.di.SettingsEntryPoint
+import dev.happyc0der.forgelog.domain.settings.AppSettings
 import dev.happyc0der.forgelog.ui.workout.RestTimerFeedback
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -74,11 +75,15 @@ class RestAlarmReceiver : BroadcastReceiver() {
         val pending = goAsync()
         CoroutineScope(Dispatchers.Default).launch {
             try {
-                val settings = EntryPointAccessors
-                    .fromApplication(appContext, SettingsEntryPoint::class.java)
-                    .settingsRepository()
-                    .settings
-                    .first()
+                // The defaults if the settings cannot be read: an exception here escaped the
+                // coroutine and crashed the app in the background, and the rest ended in silence.
+                val settings = runCatching {
+                    EntryPointAccessors
+                        .fromApplication(appContext, SettingsEntryPoint::class.java)
+                        .settingsRepository()
+                        .settings
+                        .first()
+                }.getOrElse { AppSettings() }
                 RestTimerFeedback.signal(
                     context = appContext,
                     vibrate = settings.restTimerVibration,
