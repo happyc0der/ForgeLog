@@ -16,6 +16,7 @@ import dev.happyc0der.forgelog.domain.model.SessionExercise
 import dev.happyc0der.forgelog.domain.model.SessionStartExercise
 import dev.happyc0der.forgelog.domain.model.SessionStatus
 import dev.happyc0der.forgelog.domain.workout.SetInputField
+import dev.happyc0der.forgelog.domain.workout.SetsLeft
 import dev.happyc0der.forgelog.testing.MainDispatcherRule
 import dev.happyc0der.forgelog.testing.TestEnvironment
 import dev.happyc0der.forgelog.workout.RestAlert
@@ -428,6 +429,78 @@ class ActiveWorkoutViewModelTest {
             awaitUntil { it.detail != null }
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    private suspend fun status() = env.sessionRepository.getSession(sessionId)!!.status
+
+    @Test
+    fun `finishing with planned sets left asks first`() = runTest {
+        val vm = viewModel()
+        loaded(vm)
+        val (first) = addSets(vm, sessionExerciseId, count = 1)
+        vm.onSetCompleted(first, true)
+        runCurrent()
+
+        vm.requestFinish()
+        advanceUntilIdle()
+
+        // Three planned, one done.
+        assertEquals(listOf(SetsLeft("Bench Press", 2)), vm.finishPrompt.value)
+        assertEquals(SessionStatus.IN_PROGRESS, status())
+
+        vm.confirmFinish()
+        advanceUntilIdle()
+        assertNull(vm.finishPrompt.value)
+        assertEquals(SessionStatus.COMPLETED, status())
+    }
+
+    @Test
+    fun `keep going closes the question and the workout carries on`() = runTest {
+        val vm = viewModel()
+        loaded(vm)
+
+        vm.requestFinish()
+        advanceUntilIdle()
+        vm.dismissFinishPrompt()
+        advanceUntilIdle()
+
+        assertNull(vm.finishPrompt.value)
+        assertEquals(SessionStatus.IN_PROGRESS, status())
+    }
+
+    @Test
+    fun `finishing with every set done does not ask`() = runTest {
+        val vm = viewModel()
+        loaded(vm)
+        addSets(vm, sessionExerciseId, count = 3).forEach { set ->
+            vm.onSetCompleted(set, true)
+            runCurrent()
+        }
+
+        vm.requestFinish()
+        advanceUntilIdle()
+
+        assertNull(vm.finishPrompt.value)
+        assertEquals(SessionStatus.COMPLETED, status())
+    }
+
+    @Test
+    fun `a Done tapped just before Finish counts as done`() = runTest {
+        val vm = viewModel()
+        loaded(vm)
+        val sets = addSets(vm, sessionExerciseId, count = 3)
+        sets.take(2).forEach { set ->
+            vm.onSetCompleted(set, true)
+            runCurrent()
+        }
+
+        // The last tick has not been written when Finish is tapped.
+        vm.onSetCompleted(sets[2], true)
+        vm.requestFinish()
+        advanceUntilIdle()
+
+        assertNull(vm.finishPrompt.value)
+        assertEquals(SessionStatus.COMPLETED, status())
     }
 
     @Test

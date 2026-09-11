@@ -36,6 +36,7 @@ object TestTags {
     const val START_WORKOUT_CONFIRM = "start_workout_confirm"
     const val ACTIVE_WORKOUT_SCREEN = "active_workout_screen"
     const val ACTIVE_WORKOUT_FINISH = "active_workout_finish"
+    const val ACTIVE_WORKOUT_FINISH_CONFIRM = "active_workout_finish_confirm"
     const val ACTIVE_WORKOUT_ADD_SET = "active_workout_add_set"
 
     const val WORKOUT_SUMMARY_SCREEN = "workout_summary_screen"

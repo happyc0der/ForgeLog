@@ -158,6 +158,19 @@
     <string name="workout_finish">Finish</string>
     <string name="workout_abandon">Abandon</string>
     <string name="workout_abandon_title">Abandon workout?</string>
+    <string name="workout_finish_title">Finish with sets left?</string>
+    <plurals name="workout_finish_sets_left">
+        <item quantity="one">%1$d set isn\'t done yet:</item>
+        <item quantity="other">%1$d sets aren\'t done yet:</item>
+    </plurals>
+    <!-- One line per exercise with sets left: "Bench Press: 2 sets". -->
+    <string name="workout_finish_left_line">%1$s: %2$s</string>
+    <plurals name="workout_finish_more_exercises">
+        <item quantity="one">and %1$d more exercise</item>
+        <item quantity="other">and %1$d more exercises</item>
+    </plurals>
+    <string name="workout_finish_left_note">Sets you added and did not tick are kept, marked not done.</string>
+    <string name="workout_finish_keep_going">Keep going</string>
     <string name="workout_abandon_message">This marks the session as abandoned. Logged sets are kept.</string>
     <string name="workout_add_set">Add set</string>
     <string name="workout_more_fields">More fields</string>

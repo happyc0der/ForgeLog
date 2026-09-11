@@ -4,6 +4,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import dev.happyc0der.forgelog.R
 
@@ -14,19 +16,25 @@ fun ConfirmDialog(
     confirmLabel: String = stringResource(R.string.action_delete),
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
+    dismissLabel: String = stringResource(R.string.action_cancel),
+    /** A test tag for the confirm button, for UI tests to find it by. */
+    confirmTestTag: String? = null,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(text = title) },
         text = { Text(text = message) },
         confirmButton = {
-            TextButton(onClick = onConfirm) {
+            TextButton(
+                onClick = onConfirm,
+                modifier = confirmTestTag?.let { Modifier.testTag(it) } ?: Modifier,
+            ) {
                 Text(text = confirmLabel)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(text = stringResource(R.string.action_cancel))
+                Text(text = dismissLabel)
             }
         },
     )

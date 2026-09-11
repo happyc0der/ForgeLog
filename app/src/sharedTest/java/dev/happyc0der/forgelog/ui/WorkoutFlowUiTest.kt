@@ -44,6 +44,7 @@ import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -238,8 +239,54 @@ class WorkoutFlowUiTest {
         }
         // The finish action lives in the top app bar, which does not scroll.
         composeRule.onNodeWithTag(TestTags.ACTIVE_WORKOUT_FINISH).performClick()
+        // One of three planned sets is logged, so it asks first -- and names what is left.
+        composeRule.waitUntil(WAIT_MS) {
+            settle {
+                composeRule.onAllNodesWithTag(TestTags.ACTIVE_WORKOUT_FINISH_CONFIRM)
+                    .fetchSemanticsNodes().isNotEmpty()
+            }
+        }
+        composeRule.onNodeWithText("Bench Press: 2 sets", substring = true).assertIsDisplayed()
+        // Those two were planned and never added, so there are no unticked sets to explain.
+        assertTrue(
+            composeRule.onAllNodesWithText("marked not done", substring = true).fetchSemanticsNodes().isEmpty(),
+        )
+        assertFalse(finished)
+        composeRule.onNodeWithTag(TestTags.ACTIVE_WORKOUT_FINISH_CONFIRM).performClick()
         // Finishing is not the same as abandoning: only one of them earns a summary.
         composeRule.waitUntil(WAIT_MS) { settle { finished } }
+    }
+
+    @Test
+    fun finishingWithEverySetDoneDoesNotAsk() {
+        val sessionId = startSession()
+        runBlocking {
+            logSet(sessionId, reps = 5, weight = 205.0, setNumber = 1)
+            logSet(sessionId, reps = 5, weight = 205.0, setNumber = 2)
+            logSet(sessionId, reps = 5, weight = 205.0, setNumber = 3)
+        }
+
+        var finished = false
+        composeRule.setContent {
+            ForgeLogTheme {
+                ActiveWorkoutScreen(
+                    onBack = {},
+                    onLeave = {},
+                    onFinished = { finished = true },
+                    viewModel = logger(sessionId),
+                )
+            }
+        }
+
+        composeRule.waitUntil(WAIT_MS) {
+            composeRule.onAllNodesWithTag(TestTags.ACTIVE_WORKOUT_FINISH).fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+        composeRule.onNodeWithTag(TestTags.ACTIVE_WORKOUT_FINISH).performClick()
+        composeRule.waitUntil(WAIT_MS) { settle { finished } }
+        assertTrue(
+            composeRule.onAllNodesWithTag(TestTags.ACTIVE_WORKOUT_FINISH_CONFIRM).fetchSemanticsNodes().isEmpty(),
+        )
     }
 
     @Test
@@ -316,13 +363,13 @@ class WorkoutFlowUiTest {
         )
     }
 
-    private suspend fun logSet(sessionId: Long, reps: Int, weight: Double) {
+    private suspend fun logSet(sessionId: Long, reps: Int, weight: Double, setNumber: Int = 1) {
         val exerciseId = env.sessionRepository.getSessionDetail(sessionId)!!
             .exercises.single().exercise.id
         env.sessionRepository.upsertSetLog(
             SetLog(
                 sessionExerciseId = exerciseId,
-                setNumber = 1,
+                setNumber = setNumber,
                 reps = reps,
                 weight = weight,
                 weightUnit = ExerciseUnit.LB,

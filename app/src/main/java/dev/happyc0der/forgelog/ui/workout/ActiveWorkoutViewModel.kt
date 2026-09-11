@@ -25,6 +25,7 @@ import dev.happyc0der.forgelog.domain.workout.SessionRest
 import dev.happyc0der.forgelog.domain.workout.SetFieldVisibility
 import dev.happyc0der.forgelog.domain.workout.SetInputField
 import dev.happyc0der.forgelog.domain.workout.SetPrefill
+import dev.happyc0der.forgelog.domain.workout.SetsLeft
 import dev.happyc0der.forgelog.domain.workout.SetTargets
 import dev.happyc0der.forgelog.domain.workout.asWeightUnit
 import dev.happyc0der.forgelog.domain.workout.formatElapsed
@@ -41,6 +42,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -138,6 +140,18 @@ class ActiveWorkoutViewModel @Inject constructor(
 
     /** Serialises ticks, for the same reason; see [onSetCompleted]. */
     private var completionJob: Job? = null
+
+    private var finishCheckJob: Job? = null
+    private val _finishPrompt = MutableStateFlow<List<SetsLeft>?>(null)
+
+    /**
+     * The sets still to do, while Finish is asking whether to finish anyway; null otherwise.
+     *
+     * Finish ended the workout on a single tap wherever it stood, with no way back to it, while
+     * Abandon asked first. It now asks when planned sets are not done, or added sets not ticked.
+     * Held here rather than in the screen, so a rotation keeps the question open.
+     */
+    val finishPrompt: StateFlow<List<SetsLeft>?> = _finishPrompt.asStateFlow()
 
     /*
      * The rest countdown is not held here. It lives in [RestTimerController], for the app, because
@@ -629,6 +643,29 @@ class ActiveWorkoutViewModel @Inject constructor(
             )
             drafts.update { it - key }
         }
+    }
+
+    /** Finish, asking first if sets are left. */
+    fun requestFinish() {
+        if (finishCheckJob?.isActive == true) return
+        finishCheckJob = launchSafely(::reportAsMessage) {
+            // A tick still being written counts: tapping Done on the last set and then Finish
+            // straight away must not be told that set is left.
+            completionJob?.join()
+            addSetJob?.join()
+            val detail = workoutSessionRepository.getSessionDetail(sessionId) ?: return@launchSafely
+            val left = SetsLeft.of(detail)
+            if (left.isEmpty()) finish() else _finishPrompt.value = left
+        }
+    }
+
+    fun confirmFinish() {
+        _finishPrompt.value = null
+        finish()
+    }
+
+    fun dismissFinishPrompt() {
+        _finishPrompt.value = null
     }
 
     fun finish() {

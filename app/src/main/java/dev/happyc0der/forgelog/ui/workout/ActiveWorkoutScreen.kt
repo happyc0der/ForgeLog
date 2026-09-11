@@ -66,6 +66,7 @@ import dev.happyc0der.forgelog.domain.model.SetLog
 import dev.happyc0der.forgelog.domain.model.SetType
 import dev.happyc0der.forgelog.domain.workout.DurationInputUnit
 import dev.happyc0der.forgelog.domain.workout.SetInputField
+import dev.happyc0der.forgelog.domain.workout.SetsLeft
 import dev.happyc0der.forgelog.ui.components.ConfirmDialog
 import dev.happyc0der.forgelog.ui.components.ErrorState
 import dev.happyc0der.forgelog.ui.components.FeelingRow
@@ -144,7 +145,7 @@ fun ActiveWorkoutScreen(
                         Text(text = stringResource(R.string.workout_abandon))
                     }
                     TextButton(
-                        onClick = viewModel::finish,
+                        onClick = viewModel::requestFinish,
                         modifier = Modifier.testTag(TestTags.ACTIVE_WORKOUT_FINISH),
                     ) {
                         Text(text = stringResource(R.string.workout_finish))
@@ -231,6 +232,19 @@ fun ActiveWorkoutScreen(
         )
     }
 
+    val finishPrompt by viewModel.finishPrompt.collectAsStateWithLifecycle()
+    finishPrompt?.let { left ->
+        ConfirmDialog(
+            title = stringResource(R.string.workout_finish_title),
+            message = finishPromptMessage(left),
+            confirmLabel = stringResource(R.string.workout_finish),
+            dismissLabel = stringResource(R.string.workout_finish_keep_going),
+            onConfirm = viewModel::confirmFinish,
+            onDismiss = viewModel::dismissFinishPrompt,
+            confirmTestTag = TestTags.ACTIVE_WORKOUT_FINISH_CONFIRM,
+        )
+    }
+
     if (abandonConfirm) {
         ConfirmDialog(
             title = stringResource(R.string.workout_abandon_title),
@@ -244,6 +258,34 @@ fun ActiveWorkoutScreen(
         )
     }
 }
+
+/**
+ * "3 sets aren't done yet:", a line per exercise, and -- when some were added and not ticked --
+ * what happens to those. At most [FINISH_PROMPT_MAX_LINES] exercises are named, so an untouched
+ * nine-lift day still fits.
+ */
+@Composable
+private fun finishPromptMessage(left: List<SetsLeft>): String {
+    val total = left.sumOf { it.count }
+    val lines = left.take(FINISH_PROMPT_MAX_LINES).map { exercise ->
+        stringResource(
+            R.string.workout_finish_left_line,
+            exercise.exerciseName,
+            pluralStringResource(R.plurals.workout_set_count, exercise.count, exercise.count),
+        )
+    }
+    val more = left.size - lines.size
+    return buildString {
+        append(pluralStringResource(R.plurals.workout_finish_sets_left, total, total))
+        lines.forEach { append("\n").append(it) }
+        if (more > 0) append("\n").append(pluralStringResource(R.plurals.workout_finish_more_exercises, more, more))
+        if (left.any { it.unticked > 0 }) {
+            append("\n\n").append(stringResource(R.string.workout_finish_left_note))
+        }
+    }
+}
+
+private const val FINISH_PROMPT_MAX_LINES = 4
 
 /** Session time and time since the last set: the header's two ticking lines, and all that ticks. */
 @Composable
