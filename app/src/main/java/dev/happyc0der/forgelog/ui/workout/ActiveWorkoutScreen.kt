@@ -47,6 +47,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -358,9 +359,13 @@ private fun ExerciseLoggerCard(
                     singleLine = false,
                     minLines = 2,
                 )
+                val addSetRow = remember { BringIntoViewRequester() }
+                val newSetHeader = remember { BringIntoViewRequester() }
+                val lastSetId = exerciseUi.item.sets.lastOrNull()?.id
                 exerciseUi.item.sets.forEach { set ->
                     key(set.id) {
                         SetRow(
+                            headerRequester = newSetHeader.takeIf { set.id == lastSetId },
                             set = set,
                             unit = exerciseUi.unit,
                             revealed = exerciseUi.revealedFields,
@@ -384,14 +389,21 @@ private fun ExerciseLoggerCard(
                 /*
                  * A new set pushes this row down by a whole set's height, so it used to fall off the
                  * bottom of the screen on every add, and each set meant scrolling to find it again.
-                 * When a set is added, the row is brought back into view -- which shows the new set
-                 * above it too. Not when one is deleted, nor when the card is opened.
+                 * When a set is added, the row is brought back into view -- which, in portrait,
+                 * shows the new set above it too. Then the new set's own header is: in landscape a
+                 * set is taller than the screen, and the button alone left the set just added, and
+                 * its Done, scrolled off the top. Where both cannot fit, the set wins. Not when a
+                 * set is deleted, nor when the card is opened.
                  */
-                val addSetRow = remember { BringIntoViewRequester() }
                 val setCount = exerciseUi.item.sets.size
                 var shownSetCount by remember { mutableIntStateOf(setCount) }
                 LaunchedEffect(setCount) {
-                    if (setCount > shownSetCount) addSetRow.bringIntoView()
+                    if (setCount > shownSetCount) {
+                        // After the new row has been laid out, so there is a position to go to.
+                        withFrameNanos { }
+                        addSetRow.bringIntoView()
+                        newSetHeader.bringIntoView()
+                    }
                     shownSetCount = setCount
                 }
                 Row(
@@ -421,6 +433,8 @@ private fun ExerciseLoggerCard(
 
 @Composable
 private fun SetRow(
+    /** Set on the newest set only, so adding one can bring its header into view. */
+    headerRequester: BringIntoViewRequester?,
     set: SetLog,
     unit: ExerciseUnit,
     revealed: Set<SetInputField>,
@@ -436,7 +450,9 @@ private fun SetRow(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .then(headerRequester?.let { Modifier.bringIntoViewRequester(it) } ?: Modifier),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
