@@ -43,14 +43,19 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import dev.happyc0der.forgelog.R
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 import dev.happyc0der.forgelog.ui.navigation.ActiveWorkoutRoute
 import dev.happyc0der.forgelog.ui.navigation.ForgeLogNavHost
 import dev.happyc0der.forgelog.ui.navigation.TopLevelDestination
+import dev.happyc0der.forgelog.ui.workout.ColdStartState
 import dev.happyc0der.forgelog.ui.workout.WorkoutResumeViewModel
 import dev.happyc0der.forgelog.ui.workout.rememberWorkoutNotificationStarter
 
 @Composable
 fun ForgeLogApp(
+    /** Taps on the workout notification while the app is running. */
+    openWorkoutRequests: Flow<Unit> = emptyFlow(),
     resumeViewModel: WorkoutResumeViewModel = hiltViewModel(),
 ) {
     val navController = rememberNavController()
@@ -70,6 +75,20 @@ fun ForgeLogApp(
         startWorkoutService()
         navController.navigate(ActiveWorkoutRoute(session.id)) {
             launchSingleTop = true
+        }
+    }
+
+    /*
+     * Back to the logger already in the back stack if there is one -- under the exercise picker,
+     * say -- rather than stacking a second logger for the same workout on top.
+     */
+    LaunchedEffect(openWorkoutRequests) {
+        openWorkoutRequests.collect {
+            val session = (resumeViewModel.coldStart.value as? ColdStartState.Ready)?.session
+                ?: return@collect
+            if (!navController.popBackStack<ActiveWorkoutRoute>(inclusive = false)) {
+                navController.navigate(ActiveWorkoutRoute(session.id)) { launchSingleTop = true }
+            }
         }
     }
 
