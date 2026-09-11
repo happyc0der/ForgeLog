@@ -39,4 +39,32 @@ class SetFieldVisibilityTest {
         assertTrue(SetFieldVisibility.isVisible(SetInputField.DURATION, ExerciseUnit.LB, revealed))
         assertTrue(SetFieldVisibility.isVisible(SetInputField.WEIGHT, ExerciseUnit.LB, revealed))
     }
+
+    @Test
+    fun aPlannedWeightOnATimedExerciseIsShown() {
+        // A farmer's walk: 60 lb for 40 seconds.
+        val walk = sessionExercise(id = 1L, sessionId = 1L, exerciseId = 1L, displayName = "Farmer's walk")
+            .copy(targetWeight = 60.0, targetDurationSeconds = 40)
+        val inUse = SetFieldVisibility.inUse(walk, previousSets = emptyList())
+        assertEquals(setOf(SetInputField.WEIGHT, SetInputField.DURATION), inUse)
+        assertTrue(SetFieldVisibility.isVisible(SetInputField.WEIGHT, ExerciseUnit.SECONDS, emptySet(), inUse))
+        assertFalse(SetFieldVisibility.isVisible(SetInputField.REPS, ExerciseUnit.SECONDS, emptySet(), inUse))
+    }
+
+    @Test
+    fun aWeightUsedLastSessionIsShownAgain() {
+        val pullUp = sessionExercise(id = 1L, sessionId = 1L, exerciseId = 1L, displayName = "Pull-up")
+        val lastTime = listOf(setLog(reps = 5, weight = 10.0))
+        val inUse = SetFieldVisibility.inUse(pullUp, lastTime)
+        assertTrue(SetFieldVisibility.isVisible(SetInputField.WEIGHT, ExerciseUnit.BODYWEIGHT, emptySet(), inUse))
+    }
+
+    @Test
+    fun nothingPlannedOrUsedAddsNothing() {
+        val hang = sessionExercise(id = 1L, sessionId = 1L, exerciseId = 1L, displayName = "Dead hang")
+            .copy(targetDurationSeconds = 30)
+        val inUse = SetFieldVisibility.inUse(hang, listOf(setLog(reps = null, weight = null, durationSeconds = 30)))
+        assertEquals(setOf(SetInputField.DURATION), inUse)
+        assertFalse(SetFieldVisibility.isVisible(SetInputField.WEIGHT, ExerciseUnit.SECONDS, emptySet(), inUse))
+    }
 }

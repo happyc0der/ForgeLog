@@ -61,9 +61,13 @@ import javax.inject.Inject
 data class ActiveExerciseUi(
     val item: SessionExerciseWithSets,
     val unit: ExerciseUnit,
+    /** What its planned weight is in: [unit] for a loaded lift, else the default weight unit. */
+    val targetWeightUnit: ExerciseUnit = unit,
     val previous: PreviousPerformance?,
     val expanded: Boolean,
     val revealedFields: Set<SetInputField>,
+    /** Fields shown because the plan or the last session used them; see [SetFieldVisibility.inUse]. */
+    val fieldsInUse: Set<SetInputField> = emptySet(),
     val notesDraft: String,
     /** The program's notes for this exercise, when the session came from a program day. */
     val planNotes: String? = null,
@@ -211,12 +215,14 @@ class ActiveWorkoutViewModel @Inject constructor(
             drafts,
             revealed,
             exerciseRepository.observeExercises(includeArchived = true),
-        ) { detail, draftMap, revealedMap, exercises ->
+            settingsRepository.settings.map { it.defaultWeightUnit }.distinctUntilChanged(),
+        ) { detail, draftMap, revealedMap, exercises, defaultWeightUnit ->
             ActiveWorkoutPartial(
                 detail = detail,
                 drafts = draftMap,
                 revealed = revealedMap,
                 units = exercises.associate { it.id to it.defaultUnit },
+                defaultWeightUnit = defaultWeightUnit,
             )
         }.reportErrors(null) { reportLoadError(it) },
         combine(previousByExercise, planContext, ::Pair),
@@ -233,9 +239,14 @@ class ActiveWorkoutViewModel @Inject constructor(
                 ActiveExerciseUi(
                     item = item,
                     unit = unit,
+                    targetWeightUnit = unit.asWeightUnit(fallback = partial.defaultWeightUnit),
                     previous = previous[item.exercise.id],
                     expanded = item.exercise.id == expandedId,
                     revealedFields = partial.revealed[item.exercise.id].orEmpty(),
+                    fieldsInUse = SetFieldVisibility.inUse(
+                        targets = item.exercise,
+                        previousSets = previous[item.exercise.id]?.completedSets.orEmpty(),
+                    ),
                     notesDraft = partial.drafts[exerciseNotesKey(item.exercise.id)]
                         ?: item.exercise.exerciseNotes.orEmpty(),
                     planNotes = item.exercise.exerciseId?.let(plan.notesByExerciseId::get),
@@ -652,8 +663,12 @@ class ActiveWorkoutViewModel @Inject constructor(
         }
     }
 
-    fun isFieldVisible(unit: ExerciseUnit, revealedFields: Set<SetInputField>, field: SetInputField): Boolean =
-        SetFieldVisibility.isVisible(field, unit, revealedFields)
+    fun isFieldVisible(
+        unit: ExerciseUnit,
+        revealedFields: Set<SetInputField>,
+        fieldsInUse: Set<SetInputField>,
+        field: SetInputField,
+    ): Boolean = SetFieldVisibility.isVisible(field, unit, revealedFields, fieldsInUse)
 
     private fun persistSet(set: SetLog) {
         launchSafely(::reportAsMessage) {
@@ -737,6 +752,7 @@ class ActiveWorkoutViewModel @Inject constructor(
         val drafts: Map<String, String>,
         val revealed: Map<Long, Set<SetInputField>>,
         val units: Map<Long, ExerciseUnit>,
+        val defaultWeightUnit: ExerciseUnit,
     )
 
     companion object {

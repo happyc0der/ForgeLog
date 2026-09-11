@@ -312,7 +312,7 @@ private fun ExerciseLoggerCard(
                     }
                 }
             }
-            targetSummary(exercise, exerciseUi.unit)?.let { targets ->
+            targetSummary(exercise, exerciseUi.targetWeightUnit)?.let { targets ->
                 Text(
                     text = stringResource(R.string.workout_exercise_target, targets),
                     style = MaterialTheme.typography.labelMedium,
@@ -369,6 +369,7 @@ private fun ExerciseLoggerCard(
                             set = set,
                             unit = exerciseUi.unit,
                             revealed = exerciseUi.revealedFields,
+                            inUse = exerciseUi.fieldsInUse,
                             viewModel = viewModel,
                             durationUnit = durationUnit,
                             restUnit = restUnit,
@@ -438,6 +439,7 @@ private fun SetRow(
     set: SetLog,
     unit: ExerciseUnit,
     revealed: Set<SetInputField>,
+    inUse: Set<SetInputField>,
     viewModel: ActiveWorkoutViewModel,
     durationUnit: DurationInputUnit,
     onDurationUnitChange: (DurationInputUnit) -> Unit,
@@ -496,7 +498,7 @@ private fun SetRow(
             optionLabel = { it.label() },
             onSelected = { viewModel.onSetType(set, it) },
         )
-        if (viewModel.isFieldVisible(unit, revealed, SetInputField.REPS)) {
+        if (viewModel.isFieldVisible(unit, revealed, inUse, SetInputField.REPS)) {
             SetEntryTextField(
                 value = viewModel.fieldValue(set, ActiveWorkoutViewModel.FIELD_REPS),
                 onValueChange = { viewModel.onSetText(set, ActiveWorkoutViewModel.FIELD_REPS, it) },
@@ -505,7 +507,7 @@ private fun SetRow(
                 keyboardType = KeyboardType.Number,
             )
         }
-        if (viewModel.isFieldVisible(unit, revealed, SetInputField.WEIGHT)) {
+        if (viewModel.isFieldVisible(unit, revealed, inUse, SetInputField.WEIGHT)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -529,7 +531,7 @@ private fun SetRow(
                 )
             }
         }
-        if (viewModel.isFieldVisible(unit, revealed, SetInputField.DURATION)) {
+        if (viewModel.isFieldVisible(unit, revealed, inUse, SetInputField.DURATION)) {
             DurationSecondsField(
                 secondsText = viewModel.fieldValue(set, ActiveWorkoutViewModel.FIELD_DURATION),
                 onSecondsTextChange = {
@@ -541,7 +543,7 @@ private fun SetRow(
                 modifier = Modifier.fillMaxWidth(),
             )
         }
-        if (viewModel.isFieldVisible(unit, revealed, SetInputField.DISTANCE)) {
+        if (viewModel.isFieldVisible(unit, revealed, inUse, SetInputField.DISTANCE)) {
             SetEntryTextField(
                 value = viewModel.fieldValue(set, ActiveWorkoutViewModel.FIELD_DISTANCE),
                 onValueChange = { viewModel.onSetText(set, ActiveWorkoutViewModel.FIELD_DISTANCE, it) },

@@ -12,8 +12,10 @@ import dev.happyc0der.forgelog.data.local.programExerciseEntity
 import dev.happyc0der.forgelog.domain.model.Exercise
 import dev.happyc0der.forgelog.domain.model.ExerciseCategory
 import dev.happyc0der.forgelog.domain.model.ExerciseUnit
+import dev.happyc0der.forgelog.domain.model.SessionExercise
 import dev.happyc0der.forgelog.domain.model.SessionStartExercise
 import dev.happyc0der.forgelog.domain.model.SessionStatus
+import dev.happyc0der.forgelog.domain.workout.SetInputField
 import dev.happyc0der.forgelog.testing.MainDispatcherRule
 import dev.happyc0der.forgelog.testing.TestEnvironment
 import dev.happyc0der.forgelog.workout.RestAlert
@@ -127,6 +129,39 @@ class ActiveWorkoutViewModelTest {
 
     private suspend fun sets() = env.sessionRepository.getSessionDetail(sessionId)!!
         .exercises.single().sets
+
+    @Test
+    fun `a timed exercise with a planned weight shows its weight, in the default unit`() = runTest {
+        env.settingsRepository.setDefaultWeightUnit(ExerciseUnit.KG)
+        val walkId = env.database.exerciseDao().upsert(
+            exerciseEntity(name = "Farmer's walk", defaultUnit = ExerciseUnit.SECONDS),
+        )
+        val walkEntryId = env.sessionRepository.upsertSessionExercise(
+            SessionExercise(
+                sessionId = sessionId,
+                exerciseId = walkId,
+                displayNameSnapshot = "Farmer's walk",
+                exerciseOrder = 1,
+                startedAt = env.time.now,
+                targetWeight = 60.0,
+                targetDurationSeconds = 40,
+            ),
+        )
+        val vm = viewModel()
+        vm.uiState.test {
+            val state = awaitUntil { current ->
+                current.exercises.any { it.item.exercise.id == walkEntryId && it.targetWeightUnit == ExerciseUnit.KG }
+            }
+            val walk = state.exercises.single { it.item.exercise.id == walkEntryId }
+            assertTrue(vm.isFieldVisible(walk.unit, walk.revealedFields, walk.fieldsInUse, SetInputField.WEIGHT))
+            assertTrue(vm.isFieldVisible(walk.unit, walk.revealedFields, walk.fieldsInUse, SetInputField.DURATION))
+            assertFalse(vm.isFieldVisible(walk.unit, walk.revealedFields, walk.fieldsInUse, SetInputField.REPS))
+            // A loaded lift's planned weight stays in its own unit.
+            val bench = state.exercises.single { it.item.exercise.id == sessionExerciseId }
+            assertEquals(ExerciseUnit.LB, bench.targetWeightUnit)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
 
     @Test
     fun `added sets are numbered in sequence`() = runTest {

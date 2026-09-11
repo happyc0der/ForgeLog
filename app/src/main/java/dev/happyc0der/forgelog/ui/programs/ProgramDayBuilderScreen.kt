@@ -62,9 +62,11 @@ import dev.happyc0der.forgelog.R
 import dev.happyc0der.forgelog.ui.format.Formatters
 import dev.happyc0der.forgelog.ui.testing.TestTags
 import dev.happyc0der.forgelog.domain.library.HowToUrl
+import dev.happyc0der.forgelog.domain.model.ExerciseUnit
 import dev.happyc0der.forgelog.domain.model.ProgramExercise
 import dev.happyc0der.forgelog.domain.model.ProgramExerciseDetail
 import dev.happyc0der.forgelog.domain.workout.DurationInputUnit
+import dev.happyc0der.forgelog.domain.workout.asWeightUnit
 import dev.happyc0der.forgelog.ui.components.ConfirmDialog
 import dev.happyc0der.forgelog.ui.components.EmptyState
 import dev.happyc0der.forgelog.ui.components.ErrorState
@@ -224,6 +226,7 @@ fun ProgramDayBuilderScreen(
                     ) { item, dragModifier ->
                         ProgramExerciseCard(
                             item = item,
+                            defaultWeightUnit = defaultWeightUnit,
                             dragModifier = dragModifier,
                             durationUnit = durationUnit,
                             restUnit = restUnit,
@@ -340,6 +343,8 @@ fun ProgramDayBuilderScreen(
 @Composable
 private fun ProgramExerciseCard(
     item: ProgramExerciseDetail,
+    /** What a planned weight on a timed or bodyweight exercise is in. */
+    defaultWeightUnit: ExerciseUnit,
     dragModifier: Modifier,
     durationUnit: DurationInputUnit,
     onDurationUnitChange: (DurationInputUnit) -> Unit,
@@ -451,7 +456,8 @@ private fun ProgramExerciseCard(
                     // The plan at a glance. A saved card showed only the lift's name, so checking a
                     // day meant opening every exercise in turn.
                     if (!expanded) {
-                        targetSummary(item.programExercise, item.exercise.defaultUnit)?.let { summary ->
+                        val weightUnit = item.exercise.defaultUnit.asWeightUnit(fallback = defaultWeightUnit)
+                        targetSummary(item.programExercise, weightUnit)?.let { summary ->
                             Text(
                                 text = summary,
                                 style = MaterialTheme.typography.bodyMedium,
