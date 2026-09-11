@@ -144,8 +144,8 @@
 
     <string name="workout_active_title">Active workout</string>
     <string name="rest_timer_remaining">Rest %1$s</string>
-    <string name="rest_timer_overrun">Rest over by %1$ds</string>
-    <string name="rest_timer_target">Target %1$ds</string>
+    <string name="rest_timer_overrun">Rest over by %1$s</string>
+    <string name="rest_timer_target">Target %1$s</string>
     <string name="rest_timer_paused">Paused</string>
     <string name="rest_timer_pause">Pause rest timer</string>
     <string name="rest_timer_resume">Resume rest timer</string>

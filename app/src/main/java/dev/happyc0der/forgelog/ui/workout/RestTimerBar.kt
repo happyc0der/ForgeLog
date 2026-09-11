@@ -26,6 +26,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.happyc0der.forgelog.R
 import dev.happyc0der.forgelog.domain.workout.RestTimer
+import dev.happyc0der.forgelog.ui.format.Formatters
 import dev.happyc0der.forgelog.ui.theme.forgeLogColors
 
 /**
@@ -61,9 +62,11 @@ internal fun RestTimerBar(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = if (state.isOverrun) {
+                                // "1m 10s" rather than "70s": with three-minute rests, running
+                                // two over read as "over by 130s".
                                 stringResource(
                                     R.string.rest_timer_overrun,
-                                    state.overrunSeconds,
+                                    Formatters.seconds(state.overrunSeconds),
                                 )
                             } else {
                                 stringResource(R.string.rest_timer_remaining, state.remainingLabel)
@@ -79,7 +82,10 @@ internal fun RestTimerBar(
                             text = if (state.isPaused) {
                                 stringResource(R.string.rest_timer_paused)
                             } else {
-                                stringResource(R.string.rest_timer_target, state.targetSeconds)
+                                stringResource(
+                                    R.string.rest_timer_target,
+                                    Formatters.seconds(state.targetSeconds),
+                                )
                             },
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
