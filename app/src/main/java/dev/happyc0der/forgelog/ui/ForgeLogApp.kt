@@ -32,6 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -152,7 +153,7 @@ private fun ForgeLogBottomBar(
                         contentDescription = stringResource(destination.labelRes),
                     )
                 },
-                label = { Text(text = stringResource(destination.labelRes)) },
+                label = { NavigationLabel(destination) },
                 colors = NavigationBarItemDefaults.colors(
                     selectedIconColor = MaterialTheme.colorScheme.primary,
                     selectedTextColor = MaterialTheme.colorScheme.primary,
@@ -208,7 +209,7 @@ private fun ForgeLogNavigationRail(
                         contentDescription = stringResource(destination.labelRes),
                     )
                 },
-                label = { Text(text = stringResource(destination.labelRes)) },
+                label = { NavigationLabel(destination) },
                 colors = NavigationRailItemDefaults.colors(
                     selectedIconColor = MaterialTheme.colorScheme.primary,
                     selectedTextColor = MaterialTheme.colorScheme.primary,
@@ -219,6 +220,23 @@ private fun ForgeLogNavigationRail(
             )
         }
     }
+}
+
+/**
+ * A navigation label, kept to one line.
+ *
+ * Five destinations across a phone is a tight fit, and at a large font size the labels wrapped:
+ * "Programs" broke into "Program" and a stranded "s" on a second line, which pushed that item's icon
+ * up and out of line with the others, and "Settings" ran off the right edge. Cut short, the bar keeps
+ * its shape at any font size, and at ordinary sizes nothing is cut at all.
+ */
+@Composable
+private fun NavigationLabel(destination: TopLevelDestination) {
+    Text(
+        text = stringResource(destination.labelRes),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+    )
 }
 
 private fun NavHostController.navigateToTopLevel(destination: TopLevelDestination) {

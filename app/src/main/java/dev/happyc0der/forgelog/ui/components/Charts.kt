@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.happyc0der.forgelog.R
 import androidx.compose.ui.res.stringResource
@@ -87,6 +88,11 @@ fun BarChart(
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
+                    // One line, whatever the font size. A label wide enough to wrap -- "Mon" at the
+                    // largest font -- broke onto a second line under its own bar, which pushed the
+                    // row's height out and left the axis reading "Mo n".
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
             }

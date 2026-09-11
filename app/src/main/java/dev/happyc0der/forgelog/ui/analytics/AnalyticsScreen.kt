@@ -4,6 +4,8 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -348,6 +350,7 @@ private fun VolumeByDayCard(uiState: AnalyticsUiState, zone: ZoneId) {
 /** Above a week, a weekday name no longer identifies the bar. */
 private const val DAYS_LABELLED_BY_WEEKDAY = 7
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ExerciseProgressCard(
     uiState: AnalyticsUiState,
@@ -359,7 +362,9 @@ private fun ExerciseProgressCard(
     val dateFormatter = remember { DateTimeFormatter.ofPattern("d MMM", Locale.getDefault()) }
     ForgeCard {
         CardHeader(title = stringResource(R.string.analytics_exercise_progress))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        // Wraps rather than running off the card. At a large font size "1 year" was cut off at the
+        // edge with no way to scroll to it, so the longest window could not be chosen at all.
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TrendWindow.entries.forEach { window ->
                 FilterChip(
                     selected = uiState.trendWindow == window,
