@@ -8,11 +8,13 @@ import androidx.navigation.toRoute
 import dev.happyc0der.forgelog.R
 import dev.happyc0der.forgelog.domain.library.HowToUrl
 import dev.happyc0der.forgelog.domain.model.Exercise
+import dev.happyc0der.forgelog.domain.model.ExerciseUnit
 import dev.happyc0der.forgelog.domain.model.ProgramDayDetail
 import dev.happyc0der.forgelog.domain.model.ProgramExerciseDetail
 import dev.happyc0der.forgelog.domain.model.ProgramExercise
 import dev.happyc0der.forgelog.domain.repository.ExerciseRepository
 import dev.happyc0der.forgelog.domain.repository.ProgramRepository
+import dev.happyc0der.forgelog.domain.settings.SettingsRepository
 import dev.happyc0der.forgelog.ui.common.launchSafely
 import dev.happyc0der.forgelog.ui.common.reportErrors
 import dev.happyc0der.forgelog.ui.exercise.ExerciseFormState
@@ -21,6 +23,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
@@ -58,9 +61,16 @@ class ProgramDayBuilderViewModel @Inject constructor(
     private val application: Application,
     private val programRepository: ProgramRepository,
     private val exerciseRepository: ExerciseRepository,
+    settingsRepository: SettingsRepository,
 ) : ViewModel() {
     private val dayId = savedStateHandle.toRoute<ProgramDayBuilderRoute>().dayId
     private val draftExerciseOrder = MutableStateFlow<List<Long>?>(null)
+
+    /** The unit a newly created exercise starts in: the default weight unit from Settings. */
+    val defaultWeightUnit: StateFlow<ExerciseUnit> = settingsRepository.settings
+        .map { it.defaultWeightUnit }
+        .catch { emit(ExerciseUnit.LB) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, ExerciseUnit.LB)
 
     val uiState: StateFlow<ProgramDayBuilderUiState> = combine(
         // Without the catch, a Room failure completes the flow exceptionally and the collecting

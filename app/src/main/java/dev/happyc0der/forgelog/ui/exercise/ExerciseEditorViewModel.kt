@@ -12,12 +12,14 @@ import dev.happyc0der.forgelog.domain.model.Exercise
 import dev.happyc0der.forgelog.domain.model.ExerciseCategory
 import dev.happyc0der.forgelog.domain.model.ExerciseUnit
 import dev.happyc0der.forgelog.domain.repository.ExerciseRepository
+import dev.happyc0der.forgelog.domain.settings.SettingsRepository
 import dev.happyc0der.forgelog.ui.navigation.ExerciseEditorRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.Job
@@ -41,11 +43,15 @@ class ExerciseEditorViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val application: Application,
     private val exerciseRepository: ExerciseRepository,
+    private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
     private val exerciseId = savedStateHandle.toRoute<ExerciseEditorRoute>().exerciseId
         .takeIf { it > 0L }
     private var duplicateCheckJob: Job? = null
     private var saveJob: Job? = null
+
+    /** Set once the user picks a unit, so the default from Settings arriving late cannot undo it. */
+    private var unitChosen = false
 
     private val _uiState = MutableStateFlow(ExerciseEditorUiState(isCreate = exerciseId == null))
     val uiState: StateFlow<ExerciseEditorUiState> = _uiState.asStateFlow()
@@ -56,6 +62,13 @@ class ExerciseEditorViewModel @Inject constructor(
     init {
         if (exerciseId == null) {
             _uiState.update { it.copy(isLoading = false, isCreate = true) }
+            // A new exercise starts in the weight unit chosen in Settings. It was always lb, so
+            // with kg set as the default every new lift had to be switched by hand.
+            viewModelScope.launch {
+                val unit = runCatching { settingsRepository.settings.first().defaultWeightUnit }
+                    .getOrNull() ?: return@launch
+                if (!unitChosen) _uiState.update { it.copy(form = it.form.copy(defaultUnit = unit)) }
+            }
         } else {
             viewModelScope.launch {
                 val exercise = exerciseRepository.getExercise(exerciseId)
@@ -124,6 +137,7 @@ class ExerciseEditorViewModel @Inject constructor(
     }
 
     fun onUnitChange(value: ExerciseUnit) {
+        unitChosen = true
         _uiState.update { it.copy(form = it.form.copy(defaultUnit = value)) }
     }
 

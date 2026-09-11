@@ -64,7 +64,19 @@ class ProgramDayBuilderViewModelTest {
         application = ApplicationProvider.getApplicationContext<Application>(),
         programRepository = env.programRepository,
         exerciseRepository = env.exerciseRepository,
+        settingsRepository = env.settingsRepository,
     ).also(created::add)
+
+    @Test
+    fun `a new exercise starts in the default weight unit from Settings`() = runTest {
+        env.settingsRepository.setDefaultWeightUnit(ExerciseUnit.KG)
+        val vm = viewModel()
+        vm.defaultWeightUnit.test {
+            var unit = awaitItem()
+            while (unit != ExerciseUnit.KG) unit = awaitItem()
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
 
     @Test
     fun `two adds in quick succession get distinct orders`() = runTest {

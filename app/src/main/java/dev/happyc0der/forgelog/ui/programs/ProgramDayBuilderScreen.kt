@@ -93,6 +93,7 @@ fun ProgramDayBuilderScreen(
     viewModel: ProgramDayBuilderViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val defaultWeightUnit by viewModel.defaultWeightUnit.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     // Its duration and rest fields read "1m 30s" only once they lose focus.
     ClearFocusWhenKeyboardHides()
@@ -272,7 +273,9 @@ fun ProgramDayBuilderScreen(
     }
 
     if (showCreateSheet) {
-        var form by rememberSaveable(stateSaver = ExerciseFormStateSaver) { mutableStateOf(ExerciseFormState()) }
+        var form by rememberSaveable(stateSaver = ExerciseFormStateSaver) {
+            mutableStateOf(ExerciseFormState(defaultUnit = defaultWeightUnit))
+        }
         ModalBottomSheet(
             onDismissRequest = { showCreateSheet = false },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),

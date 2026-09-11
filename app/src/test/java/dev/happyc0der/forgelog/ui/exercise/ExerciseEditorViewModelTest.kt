@@ -55,7 +55,36 @@ class ExerciseEditorViewModelTest {
         savedStateHandle = SavedStateHandle(mapOf("exerciseId" to exerciseId)),
         application = ApplicationProvider.getApplicationContext<Application>(),
         exerciseRepository = env.exerciseRepository,
+        settingsRepository = env.settingsRepository,
     ).also(created::add)
+
+    @Test
+    fun `a new exercise starts in the default weight unit from Settings`() = runTest {
+        env.settingsRepository.setDefaultWeightUnit(ExerciseUnit.KG)
+        val vm = viewModel()
+        vm.uiState.test {
+            var state = awaitItem()
+            while (state.form.defaultUnit != ExerciseUnit.KG) state = awaitItem()
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `a unit the user picked is not replaced by the Settings default`() = runTest {
+        env.settingsRepository.setDefaultWeightUnit(ExerciseUnit.KG)
+        val vm = viewModel()
+        vm.onUnitChange(ExerciseUnit.BODYWEIGHT)
+        advanceUntilIdle()
+        assertEquals(ExerciseUnit.BODYWEIGHT, vm.uiState.value.form.defaultUnit)
+    }
+
+    @Test
+    fun `editing an exercise keeps its own unit whatever Settings says`() = runTest {
+        env.settingsRepository.setDefaultWeightUnit(ExerciseUnit.KG)
+        val vm = viewModel(exerciseId = benchId)
+        advanceUntilIdle()
+        assertEquals(ExerciseUnit.LB, vm.uiState.value.form.defaultUnit)
+    }
 
     @Test
     fun `a name already in use is warned about but not refused`() = runTest {

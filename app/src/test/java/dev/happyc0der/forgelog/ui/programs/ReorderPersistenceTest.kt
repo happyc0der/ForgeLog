@@ -186,6 +186,7 @@ class ReorderPersistenceTest {
             application = ApplicationProvider.getApplicationContext<Application>(),
             programRepository = env.programRepository,
             exerciseRepository = env.exerciseRepository,
+            settingsRepository = env.settingsRepository,
         ).also(createdBuilder::add)
 
         vm.uiState.test {
