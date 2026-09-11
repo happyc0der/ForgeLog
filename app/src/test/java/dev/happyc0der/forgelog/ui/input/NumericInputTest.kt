@@ -50,4 +50,21 @@ class NumericInputTest {
         assertNull(NumericInput.accept("-62", decimal = true))
         assertNull(NumericInput.accept("NaN", decimal = true))
     }
+
+    @Test
+    fun `numbers too long to store are refused rather than silently lost`() {
+        // Past Int.MAX_VALUE, toIntOrNull gives null: the field showed a number and stored none.
+        assertNull(NumericInput.accept("99999999999", decimal = false))
+        assertEquals("999999", NumericInput.accept("999999", decimal = false))
+        assertNull(NumericInput.accept("1000000", decimal = false))
+        assertNull(NumericInput.accept("1234567.5", decimal = true))
+    }
+
+    @Test
+    fun `decimals stop at two places`() {
+        assertEquals("22.25", NumericInput.accept("22.25", decimal = true))
+        assertEquals("1.27", NumericInput.accept("1.27", decimal = true))
+        assertNull(NumericInput.accept("22.255", decimal = true))
+        assertEquals(".", NumericInput.accept(".", decimal = true))
+    }
 }

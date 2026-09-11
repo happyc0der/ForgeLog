@@ -169,6 +169,13 @@ fun SetEntryTextField(
     OutlinedTextField(
         value = textFieldValue,
         onValueChange = { raw ->
+            // A cursor move or selection, with the text unchanged: nothing to filter or store.
+            // Filtering it anyway would pin the cursor in place for any value the filter would not
+            // accept as typed, such as a weight imported with three decimals.
+            if (raw.text == textFieldValue.text) {
+                textFieldValue = raw
+                return@OutlinedTextField
+            }
             // Numeric fields refuse a keystroke that would leave unparseable text, rather than
             // showing it and quietly storing null. Text fields (notes) are left alone.
             val numeric = keyboardType == KeyboardType.Number || keyboardType == KeyboardType.Decimal

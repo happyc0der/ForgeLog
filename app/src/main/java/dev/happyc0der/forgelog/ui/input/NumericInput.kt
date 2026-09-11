@@ -24,10 +24,27 @@ object NumericInput {
      * mid-typing states, not errors.
      */
     fun accept(text: String, decimal: Boolean): String? {
-        if (!decimal) return text.takeIf { candidate -> candidate.all(Char::isDigit) }
+        if (!decimal) {
+            return text.takeIf { candidate ->
+                candidate.all(Char::isDigit) && candidate.length <= MAX_WHOLE_DIGITS
+            }
+        }
         val normalised = text.replace(',', '.')
-        val separators = normalised.count { it == '.' }
-        val digitsAndPoint = normalised.all { it.isDigit() || it == '.' }
-        return normalised.takeIf { digitsAndPoint && separators <= 1 }
+        if (!normalised.all { it.isDigit() || it == '.' }) return null
+        val parts = normalised.split('.')
+        return normalised.takeIf {
+            parts.size <= 2 &&
+                parts[0].length <= MAX_WHOLE_DIGITS &&
+                parts.getOrElse(1) { "" }.length <= MAX_FRACTION_DIGITS
+        }
     }
+
+    /*
+     * Limits, so the same silent loss cannot come back by length: an integer field took any run of
+     * digits, and past 2,147,483,647 toIntOrNull gave null -- the field showing a number while
+     * storing none. Six digits covers every count here (reps, sets, the seconds in a day); two
+     * decimals, every plate (0.25 kg) and every minutes-typed rest ("1.27").
+     */
+    private const val MAX_WHOLE_DIGITS = 6
+    private const val MAX_FRACTION_DIGITS = 2
 }

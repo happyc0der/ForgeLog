@@ -36,6 +36,7 @@ import dev.happyc0der.forgelog.domain.model.SetType
 import dev.happyc0der.forgelog.domain.workout.asWeightUnit
 import dev.happyc0der.forgelog.ui.components.OptionDropdown
 import dev.happyc0der.forgelog.ui.input.DurationSecondsField
+import dev.happyc0der.forgelog.ui.input.NumericInput
 import dev.happyc0der.forgelog.ui.input.rememberDurationInputUnit
 import dev.happyc0der.forgelog.ui.input.rememberRestInputUnit
 import dev.happyc0der.forgelog.ui.util.label
@@ -272,7 +273,9 @@ private fun NumberEntry(
 ) {
     OutlinedTextField(
         value = value,
-        onValueChange = onValueChange,
+        // The same filter as every other number field, so a stray "." or an overlong number is
+        // refused as it is typed rather than only when Save is pressed.
+        onValueChange = { raw -> NumericInput.accept(raw, decimal)?.let(onValueChange) },
         label = { Text(text = label, style = MaterialTheme.typography.labelMedium) },
         singleLine = true,
         keyboardOptions = KeyboardOptions(
