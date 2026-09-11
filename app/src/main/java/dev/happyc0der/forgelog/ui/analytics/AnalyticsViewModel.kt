@@ -184,7 +184,21 @@ class AnalyticsViewModel @Inject constructor(
             }
             .distinctBy { it.exerciseId }
             .sortedBy { it.displayName.lowercase() }
-        val effectiveSelection = selected ?: loggedExercises.firstOrNull()?.exerciseId
+        // Until the user picks one, the charts show the lift most recently trained with a load --
+        // which is what they can draw. The alphabetical first put a bodyweight or timed lift on
+        // screen ("Ab rollout"), and the section opened on "Nothing logged in this range" for
+        // someone with months of barbell work.
+        val recentLoadedLift = trend
+            .sortedByDescending { it.session.startedAt }
+            .asSequence()
+            .flatMap { detail -> detail.exercises.asSequence() }
+            .firstOrNull { logged ->
+                logged.exercise.exerciseId != null &&
+                    logged.sets.any { it.completed && it.weight != null && it.reps != null }
+            }
+            ?.exercise
+            ?.exerciseId
+        val effectiveSelection = selected ?: recentLoadedLift ?: loggedExercises.firstOrNull()?.exerciseId
 
         AnalyticsData(
             comparison = AnalyticsAggregator.compare(

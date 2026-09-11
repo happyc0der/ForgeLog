@@ -231,6 +231,40 @@ class AnalyticsViewModelTest {
     }
 
     @Test
+    fun `the charts open on the lift most recently trained with a load, not the first by name`() = runTest {
+        // "Ab rollout" sorts first and is the most recent, but a bodyweight lift has nothing to chart.
+        val rolloutId = env.database.exerciseDao().upsert(
+            exerciseEntity(name = "Ab rollout", category = ExerciseCategory.CORE),
+        )
+        logSession(day = 10, exerciseId = squatId, exerciseName = "Squat", weight = 300.0)
+        val dao = env.database.workoutSessionDao()
+        val started = epochAt(3, 11, 17)
+        val sessionId = dao.insertSession(
+            sessionEntity(sessionName = "Core", startedAt = started, completedAt = started + 600_000L),
+        )
+        val sessionExerciseId = dao.insertSessionExercise(
+            sessionExerciseEntity(sessionId = sessionId, exerciseId = rolloutId, displayNameSnapshot = "Ab rollout"),
+        )
+        dao.upsertSetLog(
+            setLogEntity(
+                sessionExerciseId = sessionExerciseId,
+                reps = 8,
+                weight = null,
+                weightUnit = dev.happyc0der.forgelog.domain.model.ExerciseUnit.BODYWEIGHT,
+            ),
+        )
+
+        val vm = viewModel()
+        vm.uiState.test {
+            var state = awaitItem()
+            while (state.exercises.size < 2) state = awaitItem()
+            assertEquals(squatId, state.selectedExerciseId)
+            assertTrue(state.topSetTrend.isNotEmpty())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun `a bodyweight-only exercise contributes no estimated 1RM points`() = runTest {
         val pullUpId = env.database.exerciseDao().upsert(
             exerciseEntity(name = "Pull-up", category = ExerciseCategory.PULL),
