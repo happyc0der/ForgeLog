@@ -4,7 +4,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -22,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import dev.happyc0der.forgelog.R
@@ -30,6 +34,9 @@ import dev.happyc0der.forgelog.domain.model.ExerciseUnit
 import dev.happyc0der.forgelog.domain.model.SetLog
 import dev.happyc0der.forgelog.domain.model.SetType
 import dev.happyc0der.forgelog.ui.components.OptionDropdown
+import dev.happyc0der.forgelog.ui.input.DurationSecondsField
+import dev.happyc0der.forgelog.ui.input.rememberDurationInputUnit
+import dev.happyc0der.forgelog.ui.input.rememberRestInputUnit
 import dev.happyc0der.forgelog.ui.util.label
 
 /**
@@ -63,6 +70,8 @@ internal fun SetEditorDialog(
     var completed by rememberSaveable { mutableStateOf(set.completed) }
     var error by rememberSaveable { mutableStateOf<Int?>(null) }
     val unit = ExerciseUnit.valueOf(unitName)
+    val (durationUnit, onDurationUnitChange) = rememberDurationInputUnit()
+    val (restUnit, onRestUnitChange) = rememberRestInputUnit()
     val setType = SetType.valueOf(setTypeName)
 
     fun attemptSave() {
@@ -143,21 +152,24 @@ internal fun SetEditorDialog(
                     onSelect = { unitName = (it ?: ExerciseUnit.LB).name },
                     anyLabel = unitLabels.getValue(ExerciseUnit.LB),
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    NumberEntry(
-                        label = stringResource(R.string.session_detail_field_duration),
-                        value = duration,
-                        onValueChange = { duration = it },
-                        modifier = Modifier.weight(1f),
-                    )
-                    NumberEntry(
-                        label = stringResource(R.string.session_detail_field_distance),
-                        value = distance,
-                        onValueChange = { distance = it },
-                        decimal = true,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
+                // Duration and rest in the same sec/min units as the logger. They were plain seconds
+                // here, so with rest entered in minutes, "3" meant three minutes in the logger and
+                // three seconds when correcting the same set afterwards.
+                DurationSecondsField(
+                    secondsText = duration,
+                    onSecondsTextChange = { duration = it },
+                    label = stringResource(R.string.session_detail_field_duration),
+                    unit = durationUnit,
+                    onUnitChange = onDurationUnitChange,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                NumberEntry(
+                    label = stringResource(R.string.session_detail_field_distance),
+                    value = distance,
+                    onValueChange = { distance = it },
+                    decimal = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     NumberEntry(
                         label = stringResource(R.string.session_detail_field_rpe),
@@ -172,10 +184,12 @@ internal fun SetEditorDialog(
                         modifier = Modifier.weight(1f),
                     )
                 }
-                NumberEntry(
+                DurationSecondsField(
+                    secondsText = rest,
+                    onSecondsTextChange = { rest = it },
                     label = stringResource(R.string.session_detail_field_rest),
-                    value = rest,
-                    onValueChange = { rest = it },
+                    unit = restUnit,
+                    onUnitChange = onRestUnitChange,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
@@ -184,9 +198,22 @@ internal fun SetEditorDialog(
                     label = { Text(text = stringResource(R.string.session_detail_field_notes)) },
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = completed, onCheckedChange = { completed = it })
-                    Text(text = stringResource(R.string.session_detail_field_completed))
+                // One target with its label, as in the logger: a tap on the word did nothing.
+                Row(
+                    modifier = Modifier
+                        .heightIn(min = 48.dp)
+                        .toggleable(
+                            value = completed,
+                            role = Role.Checkbox,
+                            onValueChange = { completed = it },
+                        ),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Checkbox(checked = completed, onCheckedChange = null)
+                    Text(
+                        text = stringResource(R.string.session_detail_field_completed),
+                        modifier = Modifier.padding(start = 12.dp, end = 12.dp),
+                    )
                 }
                 error?.let { messageRes ->
                     Text(

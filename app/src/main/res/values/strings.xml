@@ -82,9 +82,9 @@
     <string name="session_detail_field_reps">Reps</string>
     <string name="session_detail_field_weight">Weight</string>
     <string name="session_detail_field_unit">Unit</string>
-    <string name="session_detail_field_duration">Duration (s)</string>
+    <string name="session_detail_field_duration">Duration</string>
     <string name="session_detail_field_distance">Distance (m)</string>
-    <string name="session_detail_field_rest">Rest after (s)</string>
+    <string name="session_detail_field_rest">Rest after</string>
     <string name="session_detail_field_rpe">RPE</string>
     <string name="session_detail_field_rir">RIR</string>
     <string name="session_detail_field_notes">Notes</string>
