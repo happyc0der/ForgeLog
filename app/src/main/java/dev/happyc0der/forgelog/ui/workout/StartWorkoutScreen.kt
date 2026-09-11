@@ -56,6 +56,7 @@ import dev.happyc0der.forgelog.R
 import dev.happyc0der.forgelog.domain.model.SetLog
 import dev.happyc0der.forgelog.domain.model.ExerciseUnit
 import dev.happyc0der.forgelog.domain.workout.PreviousPerformance
+import dev.happyc0der.forgelog.domain.workout.asWeightUnit
 import dev.happyc0der.forgelog.ui.format.Formatters
 import dev.happyc0der.forgelog.ui.format.relativeDate
 import dev.happyc0der.forgelog.ui.components.ConfirmDialog
@@ -324,7 +325,9 @@ private fun PlannedExerciseCard(
             PlanNotesBlock(notes = item.planNotes)
             TargetSection(
                 item = item,
-                weightUnit = weightUnit,
+                // The exercise's own unit for a loaded lift, as the logger uses. The planner used
+                // the default for every lift, so a kg exercise's target read "@ 100 lb" here.
+                weightUnit = item.exercise.defaultUnit.asWeightUnit(fallback = weightUnit),
                 onTargetChange = onTargetChange,
             )
             PreviousSessionPanel(previous = item.previous)

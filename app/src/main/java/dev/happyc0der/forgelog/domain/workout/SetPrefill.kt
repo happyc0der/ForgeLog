@@ -21,6 +21,19 @@ data class SetTargets(
     val prefillReps: Int? get() = targetRepMin ?: targetRepMax
 }
 
+/**
+ * This unit if it measures weight, otherwise [fallback] (itself only if it does), otherwise lb.
+ *
+ * A set's weight is in pounds or kilograms. Timed and bodyweight exercises used to hand their own
+ * unit down as the weight's, so a 25 lb back-extension hold was stored as "25 Seconds": displayed as
+ * lb, and skipped by every calculation that converts a weight.
+ */
+fun ExerciseUnit.asWeightUnit(fallback: ExerciseUnit): ExerciseUnit = when {
+    isLoadedWeight -> this
+    fallback.isLoadedWeight -> fallback
+    else -> ExerciseUnit.LB
+}
+
 object SetPrefill {
     /**
      * Values for the next set, in priority order: the set just logged in this session, then the
@@ -33,6 +46,10 @@ object SetPrefill {
      *
      * What is already logged in this session beats both: mid-session the lifter has usually just
      * corrected the weight, and that correction is the most current statement of intent.
+     */
+    /**
+     * [defaultUnit] is the unit a planned weight is in: the exercise's own for a loaded lift, and
+     * the user's default weight unit for anything else.
      */
     fun nextSet(
         sessionExerciseId: Long,
@@ -61,7 +78,7 @@ object SetPrefill {
                 targets.targetWeight != null -> defaultUnit
                 previous?.weight != null -> previous.weightUnit
                 else -> current?.weightUnit ?: previous?.weightUnit ?: defaultUnit
-            },
+            }.asWeightUnit(fallback = defaultUnit),
             durationSeconds = current?.durationSeconds
                 ?: targets.targetDurationSeconds
                 ?: previous?.durationSeconds,

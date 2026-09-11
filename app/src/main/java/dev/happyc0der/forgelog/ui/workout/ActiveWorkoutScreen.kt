@@ -467,7 +467,8 @@ private fun SetRow(
                     keyboardType = KeyboardType.Decimal,
                 )
                 EnumDropdown(
-                    label = stringResource(R.string.exercise_field_unit),
+                    // This set's unit. It borrowed the exercise form's "Default unit".
+                    label = stringResource(R.string.session_detail_field_unit),
                     selected = set.weightUnit,
                     options = listOf(ExerciseUnit.LB, ExerciseUnit.KG),
                     optionLabel = { it.label() },

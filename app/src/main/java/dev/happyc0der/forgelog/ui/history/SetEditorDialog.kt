@@ -33,6 +33,7 @@ import dev.happyc0der.forgelog.ui.format.Formatters
 import dev.happyc0der.forgelog.domain.model.ExerciseUnit
 import dev.happyc0der.forgelog.domain.model.SetLog
 import dev.happyc0der.forgelog.domain.model.SetType
+import dev.happyc0der.forgelog.domain.workout.asWeightUnit
 import dev.happyc0der.forgelog.ui.components.OptionDropdown
 import dev.happyc0der.forgelog.ui.input.DurationSecondsField
 import dev.happyc0der.forgelog.ui.input.rememberDurationInputUnit
@@ -59,7 +60,11 @@ internal fun SetEditorDialog(
     // process death where the enum instance would not.
     var reps by rememberSaveable { mutableStateOf(set.reps?.toString().orEmpty()) }
     var weight by rememberSaveable { mutableStateOf(set.weight?.let(Formatters::plainNumber).orEmpty()) }
-    var unitName by rememberSaveable { mutableStateOf(set.weightUnit.name) }
+    // A weight is in lb or kg. Sets logged before that was enforced can hold "Seconds" -- shown as
+    // lb everywhere -- and saving here repairs them to what they meant.
+    var unitName by rememberSaveable {
+        mutableStateOf(set.weightUnit.asWeightUnit(fallback = ExerciseUnit.LB).name)
+    }
     var duration by rememberSaveable { mutableStateOf(set.durationSeconds?.toString().orEmpty()) }
     var distance by rememberSaveable { mutableStateOf(set.distanceMeters?.let(Formatters::plainNumber).orEmpty()) }
     var rest by rememberSaveable { mutableStateOf(set.restAfterSetSeconds?.toString().orEmpty()) }
@@ -143,11 +148,12 @@ internal fun SetEditorDialog(
                         modifier = Modifier.weight(1f),
                     )
                 }
-                val unitLabels = ExerciseUnit.entries.associateWith { it.label() }
+                val weightUnits = listOf(ExerciseUnit.LB, ExerciseUnit.KG)
+                val unitLabels = weightUnits.associateWith { it.label() }
                 OptionDropdown(
                     label = stringResource(R.string.session_detail_field_unit),
                     selected = unit,
-                    options = ExerciseUnit.entries,
+                    options = weightUnits,
                     optionLabel = { unitLabels.getValue(it) },
                     onSelect = { unitName = (it ?: ExerciseUnit.LB).name },
                     anyLabel = unitLabels.getValue(ExerciseUnit.LB),

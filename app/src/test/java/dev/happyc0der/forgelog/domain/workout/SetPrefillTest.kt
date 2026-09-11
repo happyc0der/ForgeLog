@@ -256,4 +256,44 @@ class SetPrefillTargetsTest {
         assertEquals(45, next.durationSeconds)
         assertNull(next.reps)
     }
+
+    /*
+     * Found on the test device: a 25 lb back-extension hold prefilled with its weight in
+     * "Seconds", the exercise's own unit -- shown as lb, and ignored by every weight calculation.
+     */
+    @Test
+    fun `a timed exercise's weight is never recorded in a unit that is not a weight`() {
+        val next = SetPrefill.nextSet(
+            sessionExerciseId = 10L,
+            existing = emptyList(),
+            defaultUnit = ExerciseUnit.SECONDS,
+            historical = null,
+            targets = SetTargets(targetWeight = 25.0, targetDurationSeconds = 25),
+        )
+
+        assertEquals(25.0, next.weight)
+        assertEquals(ExerciseUnit.LB, next.weightUnit)
+    }
+
+    @Test
+    fun `a weight last logged in a non-weight unit is carried over in a weight unit`() {
+        val existing = listOf(setLog(id = 1L, weight = 60.0, weightUnit = ExerciseUnit.SECONDS))
+
+        val next = SetPrefill.nextSet(
+            sessionExerciseId = 10L,
+            existing = existing,
+            defaultUnit = ExerciseUnit.KG,
+            historical = null,
+        )
+
+        assertEquals(60.0, next.weight)
+        assertEquals(ExerciseUnit.KG, next.weightUnit)
+    }
+
+    @Test
+    fun `asWeightUnit keeps a weight unit and replaces anything else`() {
+        assertEquals(ExerciseUnit.KG, ExerciseUnit.KG.asWeightUnit(fallback = ExerciseUnit.LB))
+        assertEquals(ExerciseUnit.KG, ExerciseUnit.SECONDS.asWeightUnit(fallback = ExerciseUnit.KG))
+        assertEquals(ExerciseUnit.LB, ExerciseUnit.BODYWEIGHT.asWeightUnit(fallback = ExerciseUnit.METERS))
+    }
 }

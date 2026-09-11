@@ -26,6 +26,7 @@ import dev.happyc0der.forgelog.domain.workout.SetFieldVisibility
 import dev.happyc0der.forgelog.domain.workout.SetInputField
 import dev.happyc0der.forgelog.domain.workout.SetPrefill
 import dev.happyc0der.forgelog.domain.workout.SetTargets
+import dev.happyc0der.forgelog.domain.workout.asWeightUnit
 import dev.happyc0der.forgelog.domain.workout.formatElapsed
 import dev.happyc0der.forgelog.domain.workout.formatSeconds
 import dev.happyc0der.forgelog.ui.common.launchSafely
@@ -311,14 +312,19 @@ class ActiveWorkoutViewModel @Inject constructor(
                 ?.exercises
                 ?.firstOrNull { it.exercise.id == sessionExerciseId }
                 ?: return@launchSafely
-            val unit = uiState.value.exercises
+            val exerciseUnit = uiState.value.exercises
                 .firstOrNull { it.item.exercise.id == sessionExerciseId }
                 ?.unit
                 ?: ExerciseUnit.LB
+            // A timed or bodyweight lift's own unit is not a weight unit: its planned weight -- a
+            // weighted plank, a farmer's walk -- is in the user's default one.
+            val weightUnit = exerciseUnit.asWeightUnit(
+                fallback = settingsRepository.settings.first().defaultWeightUnit,
+            )
             val next = SetPrefill.nextSet(
                 sessionExerciseId = sessionExerciseId,
                 existing = item.sets,
-                defaultUnit = unit,
+                defaultUnit = weightUnit,
                 historical = previousByExerciseSnapshot(sessionExerciseId),
                 targets = SetTargets(
                     targetRepMin = item.exercise.targetRepMin,
