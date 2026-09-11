@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
@@ -39,6 +41,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -368,8 +371,23 @@ private fun ExerciseLoggerCard(
                         ),
                     )
                 }
+                /*
+                 * A new set pushes this row down by a whole set's height, so it used to fall off the
+                 * bottom of the screen on every add, and each set meant scrolling to find it again.
+                 * When a set is added, the row is brought back into view -- which shows the new set
+                 * above it too. Not when one is deleted, nor when the card is opened.
+                 */
+                val addSetRow = remember { BringIntoViewRequester() }
+                val setCount = exerciseUi.item.sets.size
+                var shownSetCount by remember { mutableIntStateOf(setCount) }
+                LaunchedEffect(setCount) {
+                    if (setCount > shownSetCount) addSetRow.bringIntoView()
+                    shownSetCount = setCount
+                }
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .bringIntoViewRequester(addSetRow),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Button(
