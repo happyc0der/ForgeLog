@@ -85,7 +85,7 @@ class WorkoutFlowUiTest {
 
     /** The app-wide rest countdown; cancelled after each test, as the app never needs to. */
     private val restScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    private val restTimerController by lazy { RestTimerController(restScope, env.time) {} }
+    private val restTimerController by lazy { RestTimerController(restScope, env.time, alert = {}) }
 
     @Before
     fun setUp(): Unit = runBlocking {

@@ -39,13 +39,19 @@ data class ActiveRest(
  * was rebuilt from the database at its planned length, forgetting any +15 or pause. Held here, it
  * runs and alerts wherever the user is in the app; the logger only shows it and adjusts it.
  *
- * One rest at a time, belonging to one session. It is still memory, not storage: after the process
- * is killed the logger rebuilds it from the last completed set, as before.
+ * The alert itself is an exact alarm ([RestAlarmScheduler]) kept on the rest's end, because the
+ * countdown here stops when the phone's CPU sleeps -- screen off, face down on a bench, which is
+ * when rests end. The countdown raises the alert only where exact alarms are not allowed.
+ *
+ * One rest at a time, belonging to one session. The countdown is memory, not storage: after the
+ * process is killed the logger rebuilds it from the last completed set, as before, and the alarm,
+ * which the system holds, still goes off in the meantime.
  */
 class RestTimerController(
     scope: CoroutineScope,
     private val timeProvider: TimeProvider,
     private val alert: RestAlert,
+    private val alarm: RestAlarmScheduler = NoRestAlarm,
 ) {
     private val active = MutableStateFlow<ActiveRest?>(null)
 
@@ -98,7 +104,21 @@ class RestTimerController(
 
     init {
         /*
-         * Announces the end of rest exactly once per timer.
+         * Keeps the exact alarm on the rest's end: moved by +15, dropped by a pause, a skip, an
+         * untick or the end of the workout, and set again on resume.
+         */
+        scope.launch {
+            active
+                .map { it?.state?.endsAtEpochMs() }
+                .distinctUntilChanged()
+                .collect { endsAt ->
+                    if (endsAt != null && alarm.canScheduleExact) alarm.schedule(endsAt) else alarm.cancel()
+                }
+        }
+
+        /*
+         * Announces the end of rest exactly once per timer -- when the exact alarm cannot, since
+         * that alarm is what wakes a sleeping phone and this countdown sleeps with it.
          *
          * The ticker runs only while a timer is active and still counting: transformWhile stops it
          * on the tick that reaches zero, so nothing wakes once a second between rests.
@@ -123,7 +143,7 @@ class RestTimerController(
                 }
                 .distinctUntilChanged()
                 .collect { finished ->
-                    if (!finished) return@collect
+                    if (!finished || alarm.canScheduleExact) return@collect
                     // An alert that fails -- no vibrator, a muted stream -- must not end the watch.
                     try {
                         alert.restFinished()
@@ -134,4 +154,18 @@ class RestTimerController(
                 }
         }
     }
+}
+
+/** When the running rest ends, or null while there is none, or it is paused or skipped. */
+private fun RestTimerState.endsAtEpochMs(): Long? {
+    val anchor = anchorEpochMs ?: return null
+    if (!isActive || isPaused) return null
+    return anchor + targetSeconds * 1_000L
+}
+
+/** For callers without an alarm service: the in-app countdown raises the alert itself. */
+object NoRestAlarm : RestAlarmScheduler {
+    override val canScheduleExact: Boolean = false
+    override fun schedule(atEpochMs: Long) = Unit
+    override fun cancel() = Unit
 }

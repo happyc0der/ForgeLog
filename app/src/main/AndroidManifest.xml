@@ -6,6 +6,15 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Rest-timer feedback only. Normal permission, no runtime prompt, and user-toggleable. -->
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!--
+      The rest-end alert is an exact alarm, because it must fire with the screen off and the CPU
+      asleep, which is when a rest ends. USE_EXACT_ALARM is the permission for timer apps, granted at
+      install on Android 13+; SCHEDULE_EXACT_ALARM covers 12 and 12L, where it is granted by default.
+    -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission
+        android:name="android.permission.SCHEDULE_EXACT_ALARM"
+        android:maxSdkVersion="32" />
 
     <queries>
         <intent>
@@ -41,6 +50,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <receiver
+            android:name=".workout.RestAlarmReceiver"
+            android:exported="false" />
 
         <service
             android:name=".workout.WorkoutForegroundService"
