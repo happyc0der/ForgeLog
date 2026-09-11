@@ -20,11 +20,8 @@ import dev.happyc0der.forgelog.MainActivity
 import dev.happyc0der.forgelog.R
 import dev.happyc0der.forgelog.domain.model.WorkoutSession
 import dev.happyc0der.forgelog.domain.repository.WorkoutSessionRepository
-import dev.happyc0der.forgelog.domain.time.TimeProvider
-import dev.happyc0der.forgelog.domain.workout.formatElapsed
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -34,23 +31,17 @@ class WorkoutForegroundService : LifecycleService() {
     @Inject
     lateinit var workoutSessionRepository: WorkoutSessionRepository
 
-    @Inject
-    lateinit var timeProvider: TimeProvider
-
-    private var tickerJob: Job? = null
     private var currentSession: WorkoutSession? = null
 
     /**
      * Whether this service has already entered the foreground.
      *
-     * startForeground is for entering that state, once. Every later tick is an update and goes
-     * through NotificationManager.notify -- calling startForeground once a second instead meant
-     * 3,600 of them an hour, each rebuilding a PendingIntent, for a label that changes by one
-     * second.
+     * startForeground is for entering that state, once; a later change to the workout is an update
+     * through NotificationManager.notify.
      */
     private var inForeground = false
 
-    /** Rebuilt never: the intent is identical on every tick. */
+    /** Built once: the intent is identical on every post. */
     private val contentIntent: PendingIntent by lazy {
         PendingIntent.getActivity(
             this,
@@ -65,58 +56,39 @@ class WorkoutForegroundService : LifecycleService() {
     override fun onCreate() {
         super.onCreate()
         createChannel()
-        startInForeground(buildNotification(sessionName = null, elapsedLabel = formatElapsed(0L)))
+        startInForeground(buildNotification(sessionName = null, startedAt = null))
         lifecycleScope.launch {
-            workoutSessionRepository.observeInProgressSession().collect { session ->
-                currentSession = session
-                if (session == null) {
-                    stopTicker()
-                    stopForeground(STOP_FOREGROUND_REMOVE)
-                    inForeground = false
-                    stopSelf()
-                } else {
-                    postNotification(session)
-                    startTicker()
+            workoutSessionRepository.observeInProgressSession()
+                // Posted when the workout changes -- which one, or its name -- not on every write
+                // to its row.
+                .distinctUntilChanged { old, new ->
+                    old?.id == new?.id && old?.sessionName == new?.sessionName && old?.startedAt == new?.startedAt
                 }
-            }
+                .collect { session ->
+                    currentSession = session
+                    if (session == null) {
+                        stopForeground(STOP_FOREGROUND_REMOVE)
+                        inForeground = false
+                        stopSelf()
+                    } else {
+                        postNotification(session)
+                    }
+                }
         }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startInForeground(buildNotification(sessionName = currentSession?.sessionName, elapsedLabel = elapsedLabel()))
+        startInForeground(
+            buildNotification(sessionName = currentSession?.sessionName, startedAt = currentSession?.startedAt),
+        )
         super.onStartCommand(intent, flags, startId)
         return START_STICKY
-    }
-
-    override fun onDestroy() {
-        stopTicker()
-        super.onDestroy()
-    }
-
-    private fun startTicker() {
-        if (tickerJob?.isActive == true) return
-        tickerJob = lifecycleScope.launch {
-            while (true) {
-                currentSession?.let(::postNotification)
-                delay(1_000)
-            }
-        }
-    }
-
-    private fun stopTicker() {
-        tickerJob?.cancel()
-        tickerJob = null
-    }
-
-    private fun elapsedLabel(): String {
-        val session = currentSession ?: return formatElapsed(0L)
-        return formatElapsed(timeProvider.nowEpochMs() - session.startedAt)
     }
 
     private fun postNotification(session: WorkoutSession) {
         val notification = buildNotification(
             sessionName = session.sessionName,
-            elapsedLabel = formatElapsed(timeProvider.nowEpochMs() - session.startedAt),
+            startedAt = session.startedAt,
         )
         if (inForeground) {
             updateNotification(notification)
@@ -155,13 +127,28 @@ class WorkoutForegroundService : LifecycleService() {
         }
     }
 
-    private fun buildNotification(sessionName: String?, elapsedLabel: String): Notification {
+    /**
+     * The elapsed time is a chronometer the system draws from [startedAt].
+     *
+     * It used to be text the service rewrote and re-posted once a second for the length of the
+     * workout -- some 3,600 notifications an hour, each redrawing the shade and the lock screen, for
+     * a number that changed by one. The system ticks a chronometer itself, and the service posts
+     * only when the workout changes.
+     */
+    private fun buildNotification(sessionName: String?, startedAt: Long?): Notification {
         val title = sessionName?.takeIf { it.isNotBlank() }
             ?: getString(R.string.workout_notification_title)
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_workout)
             .setContentTitle(title)
-            .setContentText(getString(R.string.workout_notification_elapsed, elapsedLabel))
+            .setContentText(getString(R.string.workout_notification_text))
+            .apply {
+                if (startedAt != null) {
+                    setWhen(startedAt)
+                    setShowWhen(true)
+                    setUsesChronometer(true)
+                }
+            }
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setContentIntent(contentIntent)
