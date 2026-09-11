@@ -72,19 +72,34 @@ class SetsLeftTest {
     }
 
     @Test
-    fun `a ticked warm-up counts as done, as on the exercise's own line`() {
+    fun `a ticked warm-up is not one of the planned sets`() {
+        // Squat, 3 x 5, after three ramp-up sets and one working set.
         val detail = sessionDetail(
             session,
             SessionExerciseWithSets(
                 exercise = sessionExercise(id = 1L, sessionId = 1L, exerciseId = 1L, displayName = "Squat")
-                    .copy(plannedSets = 2),
+                    .copy(plannedSets = 3),
+                sets = (1..3).map { setLog(id = it.toLong(), sessionExerciseId = 1L, setNumber = it, setType = SetType.WARMUP) } +
+                    setLog(id = 4L, sessionExerciseId = 1L, setNumber = 4),
+            ),
+        )
+        assertEquals(listOf(SetsLeft("Squat", 2, unticked = 0)), SetsLeft.of(detail))
+    }
+
+    @Test
+    fun `a warm-up added and not ticked is left too`() {
+        val detail = sessionDetail(
+            session,
+            SessionExerciseWithSets(
+                exercise = sessionExercise(id = 1L, sessionId = 1L, exerciseId = 1L, displayName = "Squat")
+                    .copy(plannedSets = 1),
                 sets = listOf(
-                    setLog(id = 1L, sessionExerciseId = 1L, setNumber = 1, setType = SetType.WARMUP),
+                    setLog(id = 1L, sessionExerciseId = 1L, setNumber = 1, setType = SetType.WARMUP, completed = false),
                     setLog(id = 2L, sessionExerciseId = 1L, setNumber = 2),
                 ),
             ),
         )
-        assertEquals(emptyList<SetsLeft>(), SetsLeft.of(detail))
+        assertEquals(listOf(SetsLeft("Squat", 1, unticked = 1)), SetsLeft.of(detail))
     }
 
     @Test

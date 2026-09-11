@@ -370,7 +370,9 @@ private fun ExerciseLoggerCard(
             exerciseUi.progression?.let { hint -> ProgressionHintBlock(hint = hint) }
             if (!exerciseUi.expanded) {
                 val planned = exercise.plannedSets
-                val done = exerciseUi.item.sets.count { it.completed }
+                // Working sets, against a plan of working sets: warm-ups ramping up to a 3 x 5
+                // used to read as "3 of 3 sets done" before the first working set.
+                val done = exerciseUi.item.sets.count { it.completed && it.setType != SetType.WARMUP }
                 Text(
                     // This counts sets, not exercises. It used to borrow the day builder's
                     // "%1$d exercises" string, so an untouched lift read "0 exercises".
