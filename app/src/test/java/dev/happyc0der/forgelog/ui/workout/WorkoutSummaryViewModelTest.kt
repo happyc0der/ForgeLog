@@ -262,6 +262,30 @@ class WorkoutSummaryViewModelTest {
     }
 
     @Test
+    fun `an exercise's set count follows the warm-up setting, as the headline does`() = runTest {
+        val sessionId = loggedSessionOf(startedAt = 1_000_000L) { id ->
+            (1..5).map { number ->
+                unloadedSet(id, setNumber = number, reps = 5, weight = 100.0)
+                    .copy(setType = if (number <= 2) SetType.WARMUP else SetType.WORKING)
+            }
+        }
+
+        viewModel(sessionId).uiState.test {
+            val state = awaitUntil { it.summary != null }
+            assertEquals(3, state.summary!!.totalSets)
+            assertEquals(3, state.exercises.single().completedSets)
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        env.settingsRepository.setIncludeWarmupInVolume(true)
+        viewModel(sessionId).uiState.test {
+            val state = awaitUntil { it.summary?.totalSets == 5 }
+            assertEquals(5, state.exercises.single().completedSets)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun `bodyweight work is summarised by its most reps and total reps`() = runTest {
         val sessionId = loggedSessionOf(startedAt = 1_000_000L) { id ->
             listOf(unloadedSet(id, setNumber = 1, reps = 12), unloadedSet(id, setNumber = 2, reps = 9))

@@ -110,7 +110,8 @@ class WorkoutSummaryViewModel @Inject constructor(
                     val totals = VolumeCalculator.calculate(logged.sets, settings.includeWarmupInVolume)
                     SummaryExerciseUi(
                         name = logged.exercise.displayNameSnapshot,
-                        completedSets = logged.sets.count { it.completed },
+                        // As the headline counts them: warm-ups only if Settings counts them.
+                        completedSets = totals.completedSetCount,
                         volumeLb = totals.loadLb,
                         topSetLabel = topSetLabel(logged.sets),
                         unloadedTotalLabel = when {
