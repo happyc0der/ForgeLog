@@ -21,6 +21,7 @@ import dev.happyc0der.forgelog.ui.common.launchSafely
 import dev.happyc0der.forgelog.ui.common.reportErrors
 import dev.happyc0der.forgelog.ui.navigation.SessionDetailRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -210,8 +211,12 @@ class SessionDetailViewModel @Inject constructor(
         }
     }
 
+    /** One repeat at a time, for the same reason as starting a workout: two taps made two. */
+    private var repeatJob: Job? = null
+
     fun repeatSession() {
-        launchSafely(::reportAsMessage) {
+        if (repeatJob?.isActive == true) return
+        repeatJob = launchSafely(::reportAsMessage) {
             val existing = workoutSessionRepository.getInProgressSession()
             if (existing != null) {
                 eventsChannel.send(

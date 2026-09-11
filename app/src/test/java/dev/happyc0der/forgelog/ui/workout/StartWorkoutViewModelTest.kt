@@ -156,6 +156,42 @@ class StartWorkoutViewModelTest {
     }
 
     @Test
+    fun `two quick taps on start begin one workout`() = runTest {
+        val vm = viewModel()
+        vm.uiState.test {
+            awaitUntil { it.roster.isNotEmpty() }
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        vm.confirmStart()
+        vm.confirmStart()
+        advanceUntilIdle()
+
+        val sessions = env.database.backupDao().allSessions()
+        assertEquals(1, sessions.size)
+    }
+
+    @Test
+    fun `a taken progression suggestion becomes today's target`() = runTest {
+        val vm = viewModel()
+        var localId = 0L
+        vm.uiState.test {
+            localId = awaitUntil { it.roster.isNotEmpty() }.roster.single().localId
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        vm.applyProgression(localId, 190.0)
+        advanceUntilIdle()
+
+        vm.uiState.test {
+            val item = awaitUntil { it.roster.singleOrNull()?.targetWeight == 190.0 }.roster.single()
+            // The weight field is told to start again from the new value.
+            assertEquals(1, item.targetsRevision)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun `an edit in the planner overrides the program for this session only`() = runTest {
         val vm = viewModel()
         var localId = 0L

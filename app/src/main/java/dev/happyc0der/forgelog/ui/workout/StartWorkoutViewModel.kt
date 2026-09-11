@@ -27,6 +27,7 @@ import dev.happyc0der.forgelog.ui.navigation.StartWorkoutRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -307,8 +308,16 @@ class StartWorkoutViewModel @Inject constructor(
         }
     }
 
+    /**
+     * One start at a time. Two quick taps both checked for a workout in progress before either had
+     * created one, and started two -- one of them left in progress for good, since only the newest
+     * is ever resumed.
+     */
+    private var startJob: Job? = null
+
     fun confirmStart() {
-        launchSafely(::reportAsMessage) {
+        if (startJob?.isActive == true) return
+        startJob = launchSafely(::reportAsMessage) {
             val dayId = selectedDayId.value
             val items = roster.value
             if (items.isEmpty() || (!isAdHoc && dayId == null)) {
