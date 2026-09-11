@@ -43,14 +43,14 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import dev.happyc0der.forgelog.R
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.emptyFlow
 import dev.happyc0der.forgelog.ui.navigation.ActiveWorkoutRoute
 import dev.happyc0der.forgelog.ui.navigation.ForgeLogNavHost
 import dev.happyc0der.forgelog.ui.navigation.TopLevelDestination
 import dev.happyc0der.forgelog.ui.workout.ColdStartState
 import dev.happyc0der.forgelog.ui.workout.WorkoutResumeViewModel
 import dev.happyc0der.forgelog.ui.workout.rememberWorkoutNotificationStarter
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 
 @Composable
 fun ForgeLogApp(
@@ -79,8 +79,8 @@ fun ForgeLogApp(
     }
 
     /*
-     * Back to the logger already in the back stack if there is one -- under the exercise picker,
-     * say -- rather than stacking a second logger for the same workout on top.
+     * Back to the logger if it is already in the back stack, rather than stacking a second one for
+     * the same workout on top; otherwise opened over wherever the user is.
      */
     LaunchedEffect(openWorkoutRequests) {
         openWorkoutRequests.collect {
