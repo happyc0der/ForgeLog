@@ -80,6 +80,7 @@ import dev.happyc0der.forgelog.ui.input.bringIntoViewWhenFocused
 import dev.happyc0der.forgelog.ui.input.rememberDurationInputUnit
 import dev.happyc0der.forgelog.ui.input.rememberRestInputUnit
 import dev.happyc0der.forgelog.ui.util.label
+import dev.happyc0der.forgelog.ui.workout.targetSummary
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -441,6 +442,17 @@ private fun ProgramExerciseCard(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    // The plan at a glance. A saved card showed only the lift's name, so checking a
+                    // day meant opening every exercise in turn.
+                    if (!expanded) {
+                        targetSummary(item.programExercise, item.exercise.defaultUnit)?.let { summary ->
+                            Text(
+                                text = summary,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    }
                 }
                 IconButton(onClick = { toggleExpanded() }) {
                     Icon(

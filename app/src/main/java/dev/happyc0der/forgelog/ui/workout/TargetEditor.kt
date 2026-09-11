@@ -16,6 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
@@ -47,6 +48,8 @@ internal fun TargetSection(
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
+            // The button is 48 dp tall; top-aligned, its label sat a line below the heading.
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = stringResource(R.string.workout_targets_title),
@@ -175,6 +178,9 @@ internal fun targetSummary(targets: ExerciseTargets, weightUnit: ExerciseUnit): 
     val parts = buildList {
         targets.plannedSets?.let { add(stringResource(R.string.workout_target_summary_sets, it)) }
         val reps = when {
+            // A fixed count, 3 x 5, reads "5 reps" rather than "5-5 reps".
+            targets.targetRepMin != null && targets.targetRepMin == targets.targetRepMax ->
+                "${targets.targetRepMin}"
             targets.targetRepMin != null && targets.targetRepMax != null ->
                 "${targets.targetRepMin}-${targets.targetRepMax}"
             targets.targetRepMin != null -> "${targets.targetRepMin}+"
