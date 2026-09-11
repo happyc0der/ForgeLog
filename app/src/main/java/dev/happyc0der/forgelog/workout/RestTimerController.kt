@@ -10,6 +10,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.dropWhile
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -100,6 +101,8 @@ class RestTimerController(
     /** The session is over; its rest goes with it. */
     fun clear(sessionId: Long) {
         active.update { current -> if (current?.sessionId == sessionId) null else current }
+        // Directly, too: an alarm set by an earlier process is not one this state knows about.
+        alarm.cancel()
     }
 
     init {
@@ -111,6 +114,10 @@ class RestTimerController(
             active
                 .map { it?.state?.endsAtEpochMs() }
                 .distinctUntilChanged()
+                // Not the starting "no rest": a new process begins with nothing running, and
+                // cancelling then would drop the alarm a killed process left for a rest still
+                // under way, before the logger can restore it.
+                .dropWhile { it == null }
                 .collect { endsAt ->
                     if (endsAt != null && alarm.canScheduleExact) alarm.schedule(endsAt) else alarm.cancel()
                 }

@@ -123,4 +123,25 @@ class RestTimerControllerTest {
         assertEquals(1, alerts)
         assertEquals("nothing scheduled that cannot fire", listOf<Long?>(null), alarm.calls.distinct())
     }
+
+    @Test
+    fun `a fresh controller leaves alone an alarm set before the app was killed`() = runTest {
+        val alarm = FakeAlarm()
+        controller(alarm)
+        runCurrent()
+
+        assertEquals("nothing cancelled at start-up", emptyList<Long?>(), alarm.calls)
+    }
+
+    @Test
+    fun `finishing cancels the alarm even when this process never set it`() = runTest {
+        val alarm = FakeAlarm()
+        val rest = controller(alarm)
+        runCurrent()
+
+        rest.clear(sessionId = 1)
+        runCurrent()
+
+        assertEquals(listOf<Long?>(null), alarm.calls)
+    }
 }
