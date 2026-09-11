@@ -111,6 +111,24 @@ class StartWorkoutViewModelTest {
     }
 
     @Test
+    fun `the planner shows the day's notes and each exercise's plan notes`() = runTest {
+        val programDao = env.database.programDao()
+        val notedDay = programDao.insertDay(
+            dayEntity(programId = programId, name = "Legs", notes = "Warm-up: bike 4 min"),
+        )
+        programDao.insertProgramExercise(
+            programExerciseEntity(programDayId = notedDay, exerciseId = benchId, notes = "Last time: 3x7"),
+        )
+
+        viewModel(dayIdArg = notedDay).uiState.test {
+            val loaded = awaitUntil { it.roster.isNotEmpty() }
+            assertEquals("Warm-up: bike 4 min", loaded.dayNotes)
+            assertEquals("Last time: 3x7", loaded.roster.single().planNotes)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun `starting the day writes every planned target onto the session`() = runTest {
         val vm = viewModel()
         vm.uiState.test {

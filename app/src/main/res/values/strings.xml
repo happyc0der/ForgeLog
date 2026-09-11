@@ -177,6 +177,9 @@
     <string name="duration_unit_seconds">sec</string>
     <string name="duration_unit_minutes">min</string>
     <string name="workout_pointers">Pointers</string>
+    <string name="workout_plan_notes">Plan notes</string>
+    <string name="action_show_more">Show more</string>
+    <string name="action_show_less">Show less</string>
     <string name="workout_session_missing">This workout is no longer available.</string>
     <string name="workout_notification_title">Workout in progress</string>
     <string name="workout_notification_elapsed">Elapsed %1$s</string>

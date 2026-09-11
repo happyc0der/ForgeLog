@@ -13,6 +13,7 @@ import dev.happyc0der.forgelog.domain.model.SessionExerciseWithSets
 import dev.happyc0der.forgelog.domain.model.SetLog
 import dev.happyc0der.forgelog.domain.model.SetType
 import dev.happyc0der.forgelog.domain.repository.ExerciseRepository
+import dev.happyc0der.forgelog.domain.repository.ProgramRepository
 import dev.happyc0der.forgelog.domain.repository.WorkoutSessionRepository
 import dev.happyc0der.forgelog.domain.settings.AppSettings
 import dev.happyc0der.forgelog.domain.settings.SettingsRepository
@@ -62,6 +63,8 @@ data class ActiveExerciseUi(
     val expanded: Boolean,
     val revealedFields: Set<SetInputField>,
     val notesDraft: String,
+    /** The program's notes for this exercise, when the session came from a program day. */
+    val planNotes: String? = null,
 )
 
 /** Everything the rest countdown needs to render, already resolved against the clock. */
@@ -80,6 +83,8 @@ data class ActiveWorkoutUiState(
     val isLoading: Boolean = true,
     val errorMessage: String? = null,
     val detail: SessionDetail? = null,
+    /** The program day's notes -- a warm-up, say -- when the session came from one. */
+    val dayNotes: String? = null,
     val exercises: List<ActiveExerciseUi> = emptyList(),
     val sessionElapsedLabel: String = "0:00",
     val sinceLastSetLabel: String? = null,
@@ -104,6 +109,7 @@ class ActiveWorkoutViewModel @Inject constructor(
     private val application: Application,
     private val workoutSessionRepository: WorkoutSessionRepository,
     exerciseRepository: ExerciseRepository,
+    programRepository: ProgramRepository,
     private val timeProvider: TimeProvider,
     private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
@@ -162,6 +168,39 @@ class ActiveWorkoutViewModel @Inject constructor(
         // is still usable without the "last time" column, so this is a snackbar.
         .reportErrors(emptyMap()) { reportAsMessage(it) }
 
+    /**
+     * The program day this session was started from: its notes, and each exercise's.
+     *
+     * Read live from the program rather than snapshotted, since they are reference text and not a
+     * record of the session: an edit made mid-workout shows up here, which is what anyone editing
+     * them would expect. Matched by exercise; if a day lists the same lift twice, its first entry's
+     * notes are used.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val planContext = workoutSessionRepository.observeSessionDetail(sessionId)
+        .map { it?.session?.programDayId }
+        .distinctUntilChanged()
+        .flatMapLatest { dayId ->
+            if (dayId == null) {
+                flowOf(PlanContext())
+            } else {
+                programRepository.observeDayDetail(dayId).map { day ->
+                    PlanContext(
+                        dayNotes = day?.day?.notes?.takeIf { it.isNotBlank() },
+                        notesByExerciseId = day?.exercises.orEmpty()
+                            .mapNotNull { entry ->
+                                entry.programExercise.notes?.takeIf { it.isNotBlank() }
+                                    ?.let { entry.programExercise.exerciseId to it }
+                            }
+                            .distinctBy { it.first }
+                            .toMap(),
+                    )
+                }
+            }
+        }
+        // Reference text only: losing it must not cost the log.
+        .reportErrors(PlanContext()) { reportAsMessage(it) }
+
     val uiState: StateFlow<ActiveWorkoutUiState> = combine(
         combine(
             workoutSessionRepository.observeSessionDetail(sessionId),
@@ -178,11 +217,12 @@ class ActiveWorkoutViewModel @Inject constructor(
                 units = exercises.associate { it.id to it.defaultUnit },
             )
         }.reportErrors(null) { reportLoadError(it) },
-        previousByExercise,
+        combine(previousByExercise, planContext, ::Pair),
         restTimer,
         settingsRepository.settings.reportErrors(AppSettings()) { reportLoadError(it) },
         loadError,
-    ) { partial, previous, timer, settings, error ->
+    ) { partial, context, timer, settings, error ->
+        val (previous, plan) = context
         val detail = partial?.detail
         if (partial == null || detail == null) {
             ActiveWorkoutUiState(
@@ -201,6 +241,7 @@ class ActiveWorkoutViewModel @Inject constructor(
                 // Non-fatal: the log still renders, with the failure shown alongside it.
                 errorMessage = error,
                 detail = detail,
+                dayNotes = plan.dayNotes,
                 exercises = detail.exercises.map { item ->
                     val unit = item.exercise.exerciseId?.let(partial.units::get) ?: ExerciseUnit.LB
                     ActiveExerciseUi(
@@ -211,6 +252,7 @@ class ActiveWorkoutViewModel @Inject constructor(
                         revealedFields = partial.revealed[item.exercise.id].orEmpty(),
                         notesDraft = partial.drafts[exerciseNotesKey(item.exercise.id)]
                             ?: item.exercise.exerciseNotes.orEmpty(),
+                        planNotes = item.exercise.exerciseId?.let(plan.notesByExerciseId::get),
                     )
                 },
                 sessionElapsedLabel = formatElapsed(partial.now - detail.session.startedAt),
@@ -654,6 +696,11 @@ class ActiveWorkoutViewModel @Inject constructor(
         uiState.value.exercises.asSequence().flatMap { it.item.sets.asSequence() }.firstOrNull { it.id == setId }
 
     private fun currentDetail(): SessionDetail? = uiState.value.detail
+
+    private data class PlanContext(
+        val dayNotes: String? = null,
+        val notesByExerciseId: Map<Long, String> = emptyMap(),
+    )
 
     private data class ActiveWorkoutPartial(
         val detail: SessionDetail?,

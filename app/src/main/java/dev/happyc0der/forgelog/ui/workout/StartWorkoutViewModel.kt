@@ -59,6 +59,8 @@ data class PlannedExerciseItem(
     val localId: Long,
     val exercise: Exercise,
     val pointersOverride: String?,
+    /** The program exercise's notes, read-only here. */
+    val planNotes: String? = null,
     override val plannedSets: Int? = null,
     override val targetRepMin: Int? = null,
     override val targetRepMax: Int? = null,
@@ -86,6 +88,7 @@ data class StartWorkoutUiState(
     val dayChoices: List<DayChoice> = emptyList(),
     val programName: String? = null,
     val dayName: String? = null,
+    val dayNotes: String? = null,
     val roster: List<PlannedExerciseItem> = emptyList(),
     val canConfirm: Boolean = false,
     val weightUnit: ExerciseUnit = ExerciseUnit.LB,
@@ -126,6 +129,7 @@ class StartWorkoutViewModel @Inject constructor(
     private val roster = MutableStateFlow<List<PlannedExerciseItem>>(emptyList())
     private val programName = MutableStateFlow<String?>(null)
     private val dayName = MutableStateFlow<String?>(null)
+    private val dayNotes = MutableStateFlow<String?>(null)
     private val programId = MutableStateFlow<Long?>(null)
     private val weightUnit = settingsRepository.settings
         .map { it.defaultWeightUnit }
@@ -173,7 +177,8 @@ class StartWorkoutViewModel @Inject constructor(
         loadingDay,
         errorMessage,
         weightUnit,
-    ) { partial, loading, error, unit ->
+        dayNotes,
+    ) { partial, loading, error, unit, notes ->
         StartWorkoutUiState(
             isLoading = partial.selectedDayId != null && loading,
             errorMessage = error,
@@ -182,6 +187,7 @@ class StartWorkoutViewModel @Inject constructor(
             dayChoices = partial.dayChoices,
             programName = partial.programName,
             dayName = partial.dayName,
+            dayNotes = notes,
             roster = partial.roster,
             canConfirm = partial.roster.isNotEmpty() &&
                 (isAdHoc || partial.selectedDayId != null),
@@ -361,6 +367,7 @@ class StartWorkoutViewModel @Inject constructor(
         programId.value = program?.id
         programName.value = program?.name
         dayName.value = detail.day.name
+        dayNotes.value = detail.day.notes?.takeIf { it.isNotBlank() }
         val history = workoutSessionRepository.getRecentCompletedDetails(excludeSessionId = 0L)
         roster.value = detail.exercises.mapIndexed { index, item ->
             PlannedExerciseItem(
@@ -368,6 +375,7 @@ class StartWorkoutViewModel @Inject constructor(
                 exercise = item.exercise,
                 pointersOverride = item.programExercise.defaultPointersOverride
                     ?: item.exercise.defaultPointers,
+                planNotes = item.programExercise.notes?.takeIf { it.isNotBlank() },
                 // Every target the day builder can set has to arrive here, or the plan silently
                 // evaporates on its way into the session.
                 plannedSets = item.programExercise.plannedSets,

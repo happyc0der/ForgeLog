@@ -108,6 +108,7 @@ class ActiveWorkoutViewModelTest {
         application = ApplicationProvider.getApplicationContext<Application>(),
         workoutSessionRepository = env.sessionRepository,
         exerciseRepository = env.exerciseRepository,
+        programRepository = env.programRepository,
         timeProvider = env.time,
         settingsRepository = env.settingsRepository,
     ).also(created::add)
@@ -542,6 +543,32 @@ class ActiveWorkoutViewModelTest {
             }
         } finally {
             vm.viewModelScope.cancel()
+        }
+    }
+
+    /*
+     * Day notes and exercise notes were written in the day builder and then shown nowhere else,
+     * so a day's warm-up was out of sight during the workout it was written for.
+     */
+    @Test
+    fun `the program day's notes and the exercise's plan notes are shown while logging`() = runTest {
+        val dayId = env.sessionRepository.getSession(sessionId)!!.programDayId!!
+        val day = env.programRepository.getDayDetail(dayId)!!
+        env.programRepository.upsertDay(day.day.copy(notes = "Warm-up: bike 5 min"))
+        env.programRepository.upsertProgramExercise(
+            day.exercises.single().programExercise.copy(notes = "Last time: 3x7 at 20 lb"),
+        )
+
+        val vm = viewModel()
+        vm.uiState.test {
+            val state = awaitUntil { it.detail != null && it.dayNotes != null }
+            assertEquals("Warm-up: bike 5 min", state.dayNotes)
+            assertEquals("Last time: 3x7 at 20 lb", state.exercises.single().planNotes)
+
+            // Read live: an edit made mid-session shows up without restarting it.
+            env.programRepository.upsertDay(day.day.copy(notes = "Warm-up: row 4 min"))
+            assertEquals("Warm-up: row 4 min", awaitUntil { it.dayNotes == "Warm-up: row 4 min" }.dayNotes)
+            cancelAndIgnoreRemainingEvents()
         }
     }
 

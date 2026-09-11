@@ -132,6 +132,7 @@ class WorkoutFlowUiTest {
         application = application,
         workoutSessionRepository = env.sessionRepository,
         exerciseRepository = env.exerciseRepository,
+        programRepository = env.programRepository,
         timeProvider = env.time,
         settingsRepository = env.settingsRepository,
     ).also(created::add)

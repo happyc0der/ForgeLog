@@ -195,6 +195,7 @@ fun ActiveWorkoutScreen(
                         .padding(bottom = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
+                    uiState.dayNotes?.let { notes -> DayNotesCard(notes = notes, collapsible = true) }
                     uiState.exercises.forEach { exerciseUi ->
                         ExerciseLoggerCard(
                             exerciseUi = exerciseUi,
@@ -330,6 +331,7 @@ private fun ExerciseLoggerCard(
                     )
                     Text(text = pointers, style = MaterialTheme.typography.bodyMedium)
                 }
+                PlanNotesBlock(notes = exerciseUi.planNotes)
                 PreviousSessionPanel(previous = exerciseUi.previous)
                 SetEntryTextField(
                     value = exerciseUi.notesDraft,

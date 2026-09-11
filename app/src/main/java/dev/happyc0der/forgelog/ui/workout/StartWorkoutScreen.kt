@@ -195,6 +195,7 @@ fun StartWorkoutScreen(
                         .padding(bottom = 96.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
+                    uiState.dayNotes?.let { notes -> DayNotesCard(notes = notes, collapsible = false) }
                     ReorderableColumn(
                         items = uiState.roster,
                         key = { it.localId },
@@ -317,6 +318,7 @@ private fun PlannedExerciseCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            PlanNotesBlock(notes = item.planNotes)
             TargetSection(
                 item = item,
                 weightUnit = weightUnit,
