@@ -115,7 +115,10 @@ class FormattersTest {
         // "< 1m" for a 45-second plank is true and useless.
         assertEquals("45s", Formatters.timedSeconds(45))
         assertEquals("1m", Formatters.timedSeconds(60))
+        // A 90-second hold is not a one-minute hold.
+        assertEquals("1m 30s", Formatters.timedSeconds(90))
         assertEquals("2m", Formatters.timedSeconds(120))
+        assertEquals("59m 59s", Formatters.timedSeconds(3_599))
         assertEquals("1h", Formatters.timedSeconds(3600))
         assertNull(Formatters.timedSeconds(0))
     }
