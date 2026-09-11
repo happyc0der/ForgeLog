@@ -16,6 +16,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -33,6 +34,9 @@ data class ProgramsUiState(
 sealed interface ProgramsEvent {
     data class Message(val value: String) : ProgramsEvent
 }
+
+/** A delete waiting on its confirmation, and whether the program has workouts logged from it. */
+data class PendingProgramDelete(val programId: Long, val hasHistory: Boolean)
 
 @HiltViewModel
 class ProgramsViewModel @Inject constructor(
@@ -71,6 +75,11 @@ class ProgramsViewModel @Inject constructor(
 
     private val eventsChannel = Channel<ProgramsEvent>(Channel.BUFFERED)
     val events = eventsChannel.receiveAsFlow()
+
+    private val _pendingDelete = MutableStateFlow<PendingProgramDelete?>(null)
+
+    /** Held here rather than in the screen, so the question survives a rotation. */
+    val pendingDelete: StateFlow<PendingProgramDelete?> = _pendingDelete.asStateFlow()
 
     fun onToggleArchived() {
         includeArchived.value = !includeArchived.value
@@ -150,10 +159,30 @@ class ProgramsViewModel @Inject constructor(
         }
     }
 
-    suspend fun hasSessionHistory(programId: Long): Boolean =
-        programRepository.hasSessionHistory(programId)
+    /**
+     * Asks before deleting, in words that depend on whether workouts were logged from it.
+     *
+     * The screen used to look that up itself, on its own coroutine scope, where a failed read went
+     * to the uncaught-exception handler and closed the app.
+     */
+    fun requestDelete(programId: Long) {
+        launchSafely(::reportAsMessage) {
+            val hasHistory = programRepository.hasSessionHistory(programId)
+            _pendingDelete.value = PendingProgramDelete(programId, hasHistory)
+        }
+    }
 
-    fun delete(programId: Long) {
+    fun cancelDelete() {
+        _pendingDelete.value = null
+    }
+
+    fun confirmDelete() {
+        val pending = _pendingDelete.value ?: return
+        _pendingDelete.value = null
+        delete(pending.programId)
+    }
+
+    private fun delete(programId: Long) {
         launchSafely(::reportAsMessage) {
             programRepository.deleteProgram(programId)
             eventsChannel.send(

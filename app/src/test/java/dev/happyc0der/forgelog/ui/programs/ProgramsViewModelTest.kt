@@ -10,6 +10,7 @@ import dev.happyc0der.forgelog.data.local.exerciseEntity
 import dev.happyc0der.forgelog.data.local.programEntity
 import dev.happyc0der.forgelog.data.local.sessionEntity
 import dev.happyc0der.forgelog.domain.model.SessionStatus
+import dev.happyc0der.forgelog.domain.repository.ProgramRepository
 import dev.happyc0der.forgelog.testing.MainDispatcherRule
 import dev.happyc0der.forgelog.testing.TestEnvironment
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -27,6 +28,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.io.IOException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -52,9 +54,9 @@ class ProgramsViewModelTest {
         env.tearDown()
     }
 
-    private fun viewModel() = ProgramsViewModel(
+    private fun viewModel(repository: ProgramRepository = env.programRepository) = ProgramsViewModel(
         application = ApplicationProvider.getApplicationContext<Application>(),
-        programRepository = env.programRepository,
+        programRepository = repository,
     ).also(created::add)
 
     @Test
@@ -164,6 +166,48 @@ class ProgramsViewModelTest {
             assertTrue(awaitItem() is ProgramsEvent.Message)
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    fun `deleting asks first, in words that depend on the program's history`() = runTest {
+        val programDao = env.database.programDao()
+        val used = programDao.insertProgram(programEntity(name = "PPL"))
+        val fresh = programDao.insertProgram(programEntity(name = "Fresh"))
+        env.database.workoutSessionDao().insertSession(
+            sessionEntity(sessionName = "Push", programId = used, startedAt = 1_000L, completedAt = 8_000L),
+        )
+        val vm = viewModel()
+
+        vm.requestDelete(used)
+        advanceUntilIdle()
+        assertEquals(PendingProgramDelete(used, hasHistory = true), vm.pendingDelete.value)
+        vm.cancelDelete()
+        assertNull(vm.pendingDelete.value)
+
+        vm.requestDelete(fresh)
+        advanceUntilIdle()
+        assertEquals(PendingProgramDelete(fresh, hasHistory = false), vm.pendingDelete.value)
+        vm.confirmDelete()
+        advanceUntilIdle()
+        assertNull(vm.pendingDelete.value)
+        assertNull(programDao.getProgram(fresh))
+        assertNotNull(programDao.getProgram(used))
+    }
+
+    @Test
+    fun `a failed history lookup is a message, not a crash`() = runTest {
+        val programId = env.database.programDao().insertProgram(programEntity(name = "PPL"))
+        val failing = object : ProgramRepository by env.programRepository {
+            override suspend fun hasSessionHistory(programId: Long): Boolean = throw IOException("Disk busy")
+        }
+        val vm = viewModel(failing)
+        vm.events.test {
+            vm.requestDelete(programId)
+            advanceUntilIdle()
+            assertTrue(awaitItem() is ProgramsEvent.Message)
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertNull(vm.pendingDelete.value)
     }
 
     @Test

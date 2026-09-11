@@ -38,7 +38,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -61,7 +60,6 @@ import dev.happyc0der.forgelog.ui.components.ErrorState
 import dev.happyc0der.forgelog.ui.components.LoadingState
 import dev.happyc0der.forgelog.ui.format.currentZone
 import dev.happyc0der.forgelog.ui.format.today
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,23 +71,20 @@ fun ProgramsScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val zone = currentZone()
     val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
     /*
-     * All three dialogs are held by id rather than by value, so a rotation does not close them.
-     * For the editor that is not merely tidy: it carries a typed name, description and colour, and
-     * the fields inside it can only restore themselves if the dialog is still there to restore
-     * into. 0 means "creating a new program", which has no id to remember.
+     * The editor is held by id rather than by value, so a rotation does not close it. That is not
+     * merely tidy: it carries a typed name, description and colour, and the fields inside it can
+     * only restore themselves if the dialog is still there to restore into. 0 means "creating a
+     * new program", which has no id to remember. A pending delete lives in the ViewModel.
      */
     var editorProgramId by rememberSaveable { mutableStateOf<Long?>(null) }
-    var pendingDeleteId by rememberSaveable { mutableStateOf<Long?>(null) }
-    var historyWarningId by rememberSaveable { mutableStateOf<Long?>(null) }
+    val deleteRequest by viewModel.pendingDelete.collectAsStateWithLifecycle()
 
     fun programById(id: Long) = uiState.programs.firstOrNull { it.program.id == id }?.program
     val editor = editorProgramId?.let { id ->
         if (id == 0L) ProgramEditorTarget.Create else programById(id)?.let(ProgramEditorTarget::Rename)
     }
-    val pendingDelete = pendingDeleteId?.let(::programById)
-    val historyWarning = historyWarningId?.let(::programById)
+    val deleting = deleteRequest?.let { request -> programById(request.programId)?.let { request to it } }
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
@@ -193,15 +188,7 @@ fun ProgramsScreen(
                                         !summary.program.isArchived,
                                     )
                                 },
-                                onDelete = {
-                                    scope.launch {
-                                        if (viewModel.hasSessionHistory(summary.program.id)) {
-                                            historyWarningId = summary.program.id
-                                        } else {
-                                            pendingDeleteId = summary.program.id
-                                        }
-                                    }
-                                },
+                                onDelete = { viewModel.requestDelete(summary.program.id) },
                             )
                         }
                     }
@@ -229,28 +216,19 @@ fun ProgramsScreen(
         )
     }
 
-    pendingDelete?.let { program ->
+    deleting?.let { (request, program) ->
         ConfirmDialog(
-            title = stringResource(R.string.program_delete_title),
-            message = stringResource(R.string.program_delete_message, program.name),
-            onConfirm = {
-                viewModel.delete(program.id)
-                pendingDeleteId = null
+            title = stringResource(
+                if (request.hasHistory) R.string.program_delete_history_title else R.string.program_delete_title,
+            ),
+            message = if (request.hasHistory) {
+                stringResource(R.string.program_delete_history_message, program.name)
+            } else {
+                stringResource(R.string.program_delete_message, program.name)
             },
-            onDismiss = { pendingDeleteId = null },
-        )
-    }
-
-    historyWarning?.let { program ->
-        ConfirmDialog(
-            title = stringResource(R.string.program_delete_history_title),
-            message = stringResource(R.string.program_delete_history_message, program.name),
             confirmLabel = stringResource(R.string.action_delete),
-            onConfirm = {
-                viewModel.delete(program.id)
-                historyWarningId = null
-            },
-            onDismiss = { historyWarningId = null },
+            onConfirm = viewModel::confirmDelete,
+            onDismiss = viewModel::cancelDelete,
         )
     }
 }
