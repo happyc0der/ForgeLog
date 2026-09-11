@@ -116,7 +116,7 @@ class WorkoutSummaryViewModel @Inject constructor(
                         unloadedTotalLabel = when {
                             totals.totalDurationSeconds > 0 -> Formatters.seconds(totals.totalDurationSeconds)
                             totals.totalReps > 0 ->
-                                application.getString(R.string.session_detail_reps_value, totals.totalReps)
+                                application.resources.getQuantityString(R.plurals.reps_count, totals.totalReps, totals.totalReps)
                             totals.totalDistanceMeters > 0.0 ->
                                 Formatters.distanceMeters(totals.totalDistanceMeters)
                             else -> null
@@ -167,7 +167,7 @@ class WorkoutSummaryViewModel @Inject constructor(
         working.mapNotNull { it.durationSeconds }.filter { it > 0 }.maxOrNull()
             ?.let { return Formatters.seconds(it) }
         working.mapNotNull { it.reps }.filter { it > 0 }.maxOrNull()
-            ?.let { return application.getString(R.string.session_detail_reps_value, it) }
+            ?.let { return application.resources.getQuantityString(R.plurals.reps_count, it, it) }
         working.mapNotNull { it.distanceMeters }.filter { it > 0.0 }.maxOrNull()
             ?.let { return Formatters.distanceMeters(it) }
         return null

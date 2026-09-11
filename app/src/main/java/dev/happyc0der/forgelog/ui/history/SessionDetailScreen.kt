@@ -35,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -452,7 +453,7 @@ private fun SetRow(
 private fun setSummary(set: SetLog): String {
     val parts = buildList {
         add(set.setType.label())
-        set.reps?.let { add(stringResource(R.string.session_detail_reps_value, it)) }
+        set.reps?.let { add(pluralStringResource(R.plurals.reps_count, it, it)) }
         set.weight?.let { add(Formatters.weight(it, set.weightUnit)) }
         set.durationSeconds?.let { add(Formatters.seconds(it)) }
         set.distanceMeters?.let { add(Formatters.distanceMeters(it)) }

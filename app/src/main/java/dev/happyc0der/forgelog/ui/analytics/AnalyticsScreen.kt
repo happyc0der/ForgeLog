@@ -28,6 +28,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -192,7 +193,7 @@ private fun ComparisonCard(
                     if (offset == 1) {
                         stringResource(R.string.analytics_compare_last_week)
                     } else {
-                        stringResource(R.string.analytics_compare_weeks_ago, offset)
+                        pluralStringResource(R.plurals.analytics_compare_weeks_ago, offset, offset)
                     },
                 )
             },
@@ -213,7 +214,7 @@ private fun ComparisonCard(
                             text = if (weeks == 1) {
                                 stringResource(R.string.analytics_compare_last_week)
                             } else {
-                                stringResource(R.string.analytics_compare_weeks_ago, weeks)
+                                pluralStringResource(R.plurals.analytics_compare_weeks_ago, weeks, weeks)
                             },
                             style = MaterialTheme.typography.labelMedium,
                         )

@@ -1,16 +1,19 @@
 package dev.happyc0der.forgelog.workout
 
 import android.annotation.SuppressLint
+import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import dev.happyc0der.forgelog.MainActivity
@@ -129,6 +132,10 @@ class WorkoutForegroundService : LifecycleService() {
      * a missing permission is not a reason to crash a workout.
      */
     private fun updateNotification(notification: Notification) {
+        val permitted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+        if (!permitted) return
         runCatching {
             NotificationManagerCompat.from(this).notify(NOTIFICATION_ID, notification)
         }

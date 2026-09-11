@@ -94,7 +94,6 @@
     <string name="session_detail_field_type">Set type</string>
     <string name="session_detail_field_completed">Completed</string>
     <string name="session_detail_not_completed">Not completed</string>
-    <string name="session_detail_reps_value">%1$d reps</string>
     <string name="session_detail_rpe_value">RPE %1$d</string>
     <string name="session_detail_rir_value">RIR %1$d</string>
     <string name="session_detail_invalid_number">Enter a valid number.</string>
@@ -131,7 +130,6 @@
     <string name="workout_target_rep_min">Min reps</string>
     <string name="workout_target_rep_max">Max reps</string>
     <string name="workout_target_weight">Weight</string>
-    <string name="workout_target_summary_sets">%1$d sets</string>
     <string name="workout_target_summary_reps">%1$s reps</string>
     <string name="workout_target_summary_weight">@ %1$s</string>
     <string name="workout_previous_none">No previous performance for this lift.</string>
@@ -228,7 +226,6 @@
     <string name="analytics_no_data">Nothing logged in this range.</string>
     <string name="analytics_compare_title">This week vs %1$s</string>
     <string name="analytics_compare_last_week">last week</string>
-    <string name="analytics_compare_weeks_ago">%1$d weeks ago</string>
     <string name="analytics_compare_custom_title">%1$s vs the span before</string>
     <string name="analytics_volume_by_day">Volume by day</string>
     <string name="analytics_sets_by_category">Sets by category</string>
@@ -274,8 +271,6 @@
     <string name="action_rename">Rename</string>
     <string name="action_edit">Edit</string>
     <string name="action_retry">Retry</string>
-    <string name="action_add">Add</string>
-    <string name="action_done">Done</string>
     <string name="action_back">Back</string>
     <string name="action_more">More options</string>
     <string name="action_drag_handle">Reorder</string>
@@ -438,7 +433,7 @@
     <string name="settings_csv_range_4_weeks">Last 4 weeks</string>
     <string name="settings_csv_range_year">Last year</string>
     <string name="settings_export_done">Export written.</string>
-    <string name="settings_import_done">Restored %1$d sessions and %2$d sets.</string>
+    <string name="settings_import_done">Restored %1$s and %2$s.</string>
 
     <string name="settings_import_confirm_title">Replace everything?</string>
     <string name="settings_import_confirm_message">Restoring replaces every program, exercise and logged workout currently in ForgeLog with the contents of the file. This cannot be undone.</string>
@@ -466,6 +461,19 @@
     <string name="settings_working">Working…</string>
 
     <!-- "1 sets" is visibly wrong, and this is shown on every collapsed exercise. -->
+    <!-- Counts that read "1 reps", "1 sessions" as plain strings. -->
+    <plurals name="reps_count">
+        <item quantity="one">%1$d rep</item>
+        <item quantity="other">%1$d reps</item>
+    </plurals>
+    <plurals name="session_count">
+        <item quantity="one">%1$d session</item>
+        <item quantity="other">%1$d sessions</item>
+    </plurals>
+    <plurals name="analytics_compare_weeks_ago">
+        <item quantity="one">%1$d week ago</item>
+        <item quantity="other">%1$d weeks ago</item>
+    </plurals>
     <plurals name="workout_set_count">
         <item quantity="one">%1$d set</item>
         <item quantity="other">%1$d sets</item>

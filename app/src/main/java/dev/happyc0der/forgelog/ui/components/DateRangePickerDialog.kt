@@ -71,7 +71,7 @@ fun DateRangePickerDialog(
 
 /** The picker's UTC-midnight value for the local day containing [epochMs]. */
 private fun utcMillisFor(epochMs: Long, zone: ZoneId): Long =
-    LocalDate.ofInstant(Instant.ofEpochMilli(epochMs), zone)
+    Instant.ofEpochMilli(epochMs).atZone(zone).toLocalDate()
         .atStartOfDay(ZoneOffset.UTC)
         .toInstant()
         .toEpochMilli()

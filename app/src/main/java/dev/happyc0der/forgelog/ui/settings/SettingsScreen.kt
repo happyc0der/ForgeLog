@@ -36,6 +36,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -56,7 +57,6 @@ import dev.happyc0der.forgelog.ui.testing.TestTags
 import dev.happyc0der.forgelog.ui.util.label
 import java.time.DayOfWeek
 import java.time.format.TextStyle
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -289,9 +289,10 @@ private fun RestCard(settings: AppSettings, viewModel: SettingsViewModel) {
 private fun WeekCard(settings: AppSettings, viewModel: SettingsViewModel) {
     ForgeCard {
         CardHeader(title = stringResource(R.string.settings_section_week))
-        val dayLabels = DayOfWeek.entries.associateWith {
-            it.getDisplayName(TextStyle.FULL, Locale.getDefault())
-        }
+        // The configuration's locale, which Compose observes, so the day names follow a change of
+        // system language without a restart.
+        val locale = LocalConfiguration.current.locales[0]
+        val dayLabels = DayOfWeek.entries.associateWith { it.getDisplayName(TextStyle.FULL, locale) }
         OptionDropdown(
             label = stringResource(R.string.settings_week_start),
             selected = settings.weekStartDay,

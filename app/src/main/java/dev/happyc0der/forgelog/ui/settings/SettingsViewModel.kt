@@ -221,8 +221,16 @@ class SettingsViewModel @Inject constructor(
                         SettingsEvent.Message(
                             application.getString(
                                 R.string.settings_import_done,
-                                result.value.sessions,
-                                result.value.setLogs,
+                                application.resources.getQuantityString(
+                                    R.plurals.session_count,
+                                    result.value.sessions,
+                                    result.value.sessions,
+                                ),
+                                application.resources.getQuantityString(
+                                    R.plurals.workout_set_count,
+                                    result.value.setLogs,
+                                    result.value.setLogs,
+                                ),
                             ),
                         ),
                     )

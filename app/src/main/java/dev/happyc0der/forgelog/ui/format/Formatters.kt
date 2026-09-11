@@ -124,7 +124,8 @@ object Formatters {
         todayLabel: String,
         yesterdayLabel: String,
     ): String {
-        val date = LocalDate.ofInstant(Instant.ofEpochMilli(epochMs), zone)
+        // atZone, not LocalDate.ofInstant: that needs API 34, and the app runs from 26.
+        val date = Instant.ofEpochMilli(epochMs).atZone(zone).toLocalDate()
         return when (date) {
             today -> todayLabel
             today.minusDays(1) -> yesterdayLabel

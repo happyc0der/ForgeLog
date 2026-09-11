@@ -158,7 +158,7 @@ class HomeViewModel @Inject constructor(
         .map { now ->
             val zone = zoneProvider.zone()
             HomeClock(
-                today = LocalDate.ofInstant(java.time.Instant.ofEpochMilli(now), zone),
+                today = java.time.Instant.ofEpochMilli(now).atZone(zone).toLocalDate(),
                 dayPart = Greeting.dayPart(now, zone),
             )
         }

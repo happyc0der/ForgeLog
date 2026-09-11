@@ -115,10 +115,11 @@ class HistoryViewModel @Inject constructor(
                             summary = TrainingSummaries.summarize(detail, includeWarmup),
                             status = detail.session.status,
                             startedAt = detail.session.startedAt,
-                            day = LocalDate.ofInstant(
-                                java.time.Instant.ofEpochMilli(detail.session.startedAt),
-                                zone,
-                            ),
+                            // atZone, not LocalDate.ofInstant: that needs API 34, and the app
+                            // runs from 26.
+                            day = java.time.Instant.ofEpochMilli(detail.session.startedAt)
+                                .atZone(zone)
+                                .toLocalDate(),
                         )
                     }
                 }
@@ -171,10 +172,9 @@ class HistoryViewModel @Inject constructor(
             days = historyData.partial.days,
             loggedExercises = historyData.loggedExercises,
             weightUnit = historyData.weightUnit,
-            today = LocalDate.ofInstant(
-                java.time.Instant.ofEpochMilli(timeProvider.nowEpochMs()),
-                zoneProvider.zone(),
-            ),
+            today = java.time.Instant.ofEpochMilli(timeProvider.nowEpochMs())
+                .atZone(zoneProvider.zone())
+                .toLocalDate(),
         )
     }.stateIn(
         scope = viewModelScope,

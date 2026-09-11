@@ -18,6 +18,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -189,18 +190,18 @@ private fun TargetField(
 internal fun targetSummary(targets: ExerciseTargets, weightUnit: ExerciseUnit): String? {
     if (!targets.hasTargets) return null
     val parts = buildList {
-        targets.plannedSets?.let { add(stringResource(R.string.workout_target_summary_sets, it)) }
-        val reps = when {
-            // A fixed count, 3 x 5, reads "5 reps" rather than "5-5 reps".
-            targets.targetRepMin != null && targets.targetRepMin == targets.targetRepMax ->
-                "${targets.targetRepMin}"
-            targets.targetRepMin != null && targets.targetRepMax != null ->
-                "${targets.targetRepMin}-${targets.targetRepMax}"
-            targets.targetRepMin != null -> "${targets.targetRepMin}+"
-            targets.targetRepMax != null -> "≤${targets.targetRepMax}"
-            else -> null
+        targets.plannedSets?.let { add(pluralStringResource(R.plurals.workout_set_count, it, it)) }
+        val repMin = targets.targetRepMin
+        val repMax = targets.targetRepMax
+        when {
+            // A fixed count, 3 x 5, reads "5 reps" rather than "5-5 reps" -- and one is "1 rep".
+            repMin != null && repMin == repMax ->
+                add(pluralStringResource(R.plurals.reps_count, repMin, repMin))
+            repMin != null && repMax != null ->
+                add(stringResource(R.string.workout_target_summary_reps, "$repMin-$repMax"))
+            repMin != null -> add(stringResource(R.string.workout_target_summary_reps, "$repMin+"))
+            repMax != null -> add(stringResource(R.string.workout_target_summary_reps, "≤$repMax"))
         }
-        reps?.let { add(stringResource(R.string.workout_target_summary_reps, it)) }
         targets.targetWeight?.let {
             add(stringResource(R.string.workout_target_summary_weight, Formatters.weight(it, weightUnit)))
         }

@@ -1,7 +1,6 @@
 package dev.happyc0der.forgelog.domain.home
 
 import java.time.Instant
-import java.time.LocalTime
 import java.time.ZoneId
 
 /**
@@ -23,7 +22,8 @@ object Greeting {
      * simple ascending comparison.
      */
     fun dayPart(epochMs: Long, zone: ZoneId): DayPart {
-        val hour = LocalTime.ofInstant(Instant.ofEpochMilli(epochMs), zone).hour
+        // atZone, not LocalTime.ofInstant: that needs API 31, and the app runs from 26.
+        val hour = Instant.ofEpochMilli(epochMs).atZone(zone).hour
         return when (hour) {
             in 5..11 -> DayPart.MORNING
             in 12..16 -> DayPart.AFTERNOON
