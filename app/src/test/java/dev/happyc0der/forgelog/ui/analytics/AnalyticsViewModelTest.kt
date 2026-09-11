@@ -28,6 +28,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import dev.happyc0der.forgelog.domain.analytics.VolumeBucket
 import java.time.DayOfWeek
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -182,6 +183,44 @@ class AnalyticsViewModelTest {
             while (state.volumeByDay.size != 7) state = awaitItem()
             assertEquals(7, state.volumeByDay.size)
             assertEquals(2, state.volumeByDay.count { it.loadLb > 0.0 })
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    /**
+     * The chart used to be the seven days of the week containing a range's first day, whatever the
+     * range was. A month-long range showed its first week and nothing else, so training in the rest
+     * of it counted towards no bar at all.
+     */
+    @Test
+    fun `a month-long range is charted by week across the whole month`() = runTest {
+        logSession(day = 2)   // first week of March
+        logSession(day = 25)  // last week, outside the week containing the 1st
+
+        val vm = viewModel()
+        vm.uiState.test {
+            vm.setCustomRange(epochAt(3, 1, hour = 0), epochAt(4, 1, hour = 0))
+            var state = awaitItem()
+            while (!state.isCustomRange || state.volumeBucket != VolumeBucket.WEEK) state = awaitItem()
+            while (state.volumeByDay.count { it.loadLb > 0.0 } != 2) state = awaitItem()
+            // Both sessions land in a bar, and the bars reach the end of March.
+            assertEquals(2, state.volumeByDay.count { it.loadLb > 0.0 })
+            assertTrue(state.volumeByDay.last().range.endExclusive > epochAt(3, 31, hour = 23))
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `a short custom range stays day by day`() = runTest {
+        logSession(day = 9)
+
+        val vm = viewModel()
+        vm.uiState.test {
+            vm.setCustomRange(epochAt(3, 9, hour = 0), epochAt(3, 12, hour = 0))
+            var state = awaitItem()
+            while (!state.isCustomRange || state.volumeByDay.size != 3) state = awaitItem()
+            assertEquals(VolumeBucket.DAY, state.volumeBucket)
+            assertEquals(1, state.volumeByDay.count { it.loadLb > 0.0 })
             cancelAndIgnoreRemainingEvents()
         }
     }

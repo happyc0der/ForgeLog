@@ -256,6 +256,8 @@
     <string name="analytics_compare_last_week">last week</string>
     <string name="analytics_compare_custom_title">%1$s vs the span before</string>
     <string name="analytics_volume_by_day">Volume by day</string>
+    <string name="analytics_volume_by_week">Volume by week</string>
+    <string name="analytics_volume_by_month">Volume by month</string>
     <string name="analytics_sets_by_category">Sets by category</string>
     <string name="analytics_exercise_progress">Exercise progress</string>
     <string name="analytics_trend_12_weeks">12 weeks</string>

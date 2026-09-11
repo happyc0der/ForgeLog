@@ -10,6 +10,8 @@ import dev.happyc0der.forgelog.domain.analytics.ExerciseRecords
 import dev.happyc0der.forgelog.domain.analytics.PeriodComparison
 import dev.happyc0der.forgelog.domain.analytics.PersonalRecords
 import dev.happyc0der.forgelog.domain.analytics.TrendPoint
+import dev.happyc0der.forgelog.domain.analytics.VolumeBucket
+import dev.happyc0der.forgelog.domain.analytics.VolumeBuckets
 import dev.happyc0der.forgelog.domain.history.LoggedExercise
 import dev.happyc0der.forgelog.domain.model.ExerciseCategory
 import dev.happyc0der.forgelog.domain.model.ExerciseUnit
@@ -54,6 +56,8 @@ data class AnalyticsUiState(
     val previousRange: WeekBoundary.Range? = null,
     val comparison: PeriodComparison? = null,
     val volumeByDay: List<DayVolume> = emptyList(),
+    /** How wide one bar of [volumeByDay] is, which decides its labels and the card's title. */
+    val volumeBucket: VolumeBucket = VolumeBucket.DAY,
     val setsByCategory: Map<ExerciseCategory, Int> = emptyMap(),
     val trendWindow: TrendWindow = TrendWindow.TWELVE_WEEKS,
     val exercises: List<LoggedExercise> = emptyList(),
@@ -217,15 +221,15 @@ class AnalyticsViewModel @Inject constructor(
                 includeWarmup = settings.includeWarmupInVolume,
             ),
             ranges = rangePair,
-            volumeByDay = AnalyticsAggregator.volumeByDay(
-                details = currentSessions,
-                days = WeekBoundary.daysOfWeek(
-                    rangePair.first.start,
-                    zone,
-                    settings.weekStartDay,
-                ),
-                includeWarmup = settings.includeWarmupInVolume,
-            ),
+            // Bars that cover the range on screen, whatever it is -- not always the calendar week
+            // containing its first day. See VolumeBuckets.
+            volumeBars = VolumeBuckets.of(rangePair.first, zone, settings.weekStartDay).let { bars ->
+                bars.bucket to AnalyticsAggregator.volumeByDay(
+                    details = currentSessions,
+                    days = bars.ranges,
+                    includeWarmup = settings.includeWarmupInVolume,
+                )
+            },
             setsByCategory = AnalyticsAggregator.setsByCategory(
                 details = currentSessions,
                 categoryByExerciseId = categories,
@@ -261,7 +265,8 @@ class AnalyticsViewModel @Inject constructor(
             currentRange = analytics.ranges?.first,
             previousRange = analytics.ranges?.second,
             comparison = analytics.comparison,
-            volumeByDay = analytics.volumeByDay,
+            volumeByDay = analytics.volumeBars.second,
+            volumeBucket = analytics.volumeBars.first,
             setsByCategory = analytics.setsByCategory,
             trendWindow = window,
             exercises = analytics.exercises,
@@ -318,7 +323,7 @@ class AnalyticsViewModel @Inject constructor(
 private data class AnalyticsData(
     val comparison: PeriodComparison?,
     val ranges: Pair<WeekBoundary.Range, WeekBoundary.Range>?,
-    val volumeByDay: List<DayVolume>,
+    val volumeBars: Pair<VolumeBucket, List<DayVolume>>,
     val setsByCategory: Map<ExerciseCategory, Int>,
     val exercises: List<LoggedExercise>,
     val selectedExerciseId: Long?,
@@ -333,7 +338,7 @@ private data class AnalyticsData(
         val EMPTY = AnalyticsData(
             comparison = null,
             ranges = null,
-            volumeByDay = emptyList(),
+            volumeBars = VolumeBucket.DAY to emptyList(),
             setsByCategory = emptyMap(),
             exercises = emptyList(),
             selectedExerciseId = null,

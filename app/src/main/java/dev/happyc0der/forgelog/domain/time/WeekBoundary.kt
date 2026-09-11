@@ -68,6 +68,50 @@ object WeekBoundary {
         }
     }
 
+    /**
+     * The local day ranges covering [range], in order.
+     *
+     * Unlike [daysOfWeek] this follows the range it is given rather than a calendar week, so a chart
+     * of an arbitrary span covers that span.
+     */
+    fun daysCovering(range: Range, zone: ZoneId): List<Range> =
+        buckets(range, zone) { it.plusDays(1) }
+
+    /** The week ranges covering [range], in order, each aligned to [weekStart]. */
+    fun weeksCovering(
+        range: Range,
+        zone: ZoneId,
+        weekStart: DayOfWeek = DayOfWeek.MONDAY,
+    ): List<Range> = buckets(range, zone, { startOfWeekDate(it, weekStart) }) { it.plusWeeks(1) }
+
+    /** The calendar-month ranges covering [range], in order. */
+    fun monthsCovering(range: Range, zone: ZoneId): List<Range> =
+        buckets(range, zone, { it.withDayOfMonth(1) }) { it.plusMonths(1) }
+
+    /**
+     * Ranges of one [next] step each, tiling [range] from the bucket [align] puts its start in.
+     *
+     * The last bucket may extend past the range's end: a bucket is a whole day, week or month, and
+     * half of one would understate its volume.
+     */
+    private fun buckets(
+        range: Range,
+        zone: ZoneId,
+        align: (LocalDate) -> LocalDate = { it },
+        next: (LocalDate) -> LocalDate,
+    ): List<Range> {
+        if (range.endExclusive <= range.start) return emptyList()
+        val last = localDate(range.endExclusive - 1, zone)
+        val result = mutableListOf<Range>()
+        var start = align(localDate(range.start, zone))
+        while (!start.isAfter(last)) {
+            val end = next(start)
+            result += Range(start.startMs(zone), end.startMs(zone))
+            start = end
+        }
+        return result
+    }
+
     private fun localDate(epochMs: Long, zone: ZoneId): LocalDate =
         Instant.ofEpochMilli(epochMs).atZone(zone).toLocalDate()
 

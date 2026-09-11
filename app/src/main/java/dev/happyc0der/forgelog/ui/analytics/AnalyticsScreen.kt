@@ -38,6 +38,7 @@ import dev.happyc0der.forgelog.R
 import dev.happyc0der.forgelog.domain.analytics.ExerciseRecords
 import dev.happyc0der.forgelog.domain.analytics.PeriodComparison
 import dev.happyc0der.forgelog.domain.analytics.PeriodMetrics
+import dev.happyc0der.forgelog.domain.analytics.VolumeBucket
 import dev.happyc0der.forgelog.domain.history.LoggedExercise
 import dev.happyc0der.forgelog.domain.model.ExerciseUnit
 import dev.happyc0der.forgelog.ui.components.BarChart
@@ -306,15 +307,36 @@ private fun ChangeLine(label: String, ratio: Double?, previous: String?) {
     }
 }
 
+/**
+ * Volume per bar across the range on screen.
+ *
+ * A week of day-wide bars is labelled by weekday, as it reads best; anything longer has to be dated,
+ * since "Mon" repeated says nothing about which Monday. The bar width follows the range -- see
+ * [dev.happyc0der.forgelog.domain.analytics.VolumeBuckets].
+ */
 @Composable
 private fun VolumeByDayCard(uiState: AnalyticsUiState, zone: ZoneId) {
-    val dayFormatter = remember { DateTimeFormatter.ofPattern("EEE", Locale.getDefault()) }
+    val bucket = uiState.volumeBucket
+    val pattern = when {
+        bucket == VolumeBucket.MONTH -> "MMM"
+        bucket == VolumeBucket.DAY && uiState.volumeByDay.size <= DAYS_LABELLED_BY_WEEKDAY -> "EEE"
+        else -> "d MMM"
+    }
+    val formatter = remember(pattern) { DateTimeFormatter.ofPattern(pattern, Locale.getDefault()) }
     ForgeCard {
-        CardHeader(title = stringResource(R.string.analytics_volume_by_day))
+        CardHeader(
+            title = stringResource(
+                when (bucket) {
+                    VolumeBucket.DAY -> R.string.analytics_volume_by_day
+                    VolumeBucket.WEEK -> R.string.analytics_volume_by_week
+                    VolumeBucket.MONTH -> R.string.analytics_volume_by_month
+                },
+            ),
+        )
         BarChart(
             bars = uiState.volumeByDay.map { day ->
                 BarDatum(
-                    label = dayFormatter.format(Instant.ofEpochMilli(day.range.start).atZone(zone)),
+                    label = formatter.format(Instant.ofEpochMilli(day.range.start).atZone(zone)),
                     value = day.loadLb,
                 )
             },
@@ -322,6 +344,9 @@ private fun VolumeByDayCard(uiState: AnalyticsUiState, zone: ZoneId) {
         )
     }
 }
+
+/** Above a week, a weekday name no longer identifies the bar. */
+private const val DAYS_LABELLED_BY_WEEKDAY = 7
 
 @Composable
 private fun ExerciseProgressCard(
