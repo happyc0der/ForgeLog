@@ -40,4 +40,29 @@ class SessionRestTest {
         assertNull(SessionRest.sinceLastSetMs(nowEpochMs = 5_000L, lastCompletedAt = null))
         assertEquals(4_000L, SessionRest.sinceLastSetMs(nowEpochMs = 5_000L, lastCompletedAt = 1_000L))
     }
+
+    @Test
+    fun `a timed set's hold is work, not rest`() {
+        // Ticked 105 s after the last set, having just held for 45 s: 60 s of rest.
+        assertEquals(
+            60,
+            SessionRest.restAfterSetSeconds(
+                nowEpochMs = 105_000L,
+                lastCompletedAt = 0L,
+                nextSetDurationSeconds = 45,
+            ),
+        )
+    }
+
+    @Test
+    fun `a hold longer than the gap records no rest rather than a negative one`() {
+        assertEquals(
+            0,
+            SessionRest.restAfterSetSeconds(
+                nowEpochMs = 30_000L,
+                lastCompletedAt = 0L,
+                nextSetDurationSeconds = 45,
+            ),
+        )
+    }
 }

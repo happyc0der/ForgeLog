@@ -445,6 +445,61 @@ class ActiveWorkoutViewModelTest {
     }
 
     @Test
+    fun `the hold of a timed set is not counted as the rest before it`() = runTest {
+        val vm = viewModel()
+        loaded(vm)
+        val (first, second) = addSets(vm, sessionExerciseId, count = 2)
+        env.sessionRepository.upsertSetLog(second.copy(durationSeconds = 45))
+
+        vm.onSetCompleted(first, true)
+        runCurrent()
+        env.time.now += 105_000L
+        // Handed the stale row, as a recomposition that has not caught up would: the duration has
+        // to come from the database.
+        vm.onSetCompleted(second, true)
+        runCurrent()
+        vm.viewModelScope.cancel()
+
+        assertEquals(60, sets().sortedBy { it.setNumber }[0].restAfterSetSeconds)
+    }
+
+    @Test
+    fun `a duration typed just before ticking is saved and used`() = runTest {
+        val vm = viewModel()
+        loaded(vm)
+        val (first, second) = addSets(vm, sessionExerciseId, count = 2)
+        vm.onSetCompleted(first, true)
+        runCurrent()
+        env.time.now += 100_000L
+
+        // Ticked inside the autosave delay: the typed value exists only as a draft.
+        vm.onSetText(second, ActiveWorkoutViewModel.FIELD_DURATION, "40")
+        vm.onSetCompleted(second, true)
+        runCurrent()
+        vm.viewModelScope.cancel()
+
+        val after = sets().sortedBy { it.setNumber }
+        assertEquals(40, after[1].durationSeconds)
+        assertTrue(after[1].completed)
+        assertEquals(60, after[0].restAfterSetSeconds)
+    }
+
+    @Test
+    fun `ticking a set that was just deleted does not bring it back`() = runTest {
+        val vm = viewModel()
+        loaded(vm)
+        val set = addSets(vm, sessionExerciseId, count = 1).single()
+        env.sessionRepository.deleteSetLog(set.id)
+
+        // The row on screen has not caught up with the delete yet.
+        vm.onSetCompleted(set, true)
+        runCurrent()
+        vm.viewModelScope.cancel()
+
+        assertTrue(sets().isEmpty())
+    }
+
+    @Test
     fun `unticking a set leaves the recorded rest alone`() = runTest {
         val vm = viewModel()
         loaded(vm)

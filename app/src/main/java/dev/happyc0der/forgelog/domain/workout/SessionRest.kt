@@ -34,9 +34,22 @@ object SessionRest {
         .filter { it.id != excludeSetId && it.completed && it.completedAt != null }
         .maxByOrNull { it.completedAt ?: 0L }
 
-    fun restAfterSetSeconds(nowEpochMs: Long, lastCompletedAt: Long?): Int? {
+    /**
+     * The rest after a set: from [lastCompletedAt], when it ended, to when the next set *began*.
+     *
+     * A set is ticked as it ends, so a timed set began [nextSetDurationSeconds] before its tick,
+     * and that hold is work, not rest. Without subtracting it, 3 x 60 s planks a minute apart
+     * recorded every rest as two minutes. A set with no duration -- reps -- is taken to begin at
+     * its tick: the few seconds a set of eight takes are not known, and are small.
+     */
+    fun restAfterSetSeconds(
+        nowEpochMs: Long,
+        lastCompletedAt: Long?,
+        nextSetDurationSeconds: Int? = null,
+    ): Int? {
         if (lastCompletedAt == null) return null
-        return ((nowEpochMs - lastCompletedAt) / 1000L).toInt().coerceAtLeast(0)
+        val gapSeconds = (nowEpochMs - lastCompletedAt) / 1000L
+        return (gapSeconds - (nextSetDurationSeconds ?: 0)).coerceAtLeast(0L).toInt()
     }
 
     fun sinceLastSetMs(nowEpochMs: Long, lastCompletedAt: Long?): Long? {
