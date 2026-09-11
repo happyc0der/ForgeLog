@@ -219,6 +219,24 @@ class HistoryViewModelTest {
     }
 
     @Test
+    fun `this week starts on the day Settings says, as Home and Analytics do`() = runTest {
+        // Wednesday the 11th. With a Sunday start the week began on the 8th; with Monday, the 9th.
+        session(name = "Sunday", day = 8)
+        session(name = "Wednesday", day = 11)
+        env.settingsRepository.setWeekStartDay(java.time.DayOfWeek.SUNDAY)
+        val vm = viewModel()
+        vm.uiState.test {
+            var state = awaitItem()
+            while (state.rows.size < 2) state = awaitItem()
+
+            vm.onPresetSelected(DateRangePreset.THIS_WEEK)
+            while (state.filter.fromEpochMs == null) state = awaitItem()
+            assertEquals(listOf("Sunday", "Wednesday"), state.rows.map { it.summary.sessionName }.sorted())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun `clearing filters restores the full list`() = runTest {
         seedThree()
         val vm = viewModel()

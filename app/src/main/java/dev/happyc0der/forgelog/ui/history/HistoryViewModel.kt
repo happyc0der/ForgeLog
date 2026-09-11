@@ -29,6 +29,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -86,7 +87,7 @@ class HistoryViewModel @Inject constructor(
     private val application: Application,
     private val workoutSessionRepository: WorkoutSessionRepository,
     private val programRepository: ProgramRepository,
-    settingsRepository: SettingsRepository,
+    private val settingsRepository: SettingsRepository,
     private val timeProvider: TimeProvider,
     private val zoneProvider: ZoneProvider,
 ) : ViewModel() {
@@ -195,23 +196,30 @@ class HistoryViewModel @Inject constructor(
     fun onExerciseSelected(exerciseId: Long?) = filter.update { it.copy(exerciseId = exerciseId) }
 
     fun onPresetSelected(value: DateRangePreset) {
-        val now = timeProvider.nowEpochMs()
-        val zone = zoneProvider.zone()
-        val range = when (value) {
-            DateRangePreset.ALL_TIME -> null
-            DateRangePreset.THIS_WEEK -> WeekBoundary.weekRange(now, zone)
-            DateRangePreset.LAST_WEEK -> WeekBoundary.weekRangeOffset(now, zone, weeksAgo = 1)
-            DateRangePreset.LAST_30_DAYS -> WeekBoundary.Range(
-                start = WeekBoundary.startOfDay(now, zone) - THIRTY_DAYS_MS,
-                endExclusive = WeekBoundary.dayRange(now, zone).endExclusive,
-            )
-            // The screen opens the picker instead; the preset only becomes CUSTOM once
-            // setDateRange has been given real dates, so the chip cannot show as selected while
-            // the filter is still whatever it was.
-            DateRangePreset.CUSTOM -> return
+        // The screen opens the picker instead; the preset only becomes CUSTOM once setDateRange
+        // has been given real dates, so the chip cannot show as selected while the filter is
+        // still whatever it was.
+        if (value == DateRangePreset.CUSTOM) return
+        launchSafely(::reportAsMessage) {
+            val now = timeProvider.nowEpochMs()
+            val zone = zoneProvider.zone()
+            // The week starts where Settings says. It was always Monday here while Home and
+            // Analytics followed the setting, so with a Sunday start "This week" in History was a
+            // different week from theirs.
+            val weekStart = settingsRepository.settings.first().weekStartDay
+            val range = when (value) {
+                DateRangePreset.ALL_TIME -> null
+                DateRangePreset.THIS_WEEK -> WeekBoundary.weekRange(now, zone, weekStart)
+                DateRangePreset.LAST_WEEK -> WeekBoundary.weekRangeOffset(now, zone, weeksAgo = 1, weekStart = weekStart)
+                DateRangePreset.LAST_30_DAYS -> WeekBoundary.Range(
+                    start = WeekBoundary.startOfDay(now, zone) - THIRTY_DAYS_MS,
+                    endExclusive = WeekBoundary.dayRange(now, zone).endExclusive,
+                )
+                DateRangePreset.CUSTOM -> return@launchSafely
+            }
+            preset.value = value
+            filter.update { it.copy(fromEpochMs = range?.start, untilEpochMs = range?.endExclusive) }
         }
-        preset.value = value
-        filter.update { it.copy(fromEpochMs = range?.start, untilEpochMs = range?.endExclusive) }
     }
 
     /** Explicit range, for when the presets do not cover what the user wants. */
