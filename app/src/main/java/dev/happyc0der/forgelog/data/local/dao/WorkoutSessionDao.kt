@@ -250,6 +250,9 @@ interface WorkoutSessionDao {
     @Query("SELECT * FROM set_logs WHERE id = :id")
     suspend fun getSetLog(id: Long): SetLogEntity?
 
+    @Query("SELECT COALESCE(MAX(setNumber), 0) + 1 FROM set_logs WHERE sessionExerciseId = :sessionExerciseId")
+    suspend fun nextSetNumber(sessionExerciseId: Long): Int
+
     /** Moves the sets after a deleted one up a place. See WorkoutSessionRepository.deleteSetLog. */
     @Query(
         """

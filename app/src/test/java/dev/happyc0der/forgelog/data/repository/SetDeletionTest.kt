@@ -122,4 +122,36 @@ class SetDeletionTest {
 
         assertEquals(listOf(1), setsOf(benchEntryId).map { it.setNumber })
     }
+
+    @Test
+    fun `an appended set is numbered after the last, whatever number it came with`() = runTest {
+        addSets(benchEntryId, count = 2)
+
+        env.sessionRepository.appendSetLog(
+            SetLog(sessionExerciseId = benchEntryId, setNumber = 1, reps = 9, weight = 100.0, weightUnit = ExerciseUnit.LB),
+        )
+
+        assertEquals(listOf(1, 2, 3), setsOf(benchEntryId).map { it.setNumber })
+        assertEquals(9, setsOf(benchEntryId).last().reps)
+    }
+
+    @Test
+    fun `appending after a delete carries on without a gap`() = runTest {
+        val ids = addSets(benchEntryId, count = 3)
+        env.sessionRepository.deleteSetLog(ids[0])
+
+        env.sessionRepository.appendSetLog(
+            SetLog(sessionExerciseId = benchEntryId, setNumber = 4, reps = 9, weight = 100.0, weightUnit = ExerciseUnit.LB),
+        )
+
+        assertEquals(listOf(1, 2, 3), setsOf(benchEntryId).map { it.setNumber })
+    }
+
+    @Test
+    fun `the first set appended is set 1`() = runTest {
+        env.sessionRepository.appendSetLog(
+            SetLog(sessionExerciseId = rowEntryId, setNumber = 7, reps = 5, weight = 100.0, weightUnit = ExerciseUnit.LB),
+        )
+        assertEquals(listOf(1), setsOf(rowEntryId).map { it.setNumber })
+    }
 }

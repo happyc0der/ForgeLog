@@ -449,7 +449,8 @@ class ActiveWorkoutViewModel @Inject constructor(
                     targetRestSeconds = item.exercise.targetRestSeconds,
                 ),
             )
-            workoutSessionRepository.upsertSetLog(next)
+            // Numbered as it is written: see appendSetLog.
+            workoutSessionRepository.appendSetLog(next)
         }
     }
 

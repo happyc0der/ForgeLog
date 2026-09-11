@@ -50,6 +50,13 @@ interface WorkoutSessionRepository {
     suspend fun deleteSession(id: Long)
     suspend fun deleteSetLog(id: Long)
 
+    /**
+     * Adds [setLog] as its exercise's last set, numbered in the same transaction -- so a delete,
+     * which renumbers the sets after it, cannot land between the number being chosen and the set
+     * being written. Returns the new set's id.
+     */
+    suspend fun appendSetLog(setLog: SetLog): Long
+
     /** One set as the database has it now, or null if it is gone. */
     suspend fun getSetLog(id: Long): SetLog?
 

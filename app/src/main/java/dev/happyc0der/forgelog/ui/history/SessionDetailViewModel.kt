@@ -180,18 +180,13 @@ class SessionDetailViewModel @Inject constructor(
      */
     fun addSet(set: SetLog) {
         launchSafely(::reportAsMessage) {
-            val existing = workoutSessionRepository.getSessionDetail(sessionId)
+            // Still in the session: it may have gone while the dialog was open.
+            workoutSessionRepository.getSessionDetail(sessionId)
                 ?.exercises
                 ?.firstOrNull { it.exercise.id == set.sessionExerciseId }
-                ?.sets
                 ?: return@launchSafely
-            workoutSessionRepository.upsertSetLog(
-                set.copy(
-                    id = 0L,
-                    setNumber = (existing.maxOfOrNull { it.setNumber } ?: 0) + 1,
-                    completedAt = null,
-                ),
-            )
+            // Numbered as it is written, in one transaction with the delete that renumbers.
+            workoutSessionRepository.appendSetLog(set.copy(completedAt = null))
             eventsChannel.send(
                 SessionDetailEvent.Message(application.getString(R.string.session_detail_set_added)),
             )
