@@ -786,10 +786,15 @@ class ActiveWorkoutViewModel @Inject constructor(
     /**
      * Writes a typed value after a pause, on the app's own scope rather than this ViewModel's.
      *
-     * The ViewModel's scope is cancelled the moment the user leaves the logger, which took any
-     * pending write with it: a weight typed and then left -- by the back arrow, or by the back
-     * gesture -- was silently dropped if the two were less than [AUTOSAVE_DELAY_MS] apart. Finishing
-     * and abandoning were never affected, because both flush first.
+     * Leaving the logger cancels this ViewModel's scope, and that took any pending write with it: a
+     * weight or a rep count typed less than [AUTOSAVE_DELAY_MS] before leaving was dropped, silently.
+     *
+     * Normally the screen's exit animation outlasts the delay, so the write landed anyway. It did not
+     * when that animation is short or absent -- the phone set to reduce motion, animations scaled down
+     * in developer options, a back gesture committed near its end -- and then the loss was reliable
+     * rather than rare. Verified on the phone both ways with animations off.
+     *
+     * Finishing and abandoning were never affected: both flush first.
      */
     private fun debounce(key: String, block: suspend () -> Unit) {
         debounceJobs[key]?.cancel()
