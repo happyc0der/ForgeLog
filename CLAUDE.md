@@ -40,6 +40,7 @@ Reuse before writing new: `VolumeCalculator`, `EstimatedOneRepMax`, `PreviousWor
 ```bash
 ./gradlew assembleDebug testDebugUnitTest   # build + unit tests — run after every phase
 ./gradlew installDebug                      # install on the connected phone
+./gradlew installQa                         # "ForgeLog QA": same build, own database, installs beside it
 ./gradlew connectedDebugAndroidTest         # the same UI tests on a device (needs one attached)
 ```
 
