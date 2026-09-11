@@ -26,8 +26,11 @@ import dev.happyc0der.forgelog.domain.model.ExerciseTargets
 import dev.happyc0der.forgelog.domain.model.ExerciseUnit
 import dev.happyc0der.forgelog.domain.model.hasTargets
 import dev.happyc0der.forgelog.ui.format.Formatters
+import dev.happyc0der.forgelog.ui.input.DurationSecondsField
 import dev.happyc0der.forgelog.ui.input.NumericInput
 import dev.happyc0der.forgelog.ui.input.bringIntoViewWhenFocused
+import dev.happyc0der.forgelog.ui.input.rememberDurationInputUnit
+import dev.happyc0der.forgelog.ui.input.rememberRestInputUnit
 
 /**
  * Shows what the program asks for today, and lets it be changed for this session only.
@@ -43,6 +46,8 @@ internal fun TargetSection(
     onTargetChange: (TargetField, Double?) -> Unit,
 ) {
     var expanded by rememberSaveable(item.localId) { mutableStateOf(false) }
+    val (durationUnit, onDurationUnitChange) = rememberDurationInputUnit()
+    val (restUnit, onRestUnitChange) = rememberRestInputUnit()
 
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(
@@ -105,20 +110,28 @@ internal fun TargetSection(
                         modifier = Modifier.weight(1f),
                     )
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TargetField(
-                        label = stringResource(R.string.workout_target_duration),
-                        value = item.targetDurationSeconds?.toString(),
-                        onChange = { onTargetChange(TargetField.DURATION_SECONDS, it) },
-                        modifier = Modifier.weight(1f),
-                    )
-                    TargetField(
-                        label = stringResource(R.string.workout_target_rest),
-                        value = item.targetRestSeconds?.toString(),
-                        onChange = { onTargetChange(TargetField.REST_SECONDS, it) },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
+                /*
+                 * Duration and rest follow the same sec/min settings as the day builder and the
+                 * logger. They were plain seconds here, labelled "(s)", so with rest entered in
+                 * minutes everywhere else, typing "3" meant three minutes in the day builder and
+                 * three seconds in this very screen.
+                 */
+                DurationSecondsField(
+                    secondsText = item.targetDurationSeconds?.toString().orEmpty(),
+                    onSecondsTextChange = { onTargetChange(TargetField.DURATION_SECONDS, it.toDoubleOrNull()) },
+                    label = stringResource(R.string.program_exercise_target_duration),
+                    unit = durationUnit,
+                    onUnitChange = onDurationUnitChange,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                DurationSecondsField(
+                    secondsText = item.targetRestSeconds?.toString().orEmpty(),
+                    onSecondsTextChange = { onTargetChange(TargetField.REST_SECONDS, it.toDoubleOrNull()) },
+                    label = stringResource(R.string.program_exercise_target_rest),
+                    unit = restUnit,
+                    onUnitChange = onRestUnitChange,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         }
     }

@@ -74,6 +74,7 @@ import dev.happyc0der.forgelog.ui.components.ReorderableColumn
 import dev.happyc0der.forgelog.ui.exercise.ExerciseForm
 import dev.happyc0der.forgelog.ui.exercise.ExerciseFormState
 import dev.happyc0der.forgelog.ui.exercise.ExerciseFormStateSaver
+import dev.happyc0der.forgelog.ui.input.ClearFocusWhenKeyboardHides
 import dev.happyc0der.forgelog.ui.input.DurationSecondsField
 import dev.happyc0der.forgelog.ui.input.NumericInput
 import dev.happyc0der.forgelog.ui.input.bringIntoViewWhenFocused
@@ -93,6 +94,8 @@ fun ProgramDayBuilderScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    // Its duration and rest fields read "1m 30s" only once they lose focus.
+    ClearFocusWhenKeyboardHides()
     var showAddMenu by rememberSaveable { mutableStateOf(false) }
     var addChoiceExpanded by rememberSaveable { mutableStateOf(false) }
     var showCreateSheet by rememberSaveable { mutableStateOf(false) }

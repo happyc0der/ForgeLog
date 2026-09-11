@@ -64,6 +64,7 @@ import dev.happyc0der.forgelog.ui.components.ErrorState
 import dev.happyc0der.forgelog.ui.components.LoadingState
 import dev.happyc0der.forgelog.ui.components.DragHandle
 import dev.happyc0der.forgelog.ui.components.ReorderableColumn
+import dev.happyc0der.forgelog.ui.input.ClearFocusWhenKeyboardHides
 import dev.happyc0der.forgelog.ui.testing.TestTags
 import dev.happyc0der.forgelog.ui.util.label
 import java.time.LocalDate
@@ -79,6 +80,8 @@ fun StartWorkoutScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    // Its duration and rest fields read "1m 30s" only once they lose focus.
+    ClearFocusWhenKeyboardHides()
     var alreadyRunning by remember { mutableStateOf<StartWorkoutEvent.AlreadyInProgress?>(null) }
 
     LaunchedEffect(Unit) {

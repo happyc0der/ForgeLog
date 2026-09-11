@@ -128,8 +128,6 @@
     <string name="workout_target_rep_min">Min reps</string>
     <string name="workout_target_rep_max">Max reps</string>
     <string name="workout_target_weight">Weight</string>
-    <string name="workout_target_duration">Duration (s)</string>
-    <string name="workout_target_rest">Rest (s)</string>
     <string name="workout_target_summary_sets">%1$d sets</string>
     <string name="workout_target_summary_reps">%1$s reps</string>
     <string name="workout_target_summary_weight">@ %1$s</string>
