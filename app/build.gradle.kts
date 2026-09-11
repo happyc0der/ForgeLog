@@ -60,6 +60,17 @@ android {
             )
             signingConfig = signingConfigs.findByName("release")
         }
+        /*
+         * The debug build under another app id, so it installs beside the real app with its own
+         * database: for testing on the phone the app is actually used on without test workouts
+         * landing in real history. Named "ForgeLog QA", with an amber icon, so the two cannot be
+         * mistaken for each other.
+         */
+        create("qa") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".qa"
+            matchingFallbacks += listOf("debug")
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -90,6 +101,10 @@ android {
         getByName("androidTest") {
             assets.directories.add("$projectDir/schemas")
             kotlin.directories.add("src/sharedTest/java")
+        }
+        // The QA build is the debug build, debug tools included.
+        getByName("qa") {
+            kotlin.directories.add("src/debug/java")
         }
     }
 }

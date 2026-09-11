@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The QA build installs beside the real app; its name says which is which. -->
+    <string name="app_name">ForgeLog QA</string>
+</resources>
