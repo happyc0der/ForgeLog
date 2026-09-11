@@ -36,6 +36,9 @@ data class ExerciseEditorUiState(
 
 sealed interface ExerciseEditorEvent {
     data class Saved(val exerciseId: Long) : ExerciseEditorEvent
+
+    /** A failed save: shown as a snackbar, with the form left as it was typed. */
+    data class Message(val value: String) : ExerciseEditorEvent
 }
 
 @HiltViewModel
@@ -70,32 +73,52 @@ class ExerciseEditorViewModel @Inject constructor(
                 if (!unitChosen) _uiState.update { it.copy(form = it.form.copy(defaultUnit = unit)) }
             }
         } else {
-            viewModelScope.launch {
-                val exercise = exerciseRepository.getExercise(exerciseId)
-                if (exercise == null) {
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            // Was reporting a missing *program* for a missing exercise.
-                            errorMessage = application.getString(R.string.exercise_missing),
-                        )
-                    }
-                } else {
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            isCreate = false,
-                            form = ExerciseFormState(
-                                name = exercise.name,
-                                category = exercise.category,
-                                defaultUnit = exercise.defaultUnit,
-                                howToUrl = exercise.howToUrl.orEmpty(),
-                                defaultPointers = exercise.defaultPointers.orEmpty(),
-                            ),
-                        )
-                    }
+            load(exerciseId)
+        }
+    }
+
+    /** Loads the exercise being edited. A failure is the screen's error state, with a retry. */
+    private fun load(exerciseId: Long) {
+        _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+        launchSafely(::reportLoadFailure) {
+            val exercise = exerciseRepository.getExercise(exerciseId)
+            if (exercise == null) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        // Was reporting a missing *program* for a missing exercise.
+                        errorMessage = application.getString(R.string.exercise_missing),
+                    )
+                }
+            } else {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        isCreate = false,
+                        form = ExerciseFormState(
+                            name = exercise.name,
+                            category = exercise.category,
+                            defaultUnit = exercise.defaultUnit,
+                            howToUrl = exercise.howToUrl.orEmpty(),
+                            defaultPointers = exercise.defaultPointers.orEmpty(),
+                        ),
+                    )
                 }
             }
+        }
+    }
+
+    fun retry() {
+        exerciseId?.let(::load)
+    }
+
+    private fun reportLoadFailure(throwable: Throwable) {
+        _uiState.update {
+            it.copy(
+                isLoading = false,
+                errorMessage = throwable.message?.takeIf { message -> message.isNotBlank() }
+                    ?: application.getString(R.string.state_error_generic),
+            )
         }
     }
 
@@ -112,7 +135,8 @@ class ExerciseEditorViewModel @Inject constructor(
             _uiState.update { it.copy(form = it.form.copy(duplicateNameWarning = null)) }
             return
         }
-        duplicateCheckJob = viewModelScope.launch {
+        // Advice only, so a failed lookup is simply no warning rather than an error.
+        duplicateCheckJob = launchSafely(onError = {}) {
             val clash = exerciseRepository.findByName(candidate)
                 ?.takeIf { it.id != exerciseId }
             _uiState.update { state ->
@@ -195,13 +219,19 @@ class ExerciseEditorViewModel @Inject constructor(
         }
     }
 
-    /** Releases the guard, or a failed save would leave the button disabled for good. */
+    /**
+     * Releases the guard, or a failed save would leave the button disabled for good, and says so
+     * in a snackbar. It used to set the screen's error state, which replaced the form -- and
+     * everything typed into it -- with an error whose only way out was back.
+     */
     private fun reportSaveFailure(throwable: Throwable) {
-        _uiState.update {
-            it.copy(
-                isSaving = false,
-                errorMessage = throwable.message?.takeIf { message -> message.isNotBlank() }
-                    ?: application.getString(R.string.state_error_generic),
+        _uiState.update { it.copy(isSaving = false) }
+        viewModelScope.launch {
+            eventsChannel.send(
+                ExerciseEditorEvent.Message(
+                    throwable.message?.takeIf { message -> message.isNotBlank() }
+                        ?: application.getString(R.string.state_error_generic),
+                ),
             )
         }
     }

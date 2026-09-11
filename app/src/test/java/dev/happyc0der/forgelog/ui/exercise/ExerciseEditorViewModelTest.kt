@@ -6,8 +6,10 @@ import androidx.lifecycle.viewModelScope
 import androidx.test.core.app.ApplicationProvider
 import app.cash.turbine.test
 import dev.happyc0der.forgelog.data.local.exerciseEntity
+import dev.happyc0der.forgelog.domain.model.Exercise
 import dev.happyc0der.forgelog.domain.model.ExerciseCategory
 import dev.happyc0der.forgelog.domain.model.ExerciseUnit
+import dev.happyc0der.forgelog.domain.repository.ExerciseRepository
 import dev.happyc0der.forgelog.testing.MainDispatcherRule
 import dev.happyc0der.forgelog.testing.TestEnvironment
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -16,6 +18,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -25,6 +28,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.io.IOException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -51,10 +55,13 @@ class ExerciseEditorViewModelTest {
         env.tearDown()
     }
 
-    private fun viewModel(exerciseId: Long = -1L) = ExerciseEditorViewModel(
+    private fun viewModel(
+        exerciseId: Long = -1L,
+        repository: ExerciseRepository = env.exerciseRepository,
+    ) = ExerciseEditorViewModel(
         savedStateHandle = SavedStateHandle(mapOf("exerciseId" to exerciseId)),
         application = ApplicationProvider.getApplicationContext<Application>(),
-        exerciseRepository = env.exerciseRepository,
+        exerciseRepository = repository,
         settingsRepository = env.settingsRepository,
     ).also(created::add)
 
@@ -185,6 +192,46 @@ class ExerciseEditorViewModelTest {
             assertTrue(state.errorMessage!!.contains("exercise"))
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    /** Writes fail; everything else is the real repository. */
+    private fun failingWrites() = object : ExerciseRepository by env.exerciseRepository {
+        override suspend fun upsert(exercise: Exercise): Long = throw IOException("Disk full")
+    }
+
+    @Test
+    fun `a failed save keeps the form and says so`() = runTest {
+        val vm = viewModel(repository = failingWrites())
+        vm.events.test {
+            vm.onNameChange("Cable Fly")
+            vm.save()
+            assertEquals(ExerciseEditorEvent.Message("Disk full"), awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+        advanceUntilIdle()
+        val state = vm.uiState.value
+        // Still the form, as typed, and ready to try again.
+        assertNull(state.errorMessage)
+        assertEquals("Cable Fly", state.form.name)
+        assertFalse(state.isSaving)
+    }
+
+    @Test
+    fun `a failed load can be retried`() = runTest {
+        var failing = true
+        val flaky = object : ExerciseRepository by env.exerciseRepository {
+            override suspend fun getExercise(id: Long): Exercise? =
+                if (failing) throw IOException("Disk busy") else env.exerciseRepository.getExercise(id)
+        }
+        val vm = viewModel(exerciseId = benchId, repository = flaky)
+        advanceUntilIdle()
+        assertEquals("Disk busy", vm.uiState.value.errorMessage)
+
+        failing = false
+        vm.retry()
+        advanceUntilIdle()
+        assertNull(vm.uiState.value.errorMessage)
+        assertEquals("Bench Press", vm.uiState.value.form.name)
     }
 
     @Test
