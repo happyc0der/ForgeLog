@@ -1,6 +1,7 @@
 package dev.happyc0der.forgelog.ui.settings
 
 import android.app.Application
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import androidx.test.core.app.ApplicationProvider
 import app.cash.turbine.test
@@ -21,6 +22,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -100,7 +102,11 @@ class SettingsViewModelTest {
         dao.upsertSetLog(setLogEntity(sessionExerciseId = sessionExerciseId))
     }
 
-    private fun viewModel(debugAvailable: Boolean = false): SettingsViewModel = SettingsViewModel(
+    private fun viewModel(
+        debugAvailable: Boolean = false,
+        savedState: SavedStateHandle = SavedStateHandle(),
+    ): SettingsViewModel = SettingsViewModel(
+        savedStateHandle = savedState,
         application = ApplicationProvider.getApplicationContext<Application>(),
         settingsRepository = env.settingsRepository,
         backupRepository = env.backupRepository,
@@ -170,6 +176,53 @@ class SettingsViewModelTest {
         assertNotNull(written)
         assertTrue(written!!.contains("\"sessions\""))
         assertTrue(written.contains("Push Day"))
+    }
+
+    /**
+     * Android closed the app behind the file picker: the export held in memory is gone, the saved
+     * state is not, and the picker has already created the file. It must not be left empty.
+     */
+    @Test
+    fun `an export lost while the picker was open is built again and written`() = runTest {
+        val saved = SavedStateHandle()
+        val before = viewModel(savedState = saved)
+        before.beginJsonExport()
+        advanceUntilIdle()
+
+        // The process is gone; the ViewModel comes back with only its saved state.
+        val after = viewModel(savedState = saved)
+        after.onExportDestinationChosen(FakeDocumentStore.Handle)
+        advanceUntilIdle()
+
+        val written = documents.written
+        assertNotNull(written)
+        assertTrue(written!!.contains("Push Day"))
+    }
+
+    @Test
+    fun `a lost CSV export keeps the range that was chosen`() = runTest {
+        val saved = SavedStateHandle()
+        val before = viewModel(savedState = saved)
+        before.setCsvRange(CsvRange.THIS_WEEK)
+        before.beginCsvExport()
+        advanceUntilIdle()
+
+        val after = viewModel(savedState = saved)
+        after.onExportDestinationChosen(FakeDocumentStore.Handle)
+        advanceUntilIdle()
+
+        val written = documents.written
+        assertNotNull(written)
+        assertTrue(written!!.startsWith("session_id,"))
+        // The only session is from 1970: in an all-time export, not in this week's.
+        assertFalse(written.contains("Push Day"))
+    }
+
+    @Test
+    fun `a picker answer with no export pending writes nothing`() = runTest {
+        viewModel().onExportDestinationChosen(FakeDocumentStore.Handle)
+        advanceUntilIdle()
+        assertEquals(null, documents.written)
     }
 
     @Test

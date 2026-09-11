@@ -1,6 +1,7 @@
 package dev.happyc0der.forgelog.ui.settings
 
 import android.app.Application
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.happyc0der.forgelog.BuildConfig
@@ -65,6 +66,7 @@ sealed interface SettingsEvent {
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
+    private val savedStateHandle: SavedStateHandle,
     private val application: Application,
     private val settingsRepository: SettingsRepository,
     private val backupRepository: BackupRepository,
@@ -154,6 +156,7 @@ class SettingsViewModel @Inject constructor(
             isWorking.value = true
             try {
                 pendingExport = backupRepository.exportJson()
+                savedStateHandle[PENDING_EXPORT_KIND] = ExportKind.JSON.name
                 eventsChannel.send(
                     SettingsEvent.PickExportDestination(
                         suggestedName = "forgelog-backup-${stamp()}.json",
@@ -170,8 +173,10 @@ class SettingsViewModel @Inject constructor(
         launchSafely(::reportAsMessage) {
             isWorking.value = true
             try {
-                val range = csvRangeBounds(csvRange.value)
-                pendingExport = backupRepository.exportCsv(range?.start, range?.endExclusive)
+                val chosen = csvRange.value
+                pendingExport = csv(chosen)
+                savedStateHandle[PENDING_EXPORT_KIND] = ExportKind.CSV.name
+                savedStateHandle[PENDING_CSV_RANGE] = chosen.name
                 eventsChannel.send(
                     SettingsEvent.PickExportDestination(
                         suggestedName = "forgelog-sets-${stamp()}.csv",
@@ -188,14 +193,34 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { eventsChannel.send(SettingsEvent.PickImportSource) }
     }
 
+    /**
+     * Writes the pending export to the file the user chose.
+     *
+     * The export is held in memory while the picker is open, and Android can close ForgeLog behind
+     * the picker; the file already exists by then, created by the picker. That used to end in an
+     * empty file and no word of it -- a backup that was never written. Which export was asked for
+     * is kept in the saved state, so a lost one is built again and written.
+     */
     fun onExportDestinationChosen(handle: DocumentHandle?) {
         val content = pendingExport
+        val kind = savedStateHandle.get<String>(PENDING_EXPORT_KIND)
+            ?.let { name -> ExportKind.entries.firstOrNull { it.name == name } }
+        val range = savedStateHandle.get<String>(PENDING_CSV_RANGE)
+            ?.let { name -> CsvRange.entries.firstOrNull { it.name == name } }
+            ?: CsvRange.ALL_TIME
         pendingExport = null
-        if (handle == null || content == null) return
+        savedStateHandle.remove<String>(PENDING_EXPORT_KIND)
+        savedStateHandle.remove<String>(PENDING_CSV_RANGE)
+        if (handle == null || (content == null && kind == null)) return
         launchSafely(::reportAsMessage) {
             isWorking.value = true
             try {
-                documentStore.writeText(handle, content)
+                val text = content ?: when (kind) {
+                    ExportKind.JSON -> backupRepository.exportJson()
+                    ExportKind.CSV -> csv(range)
+                    null -> return@launchSafely
+                }
+                documentStore.writeText(handle, text)
                     .onSuccess { message(R.string.settings_export_done) }
                     .onFailure { reportAsMessage(it) }
             } finally {
@@ -289,6 +314,11 @@ class SettingsViewModel @Inject constructor(
         BackupProblem.Empty -> application.getString(R.string.settings_import_empty)
     }
 
+    private suspend fun csv(range: CsvRange): String {
+        val bounds = csvRangeBounds(range)
+        return backupRepository.exportCsv(bounds?.start, bounds?.endExclusive)
+    }
+
     private fun csvRangeBounds(range: CsvRange): WeekBoundary.Range? {
         val now = timeProvider.nowEpochMs()
         val zone = zoneProvider.zone()
@@ -338,8 +368,14 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    private enum class ExportKind { JSON, CSV }
+
     private companion object {
         /** Mirrors ForgeLogDatabase's version, shown in About so a support question is answerable. */
         const val DATABASE_VERSION = 3
+
+        /** Which export is waiting on the file picker, and for CSV which range; see onExportDestinationChosen. */
+        const val PENDING_EXPORT_KIND = "pendingExportKind"
+        const val PENDING_CSV_RANGE = "pendingCsvRange"
     }
 }
