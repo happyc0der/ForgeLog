@@ -145,11 +145,20 @@ class ProgramDetailViewModel @Inject constructor(
         draftDayOrder.value = current.toMutableList().apply { add(to, removeAt(from)) }
     }
 
+    /**
+     * The draft is dropped whether the write succeeds or fails, as the day builder already does.
+     *
+     * Kept on failure, it went on showing an order the database had refused -- alongside the message
+     * saying so -- until the screen was left, so the list read as saved when it was not.
+     */
     fun persistDayOrder() {
         val order = draftDayOrder.value ?: return
         launchSafely(::reportAsMessage) {
-            programRepository.reorderDays(order)
-            draftDayOrder.value = null
+            try {
+                programRepository.reorderDays(order)
+            } finally {
+                draftDayOrder.value = null
+            }
         }
     }
 }

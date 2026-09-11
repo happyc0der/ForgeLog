@@ -137,6 +137,37 @@ class ReorderPersistenceTest {
         }
     }
 
+    /**
+     * A refused write must take the drag back with it. The draft used to survive, so the list went
+     * on showing an order the database had rejected -- next to the message saying it had.
+     */
+    @Test
+    fun `a refused reorder puts the list back`() = runTest {
+        val vm = ProgramDetailViewModel(
+            savedStateHandle = SavedStateHandle(mapOf("programId" to programId)),
+            application = ApplicationProvider.getApplicationContext<Application>(),
+            programRepository = RefusingReorder(env.programRepository),
+        ).also(createdDetail::add)
+
+        vm.uiState.test {
+            var state = awaitItem()
+            while (state.days.size != 5) state = awaitItem()
+
+            vm.moveDay(0, 4)
+            // The draft has to be in force before the refusal, or the wait below proves nothing.
+            while (state.draftOrder == null) state = awaitItem()
+
+            vm.persistDayOrder()
+            advanceUntilIdle()
+            while (state.draftOrder != null) state = awaitItem()
+
+            assertNull(state.draftOrder)
+            assertEquals(listOf("Push", "Pull", "Legs", "Upper", "Lower"), state.days.map { it.name })
+            assertEquals(listOf("Push", "Pull", "Legs", "Upper", "Lower"), storedDayNames())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
     @Test
     fun `persisting without a drag is a no-op`() = runTest {
         val vm = detailViewModel()
@@ -210,4 +241,11 @@ class ReorderPersistenceTest {
             cancelAndIgnoreRemainingEvents()
         }
     }
+}
+
+/** A repository that refuses to reorder, standing in for a write the database will not take. */
+private class RefusingReorder(
+    private val delegate: dev.happyc0der.forgelog.domain.repository.ProgramRepository,
+) : dev.happyc0der.forgelog.domain.repository.ProgramRepository by delegate {
+    override suspend fun reorderDays(orderedDayIds: List<Long>): Unit = throw java.io.IOException("disk full")
 }
