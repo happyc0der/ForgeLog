@@ -70,7 +70,7 @@ Primary device is a **Redmi Note 12 Pro**: 6.67", 1080×2400, 20:9, portrait. De
 - Accessibility labels on meaningful controls; `contentDescription = null` only for genuinely decorative icons.
 - Test tags on key UI elements, from `ui/testing/TestTags.kt`.
 - Unit tests for analytics calculations, date and week boundaries, volume, previous-workout matching, PR detection, and backup/import validation. Prefer hand-written fakes over a mocking framework — the repositories are already interfaces.
-- Seed data is debug-only and off by default.
+- Seed data is in the QA build only (`installQa`, its own database) and off by default. The debug build is the one kept on the phone with real training in it, so it has no seeding code at all.
 
 ## Working method
 

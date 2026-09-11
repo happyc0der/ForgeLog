@@ -55,6 +55,8 @@ adb devices
 
 If `adb devices` shows `unauthorized`, revoke USB debugging authorisations in Developer options and reconnect.
 
+To try things without touching your real history, install the QA build beside it: `./gradlew installQa` gives "ForgeLog QA", with an amber icon and its own database. It is the only build with Settings → *Load sample data*, which writes a sample program and twelve weeks of sessions.
+
 ## Build a debug APK
 
 ```bash
@@ -69,13 +71,15 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 ## Tests
 
-419 tests, all runnable on a laptop with no device attached. Room runs under Robolectric, so the DAO queries, the migrations and the backup round-trip are genuinely executed rather than mocked — and so do the Compose UI tests, which drive the real screens.
+530 tests, all runnable on a laptop with no device attached. Room runs under Robolectric, so the DAO queries, the migrations and the backup round-trip are genuinely executed rather than mocked — and so do the Compose UI tests, which drive the real screens.
 
 The UI tests live in `app/src/sharedTest/` and run twice from one source: on the JVM with `testDebugUnitTest`, and on a device with `connectedDebugAndroidTest`.
 
 ```bash
 ./gradlew testDebugUnitTest            # JVM unit tests
-./gradlew connectedDebugAndroidTest    # the same UI tests on a device, needs one attached
+./gradlew connectedDebugAndroidTest    # the same UI tests on a device, needs one attached --
+                                       # not the phone you train with: it runs against the
+                                       # debug app and can wipe its data
 ./gradlew assembleDebug testDebugUnitTest   # what to run after every change
 ```
 
