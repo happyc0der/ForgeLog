@@ -148,6 +148,7 @@ class WorkoutFlowUiTest {
         timeProvider = env.time,
         settingsRepository = env.settingsRepository,
         restTimerController = restTimerController,
+        applicationScope = restScope,
     ).also(created::add)
 
     private fun summary(sessionId: Long) = WorkoutSummaryViewModel(

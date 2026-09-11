@@ -37,9 +37,12 @@ import dev.happyc0der.forgelog.domain.workout.toPounds
 import dev.happyc0der.forgelog.ui.common.launchSafely
 import dev.happyc0der.forgelog.ui.common.reportErrors
 import dev.happyc0der.forgelog.ui.common.ticker
+import dev.happyc0der.forgelog.di.ApplicationScope
 import dev.happyc0der.forgelog.ui.navigation.ActiveWorkoutRoute
 import dev.happyc0der.forgelog.workout.RestTimerController
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -131,6 +134,8 @@ class ActiveWorkoutViewModel @Inject constructor(
     private val timeProvider: TimeProvider,
     private val settingsRepository: SettingsRepository,
     private val restTimerController: RestTimerController,
+    /** Outlives this screen, so a value typed just before leaving it is still written. */
+    @param:ApplicationScope private val applicationScope: CoroutineScope,
 ) : ViewModel() {
     private val sessionId = savedStateHandle.toRoute<ActiveWorkoutRoute>().sessionId
     private val drafts = MutableStateFlow<Map<String, String>>(emptyMap())
@@ -778,11 +783,27 @@ class ActiveWorkoutViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Writes a typed value after a pause, on the app's own scope rather than this ViewModel's.
+     *
+     * The ViewModel's scope is cancelled the moment the user leaves the logger, which took any
+     * pending write with it: a weight typed and then left -- by the back arrow, or by the back
+     * gesture -- was silently dropped if the two were less than [AUTOSAVE_DELAY_MS] apart. Finishing
+     * and abandoning were never affected, because both flush first.
+     */
     private fun debounce(key: String, block: suspend () -> Unit) {
         debounceJobs[key]?.cancel()
-        debounceJobs[key] = launchSafely(::reportAsMessage) {
-            delay(250)
-            block()
+        debounceJobs[key] = applicationScope.launch {
+            delay(AUTOSAVE_DELAY_MS)
+            try {
+                block()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (throwable: Throwable) {
+                // Reaches the user only while the logger is still open; there is nowhere to show it
+                // once they have left, and the value is no more lost than it would have been.
+                reportAsMessage(throwable)
+            }
         }
     }
 
@@ -858,6 +879,9 @@ class ActiveWorkoutViewModel @Inject constructor(
         const val FIELD_DISTANCE = "distance"
         const val FIELD_REST = "rest"
         const val FIELD_NOTES = "notes"
+
+        /** How long after the last keystroke a field is written. */
+        const val AUTOSAVE_DELAY_MS = 250L
 
         fun setFieldKey(setId: Long, field: String): String = "$setId:$field"
         fun exerciseNotesKey(sessionExerciseId: Long): String = "ex:$sessionExerciseId:notes"

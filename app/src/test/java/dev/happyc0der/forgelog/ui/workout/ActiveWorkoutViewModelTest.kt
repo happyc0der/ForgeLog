@@ -141,6 +141,8 @@ class ActiveWorkoutViewModelTest {
         timeProvider = env.time,
         settingsRepository = env.settingsRepository,
         restTimerController = restTimer,
+        // Stands in for the app's own scope: it outlives the ViewModel, as the real one does.
+        applicationScope = backgroundScope,
     ).also(created::add)
 
     private suspend fun sets() = env.sessionRepository.getSessionDetail(sessionId)!!
@@ -367,6 +369,28 @@ class ActiveWorkoutViewModelTest {
         val saved = sets().single()
         assertEquals(12, saved.reps)
         assertEquals(SetType.WARMUP, saved.setType)
+    }
+
+
+    @Test
+    fun `a value typed just before leaving the logger is still written`() = runTest {
+        val vm = viewModel()
+        loaded(vm)
+        val set = addSets(vm, sessionExerciseId, count = 1).single()
+
+        vm.onSetText(set, ActiveWorkoutViewModel.FIELD_REPS, "11")
+        vm.onExerciseNotes(sessionExerciseId, "knees felt fine")
+        // Leaving the logger: Android clears the ViewModel and cancels its scope, well inside the
+        // autosave delay. The pending writes used to go with it.
+        vm.viewModelScope.cancel()
+        advanceTimeBy(ActiveWorkoutViewModel.AUTOSAVE_DELAY_MS * 2)
+        runCurrent()
+
+        assertEquals(11, sets().single().reps)
+        assertEquals(
+            "knees felt fine",
+            env.sessionRepository.getSessionDetail(sessionId)!!.exercises.single().exercise.exerciseNotes,
+        )
     }
 
     @Test
