@@ -413,6 +413,10 @@ private fun setSummary(set: SetLog): String {
         set.weight?.let { add(Formatters.weight(it, set.weightUnit)) }
         set.durationSeconds?.let { add(Formatters.seconds(it)) }
         set.distanceMeters?.let { add(Formatters.distanceMeters(it)) }
+        // Rest was recorded but never shown here, so the only way to see it was the edit dialog.
+        set.restAfterSetSeconds?.let {
+            add(stringResource(R.string.workout_previous_rest, Formatters.seconds(it)))
+        }
         set.rpe?.let { add(stringResource(R.string.session_detail_rpe_value, it)) }
         set.rir?.let { add(stringResource(R.string.session_detail_rir_value, it)) }
         // "Completed?" read as a question about a set that simply was not done.

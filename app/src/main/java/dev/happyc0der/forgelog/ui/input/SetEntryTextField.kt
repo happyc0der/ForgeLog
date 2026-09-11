@@ -1,9 +1,11 @@
 package dev.happyc0der.forgelog.ui.input
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.text.KeyboardOptions
@@ -17,6 +19,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,18 +27,19 @@ import androidx.compose.ui.composed
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
-import dev.happyc0der.forgelog.R
-import dev.happyc0der.forgelog.domain.workout.DurationInput
-import dev.happyc0der.forgelog.di.SettingsEntryPoint
-import dev.happyc0der.forgelog.domain.workout.DurationInputUnit
-import dagger.hilt.android.EntryPointAccessors
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dagger.hilt.android.EntryPointAccessors
+import dev.happyc0der.forgelog.R
+import dev.happyc0der.forgelog.di.SettingsEntryPoint
+import dev.happyc0der.forgelog.domain.workout.DurationInput
+import dev.happyc0der.forgelog.domain.workout.DurationInputUnit
+import dev.happyc0der.forgelog.ui.format.Formatters
 import kotlinx.coroutines.launch
 
 /**
@@ -143,32 +147,20 @@ fun SetEntryTextField(
     minLines: Int = 1,
     durationUnit: DurationInputUnit? = null,
 ) {
-    val displayValue = if (durationUnit != null) {
-        DurationInput.toDisplay(value.toIntOrNull(), durationUnit)
-    } else {
-        value
-    }
     var focused by remember { mutableStateOf(false) }
     var textFieldValue by remember {
-        mutableStateOf(TextFieldValue(displayValue, selection = TextRange(displayValue.length)))
+        val initial = fieldText(value, durationUnit, editing = false)
+        mutableStateOf(TextFieldValue(initial, selection = TextRange(initial.length)))
     }
 
     LaunchedEffect(durationUnit) {
-        val next = if (durationUnit != null) {
-            DurationInput.toDisplay(value.toIntOrNull(), durationUnit)
-        } else {
-            value
-        }
+        val next = fieldText(value, durationUnit, editing = focused)
         textFieldValue = TextFieldValue(next, selection = TextRange(next.length))
     }
 
     LaunchedEffect(value, focused) {
         if (focused) return@LaunchedEffect
-        val next = if (durationUnit != null) {
-            DurationInput.toDisplay(value.toIntOrNull(), durationUnit)
-        } else {
-            value
-        }
+        val next = fieldText(value, durationUnit, editing = false)
         if (next != textFieldValue.text) {
             textFieldValue = TextFieldValue(next, selection = TextRange(next.length))
         }
@@ -202,8 +194,14 @@ fun SetEntryTextField(
         modifier = modifier
             .bringIntoViewWhenFocused()
             .onFocusChanged { state ->
+                val gained = state.isFocused && !focused
                 focused = state.isFocused
-                if (state.isFocused) {
+                if (gained && durationUnit != null) {
+                    // Swaps "1m 16s" for the editable "1.27" -- only on the way in, so nothing
+                    // rewrites the text under the user's fingers while they type.
+                    val editable = fieldText(value, durationUnit, editing = true)
+                    textFieldValue = TextFieldValue(editable, selection = TextRange(editable.length))
+                } else if (gained) {
                     textFieldValue = textFieldValue.copy(
                         selection = TextRange(textFieldValue.text.length),
                     )
@@ -214,6 +212,39 @@ fun SetEntryTextField(
         minLines = minLines,
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
     )
+}
+
+/**
+ * Clears focus when the keyboard is dismissed.
+ *
+ * Back hides the keyboard but leaves the field focused, and a focused duration field keeps its
+ * editing form -- so an 89-second rest went on reading "1.48" after the user had finished with it,
+ * until something else happened to take focus.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun ClearFocusWhenKeyboardHides() {
+    val focusManager = LocalFocusManager.current
+    val keyboardVisible = WindowInsets.isImeVisible
+    var wasVisible by remember { mutableStateOf(keyboardVisible) }
+    LaunchedEffect(keyboardVisible) {
+        if (wasVisible && !keyboardVisible) focusManager.clearFocus()
+        wasVisible = keyboardVisible
+    }
+}
+
+/**
+ * What a set field shows for [value], a whole number of seconds when [unit] is non-null.
+ *
+ * In minutes mode a field at rest reads "1m 16s", and only turns into decimal minutes while it is
+ * being edited. Decimal minutes are quick to type but misleading to read: 76 seconds showed as
+ * "1.27", which looks like one minute twenty-seven and means one minute sixteen.
+ */
+internal fun fieldText(value: String, unit: DurationInputUnit?, editing: Boolean): String = when {
+    unit == null -> value
+    unit == DurationInputUnit.MINUTES && !editing ->
+        value.toIntOrNull()?.let(Formatters::seconds).orEmpty()
+    else -> DurationInput.toDisplay(value.toIntOrNull(), unit)
 }
 
 @Composable

@@ -65,6 +65,7 @@ import dev.happyc0der.forgelog.ui.components.FeelingRow
 import dev.happyc0der.forgelog.ui.components.LoadingState
 import dev.happyc0der.forgelog.ui.components.NotesField
 import dev.happyc0der.forgelog.ui.exercise.EnumDropdown
+import dev.happyc0der.forgelog.ui.input.ClearFocusWhenKeyboardHides
 import dev.happyc0der.forgelog.ui.input.DurationSecondsField
 import dev.happyc0der.forgelog.ui.input.SetEntryTextField
 import dev.happyc0der.forgelog.ui.input.rememberDurationInputUnit
@@ -97,6 +98,7 @@ fun ActiveWorkoutScreen(
     val scrollState = rememberScrollState()
     val (durationUnit, onDurationUnitChange) = rememberDurationInputUnit()
     val (restUnit, onRestUnitChange) = rememberRestInputUnit()
+    ClearFocusWhenKeyboardHides()
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
@@ -325,13 +327,7 @@ private fun ExerciseLoggerCard(
                     )
                     Text(text = pointers, style = MaterialTheme.typography.bodyMedium)
                 }
-                PreviousSessionPanel(
-                    previous = exerciseUi.previous,
-                    durationUnit = durationUnit,
-                    restUnit = restUnit,
-                    onRestUnitChange = onRestUnitChange,
-                    onDurationUnitChange = onDurationUnitChange,
-                )
+                PreviousSessionPanel(previous = exerciseUi.previous)
                 SetEntryTextField(
                     value = exerciseUi.notesDraft,
                     onValueChange = { viewModel.onExerciseNotes(exercise.id, it) },
