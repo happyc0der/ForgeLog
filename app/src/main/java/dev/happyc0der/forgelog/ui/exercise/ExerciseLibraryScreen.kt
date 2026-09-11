@@ -43,6 +43,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -70,8 +71,7 @@ fun ExerciseLibraryScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
-    var pendingDeleteId by rememberSaveable { mutableStateOf<Long?>(null) }
-    val pendingDelete = pendingDeleteId?.let { id -> uiState.exercises.firstOrNull { it.id == id } }
+    val pendingDelete by viewModel.pendingDelete.collectAsStateWithLifecycle()
     val howToMissing = stringResource(R.string.exercise_how_to_missing_app)
 
     LaunchedEffect(Unit) {
@@ -211,7 +211,7 @@ fun ExerciseLibraryScreen(
                                     onEdit = { onEdit(exercise.id) },
                                     onOpenHowTo = { viewModel.onOpenHowTo(exercise) },
                                     onArchive = { viewModel.archive(exercise, !exercise.isArchived) },
-                                    onDelete = { pendingDeleteId = exercise.id },
+                                    onDelete = { viewModel.requestDelete(exercise) },
                                 )
                             }
                         }
@@ -221,15 +221,21 @@ fun ExerciseLibraryScreen(
         }
     }
 
-    pendingDelete?.let { exercise ->
+    pendingDelete?.let { pending ->
         ConfirmDialog(
             title = stringResource(R.string.exercise_delete_title),
-            message = stringResource(R.string.exercise_delete_message, exercise.name),
-            onConfirm = {
-                viewModel.delete(exercise)
-                pendingDeleteId = null
+            message = if (pending.programDays > 0) {
+                pluralStringResource(
+                    R.plurals.exercise_delete_message_in_programs,
+                    pending.programDays,
+                    pending.exercise.name,
+                    pending.programDays,
+                )
+            } else {
+                stringResource(R.string.exercise_delete_message, pending.exercise.name)
             },
-            onDismiss = { pendingDeleteId = null },
+            onConfirm = viewModel::confirmDelete,
+            onDismiss = viewModel::cancelDelete,
         )
     }
 }

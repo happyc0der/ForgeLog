@@ -13,5 +13,8 @@ interface ExerciseRepository {
     suspend fun findByName(name: String): Exercise?
     suspend fun setArchived(id: Long, archived: Boolean)
     suspend fun hasSessionHistory(id: Long): Boolean
+
+    /** How many program days list this exercise, and so would lose it if it were deleted. */
+    suspend fun programDaysUsing(id: Long): Int
     suspend fun deleteIfUnusedInSessions(id: Long)
 }

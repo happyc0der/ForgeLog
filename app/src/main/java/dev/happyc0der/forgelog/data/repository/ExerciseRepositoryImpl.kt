@@ -62,6 +62,10 @@ class ExerciseRepositoryImpl @Inject constructor(
         workoutSessionDao.countSessionExercisesForExercise(id) > 0
     }
 
+    override suspend fun programDaysUsing(id: Long): Int = withContext(ioDispatcher) {
+        programDao.countDaysUsingExercise(id)
+    }
+
     override suspend fun deleteIfUnusedInSessions(id: Long) = withContext(ioDispatcher) {
         database.withTransaction {
             val hasHistory = workoutSessionDao.countSessionExercisesForExercise(id) > 0

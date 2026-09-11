@@ -101,6 +101,10 @@ interface ProgramDao {
     @Query("DELETE FROM program_exercises WHERE exerciseId = :exerciseId")
     suspend fun deleteProgramExercisesByExerciseId(exerciseId: Long)
 
+    /** How many program days list [exerciseId]: the days deleting it would take it out of. */
+    @Query("SELECT COUNT(DISTINCT programDayId) FROM program_exercises WHERE exerciseId = :exerciseId")
+    suspend fun countDaysUsingExercise(exerciseId: Long): Int
+
     @Insert
     suspend fun insertProgram(entity: WorkoutProgramEntity): Long
 

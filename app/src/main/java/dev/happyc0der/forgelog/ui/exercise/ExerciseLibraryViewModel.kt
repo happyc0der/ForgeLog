@@ -33,6 +33,9 @@ data class ExerciseLibraryUiState(
     val exercises: List<Exercise> = emptyList(),
 )
 
+/** An exercise the user asked to delete, and how many program days it would be taken out of. */
+data class PendingExerciseDelete(val exercise: Exercise, val programDays: Int)
+
 sealed interface ExerciseLibraryEvent {
     data class Message(val value: String) : ExerciseLibraryEvent
     data class OpenHowTo(val url: String) : ExerciseLibraryEvent
@@ -47,6 +50,10 @@ class ExerciseLibraryViewModel @Inject constructor(
     private val category = MutableStateFlow<ExerciseCategory?>(null)
     private val includeArchived = MutableStateFlow(false)
     private val loadError = MutableStateFlow<String?>(null)
+    private val _pendingDelete = MutableStateFlow<PendingExerciseDelete?>(null)
+
+    /** The delete awaiting confirmation, found out before the dialog is shown. */
+    val pendingDelete: StateFlow<PendingExerciseDelete?> = _pendingDelete
 
     /** Bumped by [retry] to re-subscribe after a failure, since `catch` ends the source flow. */
     private val retryToken = MutableStateFlow(0)
@@ -138,6 +145,36 @@ class ExerciseLibraryViewModel @Inject constructor(
                 ),
             )
         }
+    }
+
+    /**
+     * Looks before asking. The dialog used to say "It is not used in any logged session" before
+     * anything had checked -- so an exercise with history was confirmed, then refused -- and never
+     * said that deleting it also takes it out of every program day that lists it.
+     */
+    fun requestDelete(exercise: Exercise) {
+        launchSafely(::reportAsMessage) {
+            if (!ExerciseDeletePolicy.canHardDelete(exerciseRepository.hasSessionHistory(exercise.id))) {
+                eventsChannel.send(
+                    ExerciseLibraryEvent.Message(application.getString(R.string.exercise_archive_instead)),
+                )
+                return@launchSafely
+            }
+            _pendingDelete.value = PendingExerciseDelete(
+                exercise = exercise,
+                programDays = exerciseRepository.programDaysUsing(exercise.id),
+            )
+        }
+    }
+
+    fun cancelDelete() {
+        _pendingDelete.value = null
+    }
+
+    fun confirmDelete() {
+        val pending = _pendingDelete.value ?: return
+        _pendingDelete.value = null
+        delete(pending.exercise)
     }
 
     fun delete(exercise: Exercise) {

@@ -330,7 +330,7 @@
     <string name="exercise_how_to_invalid">Enter a valid http or https link.</string>
     <string name="exercise_how_to_missing_app">No browser is available to open this link.</string>
     <string name="exercise_delete_title">Delete exercise?</string>
-    <string name="exercise_delete_message">This removes %1$s from your library. It is not used in any logged session.</string>
+    <string name="exercise_delete_message">This removes %1$s from your library.</string>
     <string name="exercise_archive_instead">This exercise has session history, so it can only be archived.</string>
     <string name="exercise_saved">Exercise saved.</string>
     <string name="exercise_archived">Exercise archived.</string>
@@ -473,6 +473,10 @@
     <plurals name="analytics_compare_weeks_ago">
         <item quantity="one">%1$d week ago</item>
         <item quantity="other">%1$d weeks ago</item>
+    </plurals>
+    <plurals name="exercise_delete_message_in_programs">
+        <item quantity="one">This removes %1$s from your library, and from the %2$d program day that lists it.</item>
+        <item quantity="other">This removes %1$s from your library, and from the %2$d program days that list it.</item>
     </plurals>
     <plurals name="workout_set_count">
         <item quantity="one">%1$d set</item>
