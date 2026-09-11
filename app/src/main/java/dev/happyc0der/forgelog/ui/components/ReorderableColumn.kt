@@ -29,7 +29,9 @@ import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.zIndex
+import dev.happyc0der.forgelog.R
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -62,8 +64,8 @@ fun <T> ReorderableColumn(
     onDragEnd: () -> Unit,
     modifier: Modifier = Modifier,
     scrollState: ScrollState? = null,
-    moveUpLabel: String = "Move up",
-    moveDownLabel: String = "Move down",
+    moveUpLabel: String = stringResource(R.string.action_move_up),
+    moveDownLabel: String = stringResource(R.string.action_move_down),
     itemContent: @Composable ColumnScope.(item: T, dragHandleModifier: Modifier) -> Unit,
 ) {
     // Height per row key, so the drag maths uses each row's real size.
