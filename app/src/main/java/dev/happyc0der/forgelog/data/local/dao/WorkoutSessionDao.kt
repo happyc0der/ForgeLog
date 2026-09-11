@@ -216,6 +216,18 @@ interface WorkoutSessionDao {
     @Query("DELETE FROM set_logs WHERE id = :id")
     suspend fun deleteSetLog(id: Long)
 
+    @Query("SELECT * FROM set_logs WHERE id = :id")
+    suspend fun getSetLog(id: Long): SetLogEntity?
+
+    /** Moves the sets after a deleted one up a place. See WorkoutSessionRepository.deleteSetLog. */
+    @Query(
+        """
+        UPDATE set_logs SET setNumber = setNumber - 1
+        WHERE sessionExerciseId = :sessionExerciseId AND setNumber > :deletedSetNumber
+        """,
+    )
+    suspend fun closeSetNumberGap(sessionExerciseId: Long, deletedSetNumber: Int)
+
     @Query("SELECT COUNT(*) FROM session_exercises WHERE exerciseId = :exerciseId")
     suspend fun countSessionExercisesForExercise(exerciseId: Long): Int
 

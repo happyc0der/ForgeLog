@@ -123,8 +123,16 @@ class WorkoutSessionRepositoryImpl @Inject constructor(
         workoutSessionDao.updateSetRestAfter(setLogId, seconds)
     }
 
+    /**
+     * The sets after the deleted one move up a place: a set's number is its position. Deleting set 2
+     * of 3 used to leave "Set 1" and "Set 3", and the next set added became "Set 4".
+     */
     override suspend fun deleteSetLog(id: Long) = withContext(ioDispatcher) {
-        workoutSessionDao.deleteSetLog(id)
+        database.withTransaction {
+            val deleted = workoutSessionDao.getSetLog(id) ?: return@withTransaction
+            workoutSessionDao.deleteSetLog(id)
+            workoutSessionDao.closeSetNumberGap(deleted.sessionExerciseId, deleted.setNumber)
+        }
     }
 
     override suspend fun startSession(
