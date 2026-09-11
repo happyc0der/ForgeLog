@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.dropWhile
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -53,6 +54,8 @@ class RestTimerController(
     private val timeProvider: TimeProvider,
     private val alert: RestAlert,
     private val alarm: RestAlarmScheduler = NoRestAlarm,
+    /** The in-progress session's id, or null when there is none. */
+    inProgressSessionId: Flow<Long?> = emptyFlow(),
 ) {
     private val active = MutableStateFlow<ActiveRest?>(null)
 
@@ -106,6 +109,24 @@ class RestTimerController(
     }
 
     init {
+        /*
+         * A rest only lives as long as its workout. Whatever ends one -- finishing, abandoning,
+         * deleting it from History mid-rest, a restore, deleting all data -- the rest and its alarm
+         * go with it. Deleting an in-progress workout from History used to leave the alarm set, so
+         * the phone buzzed later for a workout that no longer existed.
+         */
+        scope.launch {
+            inProgressSessionId.collect { current ->
+                if (current == null) {
+                    active.value = null
+                    // Directly as well: an alarm left by an earlier process is not in this state.
+                    alarm.cancel()
+                } else {
+                    active.update { rest -> rest?.takeIf { it.sessionId == current } }
+                }
+            }
+        }
+
         /*
          * Keeps the exact alarm on the rest's end: moved by +15, dropped by a pause, a skip, an
          * untick or the end of the workout, and set again on resume.

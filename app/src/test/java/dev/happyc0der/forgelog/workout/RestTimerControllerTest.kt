@@ -144,4 +144,37 @@ class RestTimerControllerTest {
 
         assertEquals(listOf<Long?>(null), alarm.calls)
     }
+
+    @Test
+    fun `a rest goes, alarm and all, when its workout stops being in progress`() = runTest {
+        val alarm = FakeAlarm()
+        val inProgress = kotlinx.coroutines.flow.MutableStateFlow<Long?>(1L)
+        val rest = RestTimerController(backgroundScope, time, {}, alarm, inProgressSessionId = inProgress)
+        runCurrent()
+        rest.start(sessionId = 1, targetSeconds = 90, anchorEpochMs = t0, startedBySetId = 5)
+        runCurrent()
+        assertEquals(t0 + 90_000L, alarm.calls.last())
+
+        // Deleted from History mid-rest.
+        inProgress.value = null
+        runCurrent()
+
+        assertNull(rest.current(sessionId = 1))
+        assertNull("the phone must not buzz for a workout that no longer exists", alarm.calls.last())
+    }
+
+    @Test
+    fun `starting another workout drops the old one's rest`() = runTest {
+        val alarm = FakeAlarm()
+        val inProgress = kotlinx.coroutines.flow.MutableStateFlow<Long?>(1L)
+        val rest = RestTimerController(backgroundScope, time, {}, alarm, inProgressSessionId = inProgress)
+        runCurrent()
+        rest.start(sessionId = 1, targetSeconds = 90, anchorEpochMs = t0, startedBySetId = 5)
+        runCurrent()
+
+        inProgress.value = 2L
+        runCurrent()
+
+        assertNull(rest.current(sessionId = 1))
+    }
 }

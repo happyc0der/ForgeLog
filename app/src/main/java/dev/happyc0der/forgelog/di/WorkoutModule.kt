@@ -6,6 +6,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import dev.happyc0der.forgelog.domain.repository.WorkoutSessionRepository
 import dev.happyc0der.forgelog.domain.settings.SettingsRepository
 import dev.happyc0der.forgelog.domain.time.TimeProvider
 import dev.happyc0der.forgelog.ui.workout.RestTimerFeedback
@@ -15,7 +16,9 @@ import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -33,11 +36,15 @@ object WorkoutModule {
         @ApplicationContext context: Context,
         timeProvider: TimeProvider,
         settingsRepository: SettingsRepository,
+        workoutSessionRepository: WorkoutSessionRepository,
         @MainDispatcher mainDispatcher: CoroutineDispatcher,
     ): RestTimerController = RestTimerController(
         scope = CoroutineScope(SupervisorJob() + mainDispatcher),
         timeProvider = timeProvider,
         alarm = AndroidRestAlarmScheduler(context),
+        inProgressSessionId = workoutSessionRepository.observeInProgressSession()
+            .map { it?.id }
+            .distinctUntilChanged(),
         alert = {
             val settings = settingsRepository.settings.first()
             RestTimerFeedback.signal(

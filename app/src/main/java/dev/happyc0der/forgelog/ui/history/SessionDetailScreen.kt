@@ -42,6 +42,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.happyc0der.forgelog.R
 import dev.happyc0der.forgelog.domain.model.ExerciseUnit
 import dev.happyc0der.forgelog.domain.model.SessionExerciseWithSets
+import dev.happyc0der.forgelog.domain.model.SessionStatus
 import dev.happyc0der.forgelog.domain.model.SetLog
 import dev.happyc0der.forgelog.ui.components.CardHeader
 import dev.happyc0der.forgelog.ui.components.ConfirmDialog
@@ -164,7 +165,10 @@ fun SessionDetailScreen(
                     }
                 },
                 actions = {
-                    if (uiState.detail != null) {
+                    // Not for a workout still in progress: the logger is where that is edited, and
+                    // editing it here too meant two screens changing the same sets at once.
+                    val inProgress = uiState.detail?.session?.status == SessionStatus.IN_PROGRESS
+                    if (uiState.detail != null && !inProgress) {
                         TextButton(onClick = viewModel::toggleEditing) {
                             Text(
                                 text = stringResource(
@@ -209,6 +213,7 @@ fun SessionDetailScreen(
                         uiState = uiState,
                         zone = zone,
                         onRepeat = viewModel::repeatSession,
+                        onResume = { onResumeWorkout(detail.session.id) },
                         onDelete = { confirmDelete = true },
                     )
                 }
@@ -246,6 +251,7 @@ private fun SessionSummaryCard(
     uiState: SessionDetailUiState,
     zone: ZoneId,
     onRepeat: () -> Unit,
+    onResume: () -> Unit,
     onDelete: () -> Unit,
 ) {
     val summary = uiState.summary ?: return
@@ -281,14 +287,21 @@ private fun SessionSummaryCard(
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // A workout still in progress is gone back into, not repeated: "Repeat" on it only
+            // said that another workout was in progress -- this one.
+            val inProgress = session.status == SessionStatus.IN_PROGRESS
             OutlinedButton(
-                onClick = onRepeat,
+                onClick = if (inProgress) onResume else onRepeat,
                 modifier = Modifier
                     .weight(1f)
                     .heightIn(min = 48.dp),
                 shape = MaterialTheme.shapes.medium,
             ) {
-                Text(text = stringResource(R.string.history_repeat))
+                Text(
+                    text = stringResource(
+                        if (inProgress) R.string.home_resume_workout else R.string.history_repeat,
+                    ),
+                )
             }
             OutlinedButton(
                 onClick = onDelete,
