@@ -30,6 +30,14 @@ class RestTimerControllerTest {
         }
     }
 
+    /** What an earlier process left, and what this one saves. */
+    private class FakeStore(var saved: ActiveRest? = null) : RestStateStore {
+        override fun load(): ActiveRest? = saved
+        override fun save(rest: ActiveRest?) {
+            saved = rest
+        }
+    }
+
     private val t0 = 1_000_000L
     private val time = FakeTimeProvider(now = t0)
 
@@ -176,5 +184,83 @@ class RestTimerControllerTest {
         runCurrent()
 
         assertNull(rest.current(sessionId = 1))
+    }
+
+    // --- A rest outliving the process -------------------------------------------------------
+
+    private fun TestScope.restarted(store: FakeStore, alarm: FakeAlarm, alert: RestAlert = RestAlert {}) =
+        RestTimerController(backgroundScope, time, alert, alarm, store = store)
+
+    @Test
+    fun `a rest skipped before the app was closed stays skipped`() = runTest {
+        val skipped = RestTimer.dismiss(RestTimer.start(targetSeconds = 90, anchorEpochMs = t0 - 10_000L))
+        val alarm = FakeAlarm()
+        val rest = restarted(FakeStore(ActiveRest(1, skipped, startedBySetId = 5)), alarm)
+        runCurrent()
+
+        // Present, so the logger does not rebuild a running one, and silent.
+        assertEquals(true, rest.current(1)?.state?.isDismissed)
+        assertEquals(emptyList<Long?>(), alarm.calls)
+    }
+
+    @Test
+    fun `a paused rest comes back paused, with no alarm`() = runTest {
+        val paused = RestTimer.pause(RestTimer.start(targetSeconds = 90, anchorEpochMs = t0 - 30_000L), t0 - 20_000L)
+        val alarm = FakeAlarm()
+        val rest = restarted(FakeStore(ActiveRest(1, paused, startedBySetId = 5)), alarm)
+        runCurrent()
+
+        assertEquals(80, rest.current(1)?.state?.pausedRemainingSeconds)
+        assertEquals(emptyList<Long?>(), alarm.calls)
+    }
+
+    @Test
+    fun `an extended rest comes back with its end, and its alarm there`() = runTest {
+        val extended = RestTimer.adjust(RestTimer.start(targetSeconds = 90, anchorEpochMs = t0 - 30_000L), 15)
+        val alarm = FakeAlarm()
+        val rest = restarted(FakeStore(ActiveRest(1, extended, startedBySetId = 5)), alarm)
+        runCurrent()
+
+        assertEquals(105, rest.current(1)?.state?.targetSeconds)
+        assertEquals(t0 - 30_000L + 105_000L, alarm.calls.last())
+        // Still the set that started it, so unticking that set still stops it.
+        rest.stopIfStartedBy(1, setId = 5)
+        runCurrent()
+        assertNull(rest.current(1))
+    }
+
+    @Test
+    fun `a rest that ended while the app was closed is not brought back`() = runTest {
+        val over = RestTimer.start(targetSeconds = 90, anchorEpochMs = t0 - 200_000L)
+        val alarm = FakeAlarm()
+        val alerts = mutableListOf<Unit>()
+        val store = FakeStore(ActiveRest(1, over, startedBySetId = 5))
+        val rest = restarted(store, alarm, alert = { alerts += Unit })
+        runCurrent()
+        advanceTimeBy(5_000L)
+
+        assertNull(rest.current(1))
+        // No alarm for a time already past, and no second alert.
+        assertEquals(emptyList<Long?>(), alarm.calls)
+        assertEquals(emptyList<Unit>(), alerts)
+        assertNull(store.saved)
+    }
+
+    @Test
+    fun `every change is saved, and the end of the workout forgets it`() = runTest {
+        val store = FakeStore()
+        val rest = restarted(store, FakeAlarm())
+
+        rest.start(sessionId = 1, targetSeconds = 90, anchorEpochMs = t0, startedBySetId = 5)
+        runCurrent()
+        assertEquals(90, store.saved?.state?.targetSeconds)
+
+        rest.update(1) { RestTimer.adjust(it, 15) }
+        runCurrent()
+        assertEquals(105, store.saved?.state?.targetSeconds)
+
+        rest.clear(1)
+        runCurrent()
+        assertNull(store.saved)
     }
 }

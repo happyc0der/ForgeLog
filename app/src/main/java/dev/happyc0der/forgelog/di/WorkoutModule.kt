@@ -12,6 +12,7 @@ import dev.happyc0der.forgelog.domain.time.TimeProvider
 import dev.happyc0der.forgelog.ui.workout.RestTimerFeedback
 import dev.happyc0der.forgelog.workout.AndroidRestAlarmScheduler
 import dev.happyc0der.forgelog.workout.RestTimerController
+import dev.happyc0der.forgelog.workout.SharedPreferencesRestStateStore
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -42,6 +43,7 @@ object WorkoutModule {
         scope = CoroutineScope(SupervisorJob() + mainDispatcher),
         timeProvider = timeProvider,
         alarm = AndroidRestAlarmScheduler(context),
+        store = SharedPreferencesRestStateStore(context),
         inProgressSessionId = workoutSessionRepository.observeInProgressSession()
             .map { it?.id }
             .distinctUntilChanged(),

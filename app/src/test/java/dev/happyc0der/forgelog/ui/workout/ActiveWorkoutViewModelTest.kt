@@ -20,7 +20,10 @@ import dev.happyc0der.forgelog.domain.workout.SetInputField
 import dev.happyc0der.forgelog.domain.workout.SetsLeft
 import dev.happyc0der.forgelog.testing.MainDispatcherRule
 import dev.happyc0der.forgelog.testing.TestEnvironment
+import dev.happyc0der.forgelog.workout.ActiveRest
+import dev.happyc0der.forgelog.workout.NoRestStateStore
 import dev.happyc0der.forgelog.workout.RestAlert
+import dev.happyc0der.forgelog.workout.RestStateStore
 import dev.happyc0der.forgelog.workout.RestTimerController
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
@@ -115,8 +118,19 @@ class ActiveWorkoutViewModelTest {
      * A fresh countdown holder, as a new process would have. On runTest's background scope, which
      * is cancelled with the test, so a countdown still pending cannot hang it.
      */
-    private fun TestScope.newRestTimer(alert: RestAlert = RestAlert {}) =
-        RestTimerController(backgroundScope, env.time, alert)
+    private fun TestScope.newRestTimer(
+        store: RestStateStore = NoRestStateStore,
+        alert: RestAlert = RestAlert {},
+    ) = RestTimerController(backgroundScope, env.time, alert, store = store)
+
+    /** Stands in for the saved rest a real process leaves behind. */
+    private class InMemoryRestStore : RestStateStore {
+        var saved: ActiveRest? = null
+        override fun load(): ActiveRest? = saved
+        override fun save(rest: ActiveRest?) {
+            saved = rest
+        }
+    }
 
     private fun TestScope.viewModel(restTimer: RestTimerController = newRestTimer()) = ActiveWorkoutViewModel(
         savedStateHandle = SavedStateHandle(mapOf("sessionId" to sessionId)),
@@ -486,6 +500,41 @@ class ActiveWorkoutViewModelTest {
             val state = awaitUntil { it.restTimer.isActive }
             assertEquals(120, state.restTimer.targetSeconds)
             assertEquals("1:30", state.restTimer.remainingLabel)
+            cancelAndIgnoreRemainingEvents()
+        }
+        restarted.viewModelScope.cancel()
+    }
+
+    /**
+     * A skipped rest came back after the process died: the logger rebuilt a running countdown from
+     * the last set, and its alarm buzzed for a rest the user had already moved on from.
+     */
+    @Test
+    fun `a rest skipped before the process died is not rebuilt`() = runTest {
+        val store = InMemoryRestStore()
+        val vm = viewModel(newRestTimer(store = store))
+        vm.uiState.test {
+            awaitUntil { it.detail != null }
+            cancelAndIgnoreRemainingEvents()
+        }
+        vm.addSet(sessionExerciseId)
+        advanceUntilIdle()
+        vm.onSetCompleted(sets().single(), true)
+        runCurrent()
+        vm.skipRestTimer()
+        runCurrent()
+        vm.viewModelScope.cancel()
+
+        // 30 seconds into the 120-second rest -- which a rebuild would have restarted -- the process
+        // dies and a new one starts, with what the old one saved.
+        env.time.now += 30_000L
+        val restarted = viewModel(newRestTimer(store = store))
+        restarted.uiState.test {
+            val state = awaitUntil { it.detail != null }
+            runCurrent()
+            assertFalse(state.restTimer.isActive)
+            // Nor after the rebuild had its chance to run.
+            assertFalse(restarted.uiState.value.restTimer.isActive)
             cancelAndIgnoreRemainingEvents()
         }
         restarted.viewModelScope.cancel()

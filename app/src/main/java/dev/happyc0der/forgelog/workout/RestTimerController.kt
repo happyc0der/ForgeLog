@@ -45,9 +45,9 @@ data class ActiveRest(
  * countdown here stops when the phone's CPU sleeps -- screen off, face down on a bench, which is
  * when rests end. The countdown raises the alert only where exact alarms are not allowed.
  *
- * One rest at a time, belonging to one session. The countdown is memory, not storage: after the
- * process is killed the logger rebuilds it from the last completed set, as before, and the alarm,
- * which the system holds, still goes off in the meantime.
+ * One rest at a time, belonging to one session. It is saved as it changes ([RestStateStore]), so a
+ * rest outlives the process: skipped, paused or extended, it comes back as it was. Only when nothing
+ * was saved does the logger rebuild one from the last completed set and the plan.
  */
 class RestTimerController(
     scope: CoroutineScope,
@@ -56,8 +56,21 @@ class RestTimerController(
     private val alarm: RestAlarmScheduler = NoRestAlarm,
     /** The in-progress session's id, or null when there is none. */
     inProgressSessionId: Flow<Long?> = emptyFlow(),
+    private val store: RestStateStore = NoRestStateStore,
 ) {
-    private val active = MutableStateFlow<ActiveRest?>(null)
+    private val active = MutableStateFlow(stillCurrent(store.load()))
+
+    /**
+     * A rest saved by an earlier process, if it is still one to show: skipped or paused -- so it
+     * stays that way rather than being rebuilt running -- or running and not yet over. One that
+     * ended while the app was closed is left behind: its alarm has gone off already, and setting
+     * it again for a time already past would buzz a second time the moment the app came back.
+     */
+    private fun stillCurrent(saved: ActiveRest?): ActiveRest? = saved?.takeIf { rest ->
+        val state = rest.state
+        val endsAt = state.endsAtEpochMs()
+        state.isDismissed || state.isPaused || (endsAt != null && endsAt > timeProvider.nowEpochMs())
+    }
 
     /** The countdown for [sessionId]; null when there is none. */
     fun observe(sessionId: Long): Flow<RestTimerState?> = active
@@ -109,6 +122,11 @@ class RestTimerController(
     }
 
     init {
+        // Saved as it changes, so the process can go at any moment without losing it.
+        scope.launch {
+            active.collect { rest -> store.save(rest) }
+        }
+
         /*
          * A rest only lives as long as its workout. Whatever ends one -- finishing, abandoning,
          * deleting it from History mid-rest, a restore, deleting all data -- the rest and its alarm
