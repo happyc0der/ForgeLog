@@ -239,11 +239,12 @@ class RestTimerControllerTest {
         runCurrent()
         advanceTimeBy(5_000L)
 
-        assertNull(rest.current(1))
+        // Back as done: nothing shown, and present, so the logger does not rebuild one.
+        assertEquals(false, rest.current(1)?.state?.isActive)
         // No alarm for a time already past, and no second alert.
         assertEquals(emptyList<Long?>(), alarm.calls)
         assertEquals(emptyList<Unit>(), alerts)
-        assertNull(store.saved)
+        assertEquals(true, store.saved?.state?.isDismissed)
     }
 
     @Test

@@ -587,6 +587,46 @@ class ActiveWorkoutViewModelTest {
         restarted.viewModelScope.cancel()
     }
 
+    /**
+     * A rest started by hand ended while the app was closed, within the planned rest of the set
+     * before it. Forgotten, it let the logger rebuild that set's rest -- still running -- and buzz
+     * a second time.
+     */
+    @Test
+    fun `a rest that ended while the app was closed does not make way for a rebuilt one`() = runTest {
+        env.settingsRepository.setDefaultRestSeconds(30)
+        val store = InMemoryRestStore()
+        val vm = viewModel(newRestTimer(store = store))
+        vm.uiState.test {
+            awaitUntil { it.detail != null }
+            cancelAndIgnoreRemainingEvents()
+        }
+        vm.addSet(sessionExerciseId)
+        advanceUntilIdle()
+        vm.onSetCompleted(sets().single(), true)
+        runCurrent()
+        // Ten seconds on, a rest by hand: the default 30 s rather than the set's planned 120 s.
+        env.time.now += 10_000L
+        planNoRest()
+        vm.startRestTimer(sessionExerciseId)
+        runCurrent()
+        vm.viewModelScope.cancel()
+        // The plan goes back to 120 s, so a rebuild would find 60 s of it still to run.
+        val entry = env.sessionRepository.getSessionDetail(sessionId)!!.exercises.single().exercise
+        env.sessionRepository.upsertSessionExercise(entry.copy(targetRestSeconds = 120))
+
+        env.time.now += 50_000L
+        val restarted = viewModel(newRestTimer(store = store))
+        restarted.uiState.test {
+            val state = awaitUntil { it.detail != null }
+            runCurrent()
+            assertFalse(state.restTimer.isActive)
+            assertFalse(restarted.uiState.value.restTimer.isActive)
+            cancelAndIgnoreRemainingEvents()
+        }
+        restarted.viewModelScope.cancel()
+    }
+
     @Test
     fun `a rest that already elapsed is not resurrected`() = runTest {
         val vm = viewModel()

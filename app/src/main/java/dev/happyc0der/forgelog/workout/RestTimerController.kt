@@ -58,18 +58,25 @@ class RestTimerController(
     inProgressSessionId: Flow<Long?> = emptyFlow(),
     private val store: RestStateStore = NoRestStateStore,
 ) {
-    private val active = MutableStateFlow(stillCurrent(store.load()))
+    private val active = MutableStateFlow(asRestored(store.load()))
 
     /**
-     * A rest saved by an earlier process, if it is still one to show: skipped or paused -- so it
-     * stays that way rather than being rebuilt running -- or running and not yet over. One that
-     * ended while the app was closed is left behind: its alarm has gone off already, and setting
-     * it again for a time already past would buzz a second time the moment the app came back.
+     * A rest saved by an earlier process, as it should come back: skipped or paused as it was, so
+     * it is not rebuilt running, and running if it is not yet over.
+     *
+     * One that ended while the app was closed comes back as done -- skipped, in effect: shown
+     * nowhere and setting no alarm, since its alarm has gone off already and one for a time already
+     * past would buzz again the moment the app returned. Forgetting it instead would leave the
+     * logger free to rebuild a rest from the last set, which after a rest started by hand could be
+     * one still running, and buzz a second time.
      */
-    private fun stillCurrent(saved: ActiveRest?): ActiveRest? = saved?.takeIf { rest ->
+    private fun asRestored(saved: ActiveRest?): ActiveRest? {
+        val rest = saved ?: return null
         val state = rest.state
         val endsAt = state.endsAtEpochMs()
-        state.isDismissed || state.isPaused || (endsAt != null && endsAt > timeProvider.nowEpochMs())
+        val over = !state.isDismissed && !state.isPaused &&
+            (endsAt == null || endsAt <= timeProvider.nowEpochMs())
+        return if (over) rest.copy(state = RestTimer.dismiss(state)) else rest
     }
 
     /** The countdown for [sessionId]; null when there is none. */
