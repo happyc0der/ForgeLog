@@ -177,9 +177,9 @@ internal fun LastWorkoutCard(
         CardHeader(
             title = stringResource(R.string.home_last_workout_title),
             trailing = {
-                if (summary?.completedAt != null && today != null) {
+                if (summary != null && today != null) {
                     Text(
-                        text = relativeDate(summary.completedAt, today, zone),
+                        text = relativeDate(summary.startedAt, today, zone),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.secondary,
                     )

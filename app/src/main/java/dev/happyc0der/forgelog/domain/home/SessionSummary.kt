@@ -14,6 +14,12 @@ import dev.happyc0der.forgelog.domain.workout.WorkoutVolume
 data class SessionSummary(
     val sessionId: Long,
     val sessionName: String,
+    /**
+     * When the workout began: the time a session is dated by everywhere it is shown. History and
+     * the week buckets already used it, while the summary and Home dated a session by its finish,
+     * so one workout read "09:04" in History and "09:07" on its own summary.
+     */
+    val startedAt: Long,
     val completedAt: Long?,
     val durationMs: Long?,
     val volume: WorkoutVolume,
@@ -61,6 +67,7 @@ object TrainingSummaries {
         return SessionSummary(
             sessionId = session.id,
             sessionName = session.sessionName,
+            startedAt = session.startedAt,
             completedAt = session.completedAt,
             durationMs = session.completedAt?.let { end -> (end - session.startedAt).takeIf { it >= 0 } },
             volume = VolumeCalculator.sessionVolume(

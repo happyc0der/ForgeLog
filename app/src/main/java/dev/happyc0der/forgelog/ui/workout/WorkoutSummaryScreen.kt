@@ -125,17 +125,16 @@ private fun HeadlineCard(
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.primary,
         )
-        summary.completedAt?.let { completedAt ->
-            Text(
-                text = stringResource(
-                    R.string.summary_subtitle,
-                    relativeDate(completedAt, LocalDate.now(zone), zone),
-                    Formatters.timeOfDay(completedAt, zone),
-                ),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+        // Dated by its start, as History dates it.
+        Text(
+            text = stringResource(
+                R.string.summary_subtitle,
+                relativeDate(summary.startedAt, LocalDate.now(zone), zone),
+                Formatters.timeOfDay(summary.startedAt, zone),
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         StatGrid(
             stats = listOf(
                 stringResource(R.string.home_stat_duration) to
