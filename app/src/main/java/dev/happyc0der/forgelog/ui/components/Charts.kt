@@ -116,9 +116,11 @@ fun LineChart(
     points: List<LinePoint>,
     modifier: Modifier = Modifier,
     valueLabel: (Double) -> String = { it.toInt().toString() },
+    /** What to say with no points, when "nothing logged" would not be true. */
+    emptyMessage: String? = null,
 ) {
     if (points.isEmpty()) {
-        EmptyChartMessage(modifier)
+        EmptyChartMessage(modifier, emptyMessage)
         return
     }
     val lineColor = MaterialTheme.colorScheme.primary
@@ -241,9 +243,9 @@ fun ProportionBars(
 }
 
 @Composable
-private fun EmptyChartMessage(modifier: Modifier = Modifier) {
+private fun EmptyChartMessage(modifier: Modifier = Modifier, message: String? = null) {
     Text(
-        text = stringResource(R.string.analytics_no_data),
+        text = message ?: stringResource(R.string.analytics_no_data),
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = modifier,

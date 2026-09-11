@@ -226,6 +226,8 @@
     <string name="set_type_custom">Custom</string>
 
     <string name="analytics_no_data">Nothing logged in this range.</string>
+    <string name="analytics_top_set_empty">No sets with a weight in this range.</string>
+    <string name="analytics_1rm_empty">Needs working sets of 1 to 10 reps with a weight, in this range.</string>
     <string name="analytics_compare_title">This week vs %1$s</string>
     <string name="analytics_compare_last_week">last week</string>
     <string name="analytics_compare_custom_title">%1$s vs the span before</string>

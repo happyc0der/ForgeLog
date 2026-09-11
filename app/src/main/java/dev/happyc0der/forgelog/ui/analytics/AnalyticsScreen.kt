@@ -26,6 +26,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
@@ -357,6 +358,12 @@ private fun ExerciseProgressCard(
             text = stringResource(R.string.analytics_top_set),
             style = MaterialTheme.typography.titleSmall,
         )
+        /*
+         * Both charts plot one set's load, so their scale reads as a load -- "60 lb", "102.5 lb" --
+         * and not as a volume, which gave "60.0 lb" and rounded 102.5 lb to "103 lb". With no
+         * points they say why: a plank or a pull-up has sessions in range but nothing these charts
+         * can plot, and "Nothing logged in this range" was not true of it.
+         */
         LineChart(
             points = uiState.topSetTrend.map { point ->
                 LinePoint(
@@ -364,9 +371,15 @@ private fun ExerciseProgressCard(
                     label = dateFormatter.format(Instant.ofEpochMilli(point.epochMs).atZone(zone)),
                 )
             },
-            valueLabel = { Formatters.volume(it, uiState.weightUnit) },
+            valueLabel = { Formatters.load(it, uiState.weightUnit) },
+            emptyMessage = stringResource(R.string.analytics_top_set_empty),
         )
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            // The button is 48 dp tall; top-aligned, the heading sat above its label.
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text(
                 text = stringResource(R.string.analytics_estimated_1rm),
                 style = MaterialTheme.typography.titleSmall,
@@ -385,7 +398,8 @@ private fun ExerciseProgressCard(
                     label = dateFormatter.format(Instant.ofEpochMilli(point.epochMs).atZone(zone)),
                 )
             },
-            valueLabel = { Formatters.volume(it, uiState.weightUnit) },
+            valueLabel = { Formatters.load(it, uiState.weightUnit) },
+            emptyMessage = stringResource(R.string.analytics_1rm_empty),
         )
         uiState.selectedExerciseRecords?.let { records ->
             RecordRow(records = records, weightUnit = uiState.weightUnit)
