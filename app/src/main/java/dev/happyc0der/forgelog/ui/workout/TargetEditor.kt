@@ -25,6 +25,7 @@ import dev.happyc0der.forgelog.domain.model.ExerciseTargets
 import dev.happyc0der.forgelog.domain.model.ExerciseUnit
 import dev.happyc0der.forgelog.domain.model.hasTargets
 import dev.happyc0der.forgelog.ui.format.Formatters
+import dev.happyc0der.forgelog.ui.input.NumericInput
 import dev.happyc0der.forgelog.ui.input.bringIntoViewWhenFocused
 
 /**
@@ -139,7 +140,10 @@ private fun TargetField(
     var draft by rememberSaveable { mutableStateOf(value.orEmpty()) }
     OutlinedTextField(
         value = draft,
-        onValueChange = { input ->
+        onValueChange = { raw ->
+            // A stray "." in an integer target, or "62,5" in a comma locale, used to be ignored
+            // silently: the field showed it and the target stayed at the old value.
+            val input = NumericInput.accept(raw, decimal) ?: return@OutlinedTextField
             draft = input
             val trimmed = input.trim()
             when {

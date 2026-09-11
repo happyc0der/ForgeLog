@@ -75,6 +75,7 @@ import dev.happyc0der.forgelog.ui.exercise.ExerciseForm
 import dev.happyc0der.forgelog.ui.exercise.ExerciseFormState
 import dev.happyc0der.forgelog.ui.exercise.ExerciseFormStateSaver
 import dev.happyc0der.forgelog.ui.input.DurationSecondsField
+import dev.happyc0der.forgelog.ui.input.NumericInput
 import dev.happyc0der.forgelog.ui.input.bringIntoViewWhenFocused
 import dev.happyc0der.forgelog.ui.input.rememberDurationInputUnit
 import dev.happyc0der.forgelog.ui.input.rememberRestInputUnit
@@ -536,7 +537,9 @@ private fun NumberField(
 ) {
     OutlinedTextField(
         value = value,
-        onValueChange = onValueChange,
+        // Refused at the keystroke, not at Save: a comma decimal used to be accepted into the
+        // field and then rejected as "not a number" when the whole card was saved.
+        onValueChange = { raw -> NumericInput.accept(raw, decimal)?.let(onValueChange) },
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 8.dp)

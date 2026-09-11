@@ -176,7 +176,17 @@ fun SetEntryTextField(
 
     OutlinedTextField(
         value = textFieldValue,
-        onValueChange = { incoming ->
+        onValueChange = { raw ->
+            // Numeric fields refuse a keystroke that would leave unparseable text, rather than
+            // showing it and quietly storing null. Text fields (notes) are left alone.
+            val numeric = keyboardType == KeyboardType.Number || keyboardType == KeyboardType.Decimal
+            val incoming = if (numeric) {
+                val kept = NumericInput.accept(raw.text, decimal = keyboardType == KeyboardType.Decimal)
+                    ?: return@OutlinedTextField
+                if (kept == raw.text) raw else raw.copy(text = kept)
+            } else {
+                raw
+            }
             textFieldValue = incoming
             if (durationUnit != null) {
                 if (incoming.text.isBlank()) {
