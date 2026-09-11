@@ -306,14 +306,22 @@ private fun ExerciseLoggerCard(
                 )
             }
             if (!exerciseUi.expanded) {
+                val planned = exercise.plannedSets
+                val done = exerciseUi.item.sets.count { it.completed }
                 Text(
                     // This counts sets, not exercises. It used to borrow the day builder's
                     // "%1$d exercises" string, so an untouched lift read "0 exercises".
-                    text = pluralStringResource(
-                        R.plurals.workout_set_count,
-                        exerciseUi.item.sets.size,
-                        exerciseUi.item.sets.size,
-                    ),
+                    // Against the plan when there is one -- "2 of 3 sets done" -- since what is
+                    // left is the thing worth knowing between lifts.
+                    text = if (planned != null && planned > 0) {
+                        pluralStringResource(R.plurals.workout_sets_done_of_planned, planned, done, planned)
+                    } else {
+                        pluralStringResource(
+                            R.plurals.workout_set_count,
+                            exerciseUi.item.sets.size,
+                            exerciseUi.item.sets.size,
+                        )
+                    },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

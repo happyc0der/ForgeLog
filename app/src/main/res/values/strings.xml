@@ -466,4 +466,9 @@
         <item quantity="one">%1$d set</item>
         <item quantity="other">%1$d sets</item>
     </plurals>
+    <!-- Progress against the plan, counting sets ticked: "2 of 3 sets done". Keyed on the plan. -->
+    <plurals name="workout_sets_done_of_planned">
+        <item quantity="one">%1$d of %2$d set done</item>
+        <item quantity="other">%1$d of %2$d sets done</item>
+    </plurals>
 </resources>
