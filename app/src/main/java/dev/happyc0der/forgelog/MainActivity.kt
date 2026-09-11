@@ -9,14 +9,26 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import dev.happyc0der.forgelog.domain.time.TimeProvider
+import dev.happyc0der.forgelog.domain.time.ZoneProvider
 import dev.happyc0der.forgelog.ui.ForgeLogApp
+import dev.happyc0der.forgelog.ui.format.LocalTimeProvider
+import dev.happyc0der.forgelog.ui.format.LocalZoneProvider
 import dev.happyc0der.forgelog.ui.theme.ForgeLogTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    @Inject
+    lateinit var timeProvider: TimeProvider
+
+    @Inject
+    lateinit var zoneProvider: ZoneProvider
+
     /**
      * Taps on the workout notification while the app is already running, for it to go back to the
      * logger. They otherwise only brought the app forward, on whatever screen was last open.
@@ -37,8 +49,14 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
         )
         setContent {
-            ForgeLogTheme {
-                ForgeLogApp(openWorkoutRequests = openWorkoutRequests.receiveAsFlow())
+            // The same clock and zone the ViewModels are given, for the dates screens render.
+            CompositionLocalProvider(
+                LocalTimeProvider provides timeProvider,
+                LocalZoneProvider provides zoneProvider,
+            ) {
+                ForgeLogTheme {
+                    ForgeLogApp(openWorkoutRequests = openWorkoutRequests.receiveAsFlow())
+                }
             }
         }
     }

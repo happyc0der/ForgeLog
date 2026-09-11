@@ -11,6 +11,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import androidx.test.core.app.ApplicationProvider
@@ -34,6 +35,7 @@ import dev.happyc0der.forgelog.ui.workout.StartWorkoutViewModel
 import dev.happyc0der.forgelog.ui.workout.WorkoutSummaryScreen
 import dev.happyc0der.forgelog.ui.workout.WorkoutSummaryViewModel
 import dev.happyc0der.forgelog.workout.RestTimerController
+import dev.happyc0der.forgelog.ui.format.LocalTimeProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -322,6 +324,31 @@ class WorkoutFlowUiTest {
         composeRule.onNodeWithTag(TestTags.WORKOUT_SUMMARY_SCREEN)
             .performScrollToNode(hasTestTag(TestTags.WORKOUT_SUMMARY_DONE))
         composeRule.onNodeWithTag(TestTags.WORKOUT_SUMMARY_DONE).assertIsDisplayed()
+    }
+
+    /**
+     * The summary dates its session by the injected clock, not the device's: the test clock is
+     * November 2023, so with the device's own it would read as a date, not "Today".
+     */
+    @Test
+    fun theSummaryDatesTheSessionByTheInjectedClock() {
+        val sessionId = startSession()
+        runBlocking {
+            logSet(sessionId, reps = 5, weight = 205.0)
+            env.sessionRepository.completeSession(sessionId)
+        }
+
+        composeRule.setContent {
+            CompositionLocalProvider(LocalTimeProvider provides env.time) {
+                ForgeLogTheme {
+                    WorkoutSummaryScreen(onDone = {}, onViewLog = {}, viewModel = summary(sessionId))
+                }
+            }
+        }
+
+        composeRule.waitUntil(WAIT_MS) {
+            composeRule.onAllNodesWithText("Today", substring = true).fetchSemanticsNodes().isNotEmpty()
+        }
     }
 
     @Test

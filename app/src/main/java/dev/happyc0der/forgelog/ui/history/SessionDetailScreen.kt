@@ -59,7 +59,8 @@ import dev.happyc0der.forgelog.ui.format.Formatters
 import dev.happyc0der.forgelog.ui.format.relativeDate
 import dev.happyc0der.forgelog.ui.testing.TestTags
 import dev.happyc0der.forgelog.ui.util.label
-import java.time.LocalDate
+import dev.happyc0der.forgelog.ui.format.currentZone
+import dev.happyc0der.forgelog.ui.format.today
 import java.time.ZoneId
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -72,7 +73,7 @@ fun SessionDetailScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    val zone = remember { ZoneId.systemDefault() }
+    val zone = currentZone()
     /*
      * The set being edited is held by id, not by value.
      *
@@ -259,7 +260,7 @@ private fun SessionSummaryCard(
     val session = uiState.detail?.session ?: return
     ForgeHeroCard {
         CardHeader(
-            title = relativeDate(session.startedAt, LocalDate.now(zone), zone) +
+            title = relativeDate(session.startedAt, today(zone), zone) +
                 " · " + Formatters.timeOfDay(session.startedAt, zone),
             trailing = {
                 Text(

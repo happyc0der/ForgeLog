@@ -17,7 +17,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -41,9 +40,10 @@ import dev.happyc0der.forgelog.ui.components.LoadingState
 import dev.happyc0der.forgelog.ui.components.StatGrid
 import dev.happyc0der.forgelog.ui.format.Formatters
 import dev.happyc0der.forgelog.ui.format.relativeDate
-import java.time.LocalDate
 import dev.happyc0der.forgelog.ui.testing.TestTags
 import dev.happyc0der.forgelog.ui.theme.forgeLogColors
+import dev.happyc0der.forgelog.ui.format.currentZone
+import dev.happyc0der.forgelog.ui.format.today
 import java.time.ZoneId
 
 /**
@@ -61,7 +61,7 @@ fun WorkoutSummaryScreen(
     viewModel: WorkoutSummaryViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val zone = remember { ZoneId.systemDefault() }
+    val zone = currentZone()
     val summary = uiState.summary
 
     when {
@@ -129,7 +129,7 @@ private fun HeadlineCard(
         Text(
             text = stringResource(
                 R.string.summary_subtitle,
-                relativeDate(summary.startedAt, LocalDate.now(zone), zone),
+                relativeDate(summary.startedAt, today(zone), zone),
                 Formatters.timeOfDay(summary.startedAt, zone),
             ),
             style = MaterialTheme.typography.bodySmall,

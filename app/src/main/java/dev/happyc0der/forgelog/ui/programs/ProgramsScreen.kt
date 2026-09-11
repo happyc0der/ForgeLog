@@ -56,10 +56,11 @@ import dev.happyc0der.forgelog.ui.components.ConfirmDialog
 import dev.happyc0der.forgelog.ui.components.EmptyState
 import dev.happyc0der.forgelog.ui.format.Formatters
 import dev.happyc0der.forgelog.ui.format.relativeDate
-import java.time.LocalDate
 import java.time.ZoneId
 import dev.happyc0der.forgelog.ui.components.ErrorState
 import dev.happyc0der.forgelog.ui.components.LoadingState
+import dev.happyc0der.forgelog.ui.format.currentZone
+import dev.happyc0der.forgelog.ui.format.today
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -70,7 +71,7 @@ fun ProgramsScreen(
     viewModel: ProgramsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val zone = remember { ZoneId.systemDefault() }
+    val zone = currentZone()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     /*
@@ -302,7 +303,7 @@ private fun ProgramRow(
                     text = summary.lastPerformedAt?.let { stamp ->
                         stringResource(
                             R.string.programs_last_performed,
-                            relativeDate(stamp, LocalDate.now(zone), zone),
+                            relativeDate(stamp, today(zone), zone),
                         )
                     } ?: stringResource(R.string.programs_never_performed),
                     style = MaterialTheme.typography.labelMedium,

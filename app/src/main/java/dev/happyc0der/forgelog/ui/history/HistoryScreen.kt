@@ -64,6 +64,7 @@ import dev.happyc0der.forgelog.ui.format.Formatters
 import dev.happyc0der.forgelog.ui.format.relativeDate
 import dev.happyc0der.forgelog.ui.testing.TestTags
 import dev.happyc0der.forgelog.ui.theme.forgeLogColors
+import dev.happyc0der.forgelog.ui.format.currentZone
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -77,7 +78,7 @@ fun HistoryScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    val zone = remember { ZoneId.systemDefault() }
+    val zone = currentZone()
     var showFilters by rememberSaveable { mutableStateOf(false) }
     var showRangePicker by rememberSaveable { mutableStateOf(false) }
     var pendingDeleteId by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -482,7 +483,7 @@ private fun customRangeLabel(preset: DateRangePreset, uiState: HistoryUiState): 
     val from = uiState.filter.fromEpochMs ?: return null
     val until = uiState.filter.untilEpochMs ?: return null
     val today = uiState.today ?: return null
-    val zone = ZoneId.systemDefault()
+    val zone = currentZone()
     return stringResource(
         R.string.history_range_custom_selected,
         relativeDate(from, today, zone),

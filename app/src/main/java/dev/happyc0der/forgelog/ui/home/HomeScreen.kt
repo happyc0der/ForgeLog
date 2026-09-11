@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -17,7 +16,7 @@ import dev.happyc0der.forgelog.R
 import dev.happyc0der.forgelog.ui.components.ErrorState
 import dev.happyc0der.forgelog.ui.components.LoadingState
 import dev.happyc0der.forgelog.ui.testing.TestTags
-import java.time.ZoneId
+import dev.happyc0der.forgelog.ui.format.currentZone
 
 @Composable
 fun HomeScreen(
@@ -31,7 +30,7 @@ fun HomeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     // Display-only: the ViewModel already resolves every timestamp it reasons about.
-    val zone = remember { ZoneId.systemDefault() }
+    val zone = currentZone()
 
     when {
         uiState.isLoading -> LoadingState(modifier = modifier)

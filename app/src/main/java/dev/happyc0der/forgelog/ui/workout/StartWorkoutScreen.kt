@@ -68,8 +68,8 @@ import dev.happyc0der.forgelog.ui.components.ReorderableColumn
 import dev.happyc0der.forgelog.ui.input.ClearFocusWhenKeyboardHides
 import dev.happyc0der.forgelog.ui.testing.TestTags
 import dev.happyc0der.forgelog.ui.util.label
-import java.time.LocalDate
-import java.time.ZoneId
+import dev.happyc0der.forgelog.ui.format.currentZone
+import dev.happyc0der.forgelog.ui.format.today
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -351,7 +351,7 @@ private fun PlannedExerciseCard(
 fun PreviousSessionPanel(
     previous: PreviousPerformance?,
 ) {
-    val zone = remember { ZoneId.systemDefault() }
+    val zone = currentZone()
     val completedSets = previous?.completedSets.orEmpty()
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(
@@ -364,7 +364,7 @@ fun PreviousSessionPanel(
                     // Dated by its start, as History dates it.
                     stringResource(
                         R.string.workout_previous_title_dated,
-                        relativeDate(performance.session.startedAt, LocalDate.now(zone), zone),
+                        relativeDate(performance.session.startedAt, today(zone), zone),
                     )
                 } ?: stringResource(R.string.workout_previous_title),
                 style = MaterialTheme.typography.titleSmall,

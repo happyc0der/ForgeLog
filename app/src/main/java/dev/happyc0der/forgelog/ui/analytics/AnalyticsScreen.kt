@@ -58,8 +58,9 @@ import dev.happyc0der.forgelog.ui.format.Formatters
 import dev.happyc0der.forgelog.ui.format.relativeDate
 import dev.happyc0der.forgelog.ui.testing.TestTags
 import dev.happyc0der.forgelog.ui.util.label
+import dev.happyc0der.forgelog.ui.format.currentZone
+import dev.happyc0der.forgelog.ui.format.today
 import java.time.Instant
-import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -71,7 +72,7 @@ fun AnalyticsScreen(
     viewModel: AnalyticsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val zone = remember { ZoneId.systemDefault() }
+    val zone = currentZone()
     var showFormula by rememberSaveable { mutableStateOf(false) }
     var showRangePicker by rememberSaveable { mutableStateOf(false) }
 
@@ -464,7 +465,7 @@ private fun TrendWindow.labelRes(): Int = when (this) {
 /** A range as the two local dates it covers. The stored end is exclusive, so it names the day before. */
 @Composable
 private fun rangeLabel(range: WeekBoundary.Range, zone: ZoneId): String {
-    val today = LocalDate.now(zone)
+    val today = today(zone)
     return stringResource(
         R.string.history_range_custom_selected,
         relativeDate(range.start, today, zone),
