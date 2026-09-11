@@ -11,6 +11,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.text.format.DateFormat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -18,11 +19,16 @@ import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import dev.happyc0der.forgelog.MainActivity
 import dev.happyc0der.forgelog.R
-import dev.happyc0der.forgelog.domain.model.WorkoutSession
 import dev.happyc0der.forgelog.domain.repository.WorkoutSessionRepository
+import dev.happyc0der.forgelog.domain.workout.formatSeconds
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import java.util.Date
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -31,7 +37,13 @@ class WorkoutForegroundService : LifecycleService() {
     @Inject
     lateinit var workoutSessionRepository: WorkoutSessionRepository
 
-    private var currentSession: WorkoutSession? = null
+    @Inject
+    lateinit var restTimerController: RestTimerController
+
+    /** What the notification shows now: the workout's name, and its line and chronometer. */
+    private data class Shown(val sessionName: String?, val content: WorkoutNotificationContent)
+
+    private var shown: Shown? = null
 
     /**
      * Whether this service has already entered the foreground.
@@ -54,43 +66,51 @@ class WorkoutForegroundService : LifecycleService() {
         )
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     override fun onCreate() {
         super.onCreate()
         createChannel()
-        startInForeground(buildNotification(sessionName = null, startedAt = null))
+        startInForeground(buildNotification(shown = null))
         lifecycleScope.launch {
             workoutSessionRepository.observeInProgressSession()
-                // Posted when the workout changes -- which one, or its name -- not on every write
-                // to its row.
+                // The workout as the notification sees it -- which one, its name and start -- not
+                // every write to its row.
                 .distinctUntilChanged { old, new ->
                     old?.id == new?.id && old?.sessionName == new?.sessionName && old?.startedAt == new?.startedAt
                 }
-                .collect { session ->
-                    currentSession = session
+                .flatMapLatest { session ->
                     if (session == null) {
+                        flowOf(null)
+                    } else {
+                        // And its rest: a countdown on the lock screen while resting.
+                        restTimerController.observe(session.id).map { rest ->
+                            Shown(session.sessionName, WorkoutNotificationContents.of(session.startedAt, rest))
+                        }
+                    }
+                }
+                // Posted when what it shows changes: a rest started, moved, paused or skipped.
+                .distinctUntilChanged()
+                .collect { next ->
+                    shown = next
+                    if (next == null) {
                         stopForeground(STOP_FOREGROUND_REMOVE)
                         inForeground = false
                         stopSelf()
                     } else {
-                        postNotification(session)
+                        postNotification(next)
                     }
                 }
         }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startInForeground(
-            buildNotification(sessionName = currentSession?.sessionName, startedAt = currentSession?.startedAt),
-        )
+        startInForeground(buildNotification(shown))
         super.onStartCommand(intent, flags, startId)
         return START_STICKY
     }
 
-    private fun postNotification(session: WorkoutSession) {
-        val notification = buildNotification(
-            sessionName = session.sessionName,
-            startedAt = session.startedAt,
-        )
+    private fun postNotification(next: Shown) {
+        val notification = buildNotification(next)
         if (inForeground) {
             updateNotification(notification)
         } else {
@@ -129,25 +149,40 @@ class WorkoutForegroundService : LifecycleService() {
     }
 
     /**
-     * The elapsed time is a chronometer the system draws from [startedAt].
+     * The time shown is a chronometer the system draws: the workout's, counting up, or the rest's,
+     * counting down. See [WorkoutNotificationContent].
      *
      * It used to be text the service rewrote and re-posted once a second for the length of the
      * workout -- some 3,600 notifications an hour, each redrawing the shade and the lock screen, for
      * a number that changed by one. The system ticks a chronometer itself, and the service posts
-     * only when the workout changes.
+     * only when what it shows changes.
      */
-    private fun buildNotification(sessionName: String?, startedAt: Long?): Notification {
-        val title = sessionName?.takeIf { it.isNotBlank() }
+    private fun buildNotification(shown: Shown?): Notification {
+        val title = shown?.sessionName?.takeIf { it.isNotBlank() }
             ?: getString(R.string.workout_notification_title)
+        val content = shown?.content
+        val text = when (val line = content?.line) {
+            is WorkoutNotificationLine.Resting -> getString(
+                R.string.workout_notification_resting,
+                // The phone's own 12- or 24-hour clock.
+                DateFormat.getTimeFormat(this).format(Date(line.endsAtEpochMs)),
+            )
+            is WorkoutNotificationLine.RestPaused -> getString(
+                R.string.workout_notification_rest_paused,
+                formatSeconds(line.remainingSeconds),
+            )
+            WorkoutNotificationLine.Default, null -> getString(R.string.workout_notification_text)
+        }
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_workout)
             .setContentTitle(title)
-            .setContentText(getString(R.string.workout_notification_text))
+            .setContentText(text)
             .apply {
-                if (startedAt != null) {
-                    setWhen(startedAt)
+                if (content != null) {
+                    setWhen(content.chronometerBase)
                     setShowWhen(true)
                     setUsesChronometer(true)
+                    setChronometerCountDown(content.countDown)
                 }
             }
             .setOngoing(true)

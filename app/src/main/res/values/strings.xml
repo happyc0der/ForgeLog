@@ -203,6 +203,9 @@
     <string name="workout_session_missing">This workout is no longer available.</string>
     <string name="workout_notification_title">Workout in progress</string>
     <string name="workout_notification_text">Tap to return to your workout.</string>
+    <!-- While a rest runs: "Rest until 16:33", beside a countdown. -->
+    <string name="workout_notification_resting">Rest until %1$s</string>
+    <string name="workout_notification_rest_paused">Rest paused, %1$s left</string>
     <string name="workout_notification_channel">Workout timer</string>
     <string name="workout_notification_channel_description">Live elapsed time for the workout you are logging.</string>
 

@@ -203,7 +203,7 @@ class RestTimerController(
 }
 
 /** When the running rest ends, or null while there is none, or it is paused or skipped. */
-private fun RestTimerState.endsAtEpochMs(): Long? {
+internal fun RestTimerState.endsAtEpochMs(): Long? {
     val anchor = anchorEpochMs ?: return null
     if (!isActive || isPaused) return null
     return anchor + targetSeconds * 1_000L
