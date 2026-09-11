@@ -185,6 +185,23 @@ class SessionReuseTest {
         assertEquals(listOf(0, 1), day.exercises.map { it.programExercise.exerciseOrder })
     }
 
+    /*
+     * It used to copy only which exercises were done, so the new day asked for nothing and every
+     * target had to be typed in again -- found by trying it on the test device.
+     */
+    @Test
+    fun `a day saved from a session asks for what was done`() = runTest {
+        val sourceId = loggedSession()
+
+        val newDayId = env.programRepository.createDayFromSession(programId, sourceId, "Push Day B")
+
+        val bench = env.programRepository.getDayDetail(newDayId)!!.exercises.first().programExercise
+        assertEquals(1, bench.plannedSets)
+        assertEquals(5, bench.targetRepMin)
+        assertEquals(5, bench.targetRepMax)
+        assertEquals(135.0, bench.targetWeight!!, 0.0)
+    }
+
     @Test
     fun `a day created from a session is appended after existing days`() = runTest {
         val sourceId = loggedSession()

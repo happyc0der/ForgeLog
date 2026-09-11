@@ -46,7 +46,8 @@ interface ProgramRepository {
     suspend fun reorderProgramExercises(orderedProgramExerciseIds: List<Long>)
 
     /**
-     * Creates a new day in [programId] from what was actually logged in [sessionId].
+     * Creates a new day in [programId] from what was actually logged in [sessionId]: its exercises
+     * in order, with targets worked out by [dev.happyc0der.forgelog.domain.workout.DayFromSession].
      *
      * Only exercises that still exist in the library can be carried over: a program day points at
      * library exercises, while a session keeps name snapshots, so an exercise deleted since the

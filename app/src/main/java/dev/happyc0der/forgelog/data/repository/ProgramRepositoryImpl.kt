@@ -16,6 +16,7 @@ import dev.happyc0der.forgelog.domain.model.ProgramSummary
 import dev.happyc0der.forgelog.domain.model.WorkoutProgram
 import dev.happyc0der.forgelog.domain.repository.ProgramRepository
 import dev.happyc0der.forgelog.domain.time.TimeProvider
+import dev.happyc0der.forgelog.domain.workout.DayFromSession
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOn
@@ -150,17 +151,30 @@ class ProgramRepositoryImpl @Inject constructor(
             )
             // A program day references library exercises; a session only keeps name snapshots. An
             // exercise deleted since the session was logged therefore cannot be carried over, and
-            // is skipped rather than silently inventing a new library entry.
-            session.exercises
+            // is skipped rather than silently inventing a new library entry. A lift logged twice
+            // becomes one entry, its targets drawn from both.
+            session.toDomain().exercises
                 .sortedBy { it.exercise.exerciseOrder }
-                .mapNotNull { logged -> logged.exercise.exerciseId }
-                .distinct()
-                .forEachIndexed { index, exerciseId ->
+                .filter { it.exercise.exerciseId != null }
+                .groupBy { it.exercise.exerciseId!! }
+                .entries
+                .forEachIndexed { index, (exerciseId, logged) ->
+                    val targets = DayFromSession.targets(
+                        plan = logged.first().exercise,
+                        sets = logged.flatMap { it.sets },
+                        exerciseUnit = database.exerciseDao().getExercise(exerciseId)?.toDomain()?.defaultUnit,
+                    )
                     programDao.insertProgramExercise(
                         ProgramExercise(
                             programDayId = newDayId,
                             exerciseId = exerciseId,
                             exerciseOrder = index,
+                            plannedSets = targets.plannedSets,
+                            targetRepMin = targets.targetRepMin,
+                            targetRepMax = targets.targetRepMax,
+                            targetWeight = targets.targetWeight,
+                            targetDurationSeconds = targets.targetDurationSeconds,
+                            targetRestSeconds = targets.targetRestSeconds,
                         ).toEntity(),
                     )
                 }
