@@ -2,9 +2,11 @@ package dev.happyc0der.forgelog.di
 
 import android.content.Context
 import androidx.datastore.core.DataStore
+import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.dataStoreFile
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.emptyPreferences
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -33,6 +35,10 @@ object SettingsModule {
         @ApplicationContext context: Context,
         @IoDispatcher ioDispatcher: CoroutineDispatcher,
     ): DataStore<Preferences> = PreferenceDataStoreFactory.create(
+        // A settings file that no longer parses starts again from the defaults. Without this every
+        // read threw, so every screen that reads a setting showed an error, and Retry read the same
+        // broken file. Settings are conveniences; training data lives in the database.
+        corruptionHandler = ReplaceFileCorruptionHandler { emptyPreferences() },
         migrations = listOf(LegacyDurationUnitMigration(context)),
         scope = CoroutineScope(ioDispatcher + SupervisorJob()),
         produceFile = { context.dataStoreFile(SETTINGS_FILE) },
