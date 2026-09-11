@@ -57,6 +57,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.happyc0der.forgelog.R
@@ -128,7 +129,12 @@ fun ActiveWorkoutScreen(
             TopAppBar(
                 title = {
                     Column {
-                        Text(text = uiState.detail?.session?.sessionName ?: stringResource(R.string.workout_active_title))
+                        // Two lines at most: a long day name wrapped to three and pushed the clocks down.
+                        Text(
+                            text = uiState.detail?.session?.sessionName ?: stringResource(R.string.workout_active_title),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                         LoggerClockLines(viewModel)
                     }
                 },

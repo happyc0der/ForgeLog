@@ -56,6 +56,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.happyc0der.forgelog.R
@@ -126,7 +127,11 @@ fun ProgramDayBuilderScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(text = detail?.day?.name ?: stringResource(R.string.day_builder_title))
+                    Text(
+                        text = detail?.day?.name ?: stringResource(R.string.day_builder_title),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
