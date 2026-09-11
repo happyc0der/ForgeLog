@@ -500,6 +500,52 @@ class ActiveWorkoutViewModelTest {
     }
 
     @Test
+    fun `unticking the set that started the rest stops the rest`() = runTest {
+        val vm = viewModel()
+        try {
+            loaded(vm)
+            val set = addSets(vm, sessionExerciseId, count = 1).single()
+            vm.uiState.test {
+                vm.onSetCompleted(set, true)
+                awaitUntil { it.restTimer.isActive }
+
+                vm.onSetCompleted(sets().single(), false)
+                // A mis-tapped set must not leave rest running.
+                awaitUntil { !it.restTimer.isActive }
+                cancelAndIgnoreRemainingEvents()
+            }
+        } finally {
+            // Always, even when an assertion fails: a live countdown hangs runTest's cleanup.
+            vm.viewModelScope.cancel()
+        }
+    }
+
+    @Test
+    fun `unticking an earlier set leaves the running rest alone`() = runTest {
+        val vm = viewModel()
+        try {
+            loaded(vm)
+            val (first, second) = addSets(vm, sessionExerciseId, count = 2)
+            vm.uiState.test {
+                vm.onSetCompleted(first, true)
+                awaitUntil { it.restTimer.isActive }
+                env.time.now += 90_000L
+                vm.onSetCompleted(second, true)
+                runCurrent()
+
+                vm.onSetCompleted(sets().sortedBy { it.setNumber }[0], false)
+                val state = awaitUntil { ui ->
+                    ui.exercises.flatMap { it.item.sets }.any { it.id == first.id && !it.completed }
+                }
+                assertTrue(state.restTimer.isActive)
+                cancelAndIgnoreRemainingEvents()
+            }
+        } finally {
+            vm.viewModelScope.cancel()
+        }
+    }
+
+    @Test
     fun `unticking a set leaves the recorded rest alone`() = runTest {
         val vm = viewModel()
         loaded(vm)

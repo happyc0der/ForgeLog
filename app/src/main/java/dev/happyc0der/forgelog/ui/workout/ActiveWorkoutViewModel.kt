@@ -129,6 +129,15 @@ class ActiveWorkoutViewModel @Inject constructor(
      */
     private val restTimer = MutableStateFlow<RestTimerState?>(null)
 
+    /**
+     * The set whose tick started the running rest, if a tick did.
+     *
+     * Unticking that set stops the rest with it. It used to keep counting -- a mis-tapped set left
+     * a countdown running for rest that never started, and one the next launch would not have
+     * restored, because by then that set was no longer completed.
+     */
+    private var restStartedBySetId: Long? = null
+
     @OptIn(ExperimentalCoroutinesApi::class)
     private val previousByExercise = workoutSessionRepository.observeSessionDetail(sessionId)
         .flatMapLatest { detail ->
@@ -256,6 +265,7 @@ class ActiveWorkoutViewModel @Inject constructor(
                 defaultRestSeconds = settingsRepository.settings.first().defaultRestSeconds,
             )
             restTimer.value = RestTimer.restore(anchor, target, timeProvider.nowEpochMs())
+            restStartedBySetId = set.id
         }
     }
 
@@ -389,6 +399,7 @@ class ActiveWorkoutViewModel @Inject constructor(
     fun startRestTimer(sessionExerciseId: Long) {
         launchSafely(::reportAsMessage) {
             startRestTimer(sessionExerciseId, timeProvider.nowEpochMs())
+            restStartedBySetId = null
         }
     }
 
@@ -432,6 +443,10 @@ class ActiveWorkoutViewModel @Inject constructor(
                 // set before it is left as it was, because there is no way to know what it held
                 // before this completion overwrote it.
                 workoutSessionRepository.upsertSetLog(current.copy(completed = false, completedAt = null))
+                if (restStartedBySetId == set.id) {
+                    restTimer.value = null
+                    restStartedBySetId = null
+                }
                 return@launchSafely
             }
             val now = timeProvider.nowEpochMs()
@@ -448,6 +463,7 @@ class ActiveWorkoutViewModel @Inject constructor(
                 )
             }
             startRestTimer(set.sessionExerciseId, now)
+            restStartedBySetId = set.id
         }
     }
 
