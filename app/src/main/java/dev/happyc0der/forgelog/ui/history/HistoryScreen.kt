@@ -65,6 +65,7 @@ import dev.happyc0der.forgelog.ui.format.relativeDate
 import dev.happyc0der.forgelog.ui.testing.TestTags
 import dev.happyc0der.forgelog.ui.theme.forgeLogColors
 import dev.happyc0der.forgelog.ui.format.currentZone
+import dev.happyc0der.forgelog.ui.format.timeOfDay
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -370,10 +371,10 @@ private fun HistoryRowCard(
             title = buildString {
                 append(
                     today?.let { relativeDate(row.startedAt, it, zone) }
-                        ?: Formatters.timeOfDay(row.startedAt, zone),
+                        ?: timeOfDay(row.startedAt, zone),
                 )
                 append(" · ")
-                append(Formatters.timeOfDay(row.startedAt, zone))
+                append(timeOfDay(row.startedAt, zone))
             },
             trailing = {
                 Row(verticalAlignment = Alignment.CenterVertically) {

@@ -1,6 +1,8 @@
 package dev.happyc0der.forgelog.ui.format
 
+import android.text.format.DateFormat
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import dev.happyc0der.forgelog.R
 import dev.happyc0der.forgelog.domain.format.plainNumber as domainPlainNumber
@@ -155,10 +157,22 @@ object Formatters {
         }
     }
 
-    fun timeOfDay(epochMs: Long, zone: ZoneId): String =
-        DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault())
+    /** "18:05", or "6:05 PM" on a phone set to the 12-hour clock. */
+    fun timeOfDay(epochMs: Long, zone: ZoneId, use24Hour: Boolean = true): String =
+        DateTimeFormatter.ofPattern(if (use24Hour) "HH:mm" else "h:mm a", Locale.getDefault())
             .format(Instant.ofEpochMilli(epochMs).atZone(zone))
 }
+
+/**
+ * [Formatters.timeOfDay] on the phone's own clock. It was always 24-hour, whatever the phone was
+ * set to.
+ */
+@Composable
+fun timeOfDay(epochMs: Long, zone: ZoneId): String = Formatters.timeOfDay(
+    epochMs = epochMs,
+    zone = zone,
+    use24Hour = DateFormat.is24HourFormat(LocalContext.current),
+)
 
 /** [Formatters.relativeDate] with its two words resolved from resources. */
 @Composable

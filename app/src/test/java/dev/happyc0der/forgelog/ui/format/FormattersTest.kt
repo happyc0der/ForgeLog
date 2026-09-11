@@ -13,8 +13,8 @@ class FormattersTest {
 
     private val zone = ZoneId.of("Asia/Kolkata")
 
-    private fun epochOf(year: Int, month: Int, day: Int, hour: Int = 12): Long =
-        LocalDateTime.of(year, month, day, hour, 0).atZone(zone).toInstant().toEpochMilli()
+    private fun epochOf(year: Int, month: Int, day: Int, hour: Int = 12, minute: Int = 0): Long =
+        LocalDateTime.of(year, month, day, hour, minute).atZone(zone).toInstant().toEpochMilli()
 
     @Test
     fun `volume renders in pounds unchanged`() {
@@ -89,6 +89,18 @@ class FormattersTest {
     @Test
     fun `time of day is rendered in the given zone`() {
         assertEquals("18:00", Formatters.timeOfDay(epochOf(2026, 3, 10, hour = 18), zone))
+    }
+
+    @Test
+    fun `a twelve-hour phone gets a twelve-hour time`() {
+        val previous = java.util.Locale.getDefault()
+        java.util.Locale.setDefault(java.util.Locale.US)
+        try {
+            assertEquals("6:00 PM", Formatters.timeOfDay(epochOf(2026, 3, 10, hour = 18), zone, use24Hour = false))
+            assertEquals("9:30 AM", Formatters.timeOfDay(epochOf(2026, 3, 10, hour = 9, minute = 30), zone, use24Hour = false))
+        } finally {
+            java.util.Locale.setDefault(previous)
+        }
     }
 
     @Test

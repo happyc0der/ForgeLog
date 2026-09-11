@@ -108,6 +108,11 @@ class RestTimerController(
         }
     }
 
+    /** Ends [sessionId]'s rest, with none to follow it. */
+    fun stop(sessionId: Long) {
+        active.update { current -> if (current?.sessionId == sessionId) null else current }
+    }
+
     fun stopIfStartedBy(sessionId: Long, setId: Long) {
         active.update { current ->
             if (current?.sessionId == sessionId && current.startedBySetId == setId) null else current

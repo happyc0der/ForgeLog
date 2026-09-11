@@ -596,15 +596,29 @@ class ActiveWorkoutViewModel @Inject constructor(
      * specified one and the user's default otherwise. This is what the planned-rest target is for.
      */
     private suspend fun startRestTimer(sessionExerciseId: Long, anchorEpochMs: Long, startedBySetId: Long?) {
-        val plannedRest = currentDetail()
+        // From the database, not the screen's copy, which can lag the plan it was started with.
+        val plannedRest = workoutSessionRepository.getSessionDetail(sessionId)
             ?.exercises
             ?.firstOrNull { it.exercise.id == sessionExerciseId }
             ?.exercise
             ?.targetRestSeconds
         val defaultRest = settingsRepository.settings.first().defaultRestSeconds
+        val target = if (startedBySetId == null && plannedRest == 0) {
+            // Asked for by hand, where none is planned: the default rest, rather than nothing.
+            defaultRest
+        } else {
+            RestTimer.suggestedTarget(plannedRest, defaultRest)
+        }
+        if (target <= 0) {
+            // No rest after this set -- a superset, say. The rest before it is over and none
+            // begins: a zero-second countdown was over the moment it started, and buzzed at every
+            // tick.
+            restTimerController.stop(sessionId)
+            return
+        }
         restTimerController.start(
             sessionId = sessionId,
-            targetSeconds = RestTimer.suggestedTarget(plannedRest, defaultRest),
+            targetSeconds = target,
             anchorEpochMs = anchorEpochMs,
             startedBySetId = startedBySetId,
         )
@@ -813,7 +827,6 @@ class ActiveWorkoutViewModel @Inject constructor(
         }
     }
 
-    private fun currentDetail(): SessionDetail? = contentState.value.detail
 
     private data class PlanContext(
         val dayNotes: String? = null,

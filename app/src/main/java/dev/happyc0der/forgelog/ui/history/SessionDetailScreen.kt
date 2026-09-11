@@ -62,6 +62,7 @@ import dev.happyc0der.forgelog.ui.testing.TestTags
 import dev.happyc0der.forgelog.ui.util.label
 import dev.happyc0der.forgelog.ui.format.currentZone
 import dev.happyc0der.forgelog.ui.format.today
+import dev.happyc0der.forgelog.ui.format.timeOfDay
 import java.time.ZoneId
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -265,7 +266,7 @@ private fun SessionSummaryCard(
     ForgeHeroCard {
         CardHeader(
             title = relativeDate(session.startedAt, today(zone), zone) +
-                " · " + Formatters.timeOfDay(session.startedAt, zone),
+                " · " + timeOfDay(session.startedAt, zone),
             trailing = {
                 Text(
                     text = stringResource(session.status.historyLabelRes()),

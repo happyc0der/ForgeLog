@@ -44,6 +44,7 @@ import dev.happyc0der.forgelog.ui.testing.TestTags
 import dev.happyc0der.forgelog.ui.theme.forgeLogColors
 import dev.happyc0der.forgelog.ui.format.currentZone
 import dev.happyc0der.forgelog.ui.format.today
+import dev.happyc0der.forgelog.ui.format.timeOfDay
 import java.time.ZoneId
 
 /**
@@ -130,7 +131,7 @@ private fun HeadlineCard(
             text = stringResource(
                 R.string.summary_subtitle,
                 relativeDate(summary.startedAt, today(zone), zone),
-                Formatters.timeOfDay(summary.startedAt, zone),
+                timeOfDay(summary.startedAt, zone),
             ),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -384,6 +384,53 @@ class ActiveWorkoutViewModelTest {
         assertEquals(ExerciseUnit.KG, saved.weightUnit)
     }
 
+    /** A superset: no rest planned after this lift. */
+    private suspend fun planNoRest() {
+        val entry = env.sessionRepository.getSessionDetail(sessionId)!!.exercises.single().exercise
+        env.sessionRepository.upsertSessionExercise(entry.copy(targetRestSeconds = 0))
+    }
+
+    @Test
+    fun `a set with no rest planned ends the rest before it and starts none`() = runTest {
+        val vm = viewModel()
+        try {
+            loaded(vm)
+            val (first, second) = addSets(vm, sessionExerciseId, count = 2)
+            vm.uiState.test {
+                vm.onSetCompleted(first, true)
+                // The planned 120 s rest after the first set...
+                awaitUntil { it.restTimer.isActive }
+
+                planNoRest()
+                vm.onSetCompleted(second, true)
+                // ...is over once the next set is done, and none follows it.
+                awaitUntil { !it.restTimer.isActive }
+                cancelAndIgnoreRemainingEvents()
+            }
+        } finally {
+            vm.viewModelScope.cancel()
+        }
+    }
+
+    @Test
+    fun `the rest button, where none is planned, rests for the default`() = runTest {
+        planNoRest()
+        env.settingsRepository.setDefaultRestSeconds(75)
+        val vm = viewModel()
+        try {
+            loaded(vm)
+            vm.startRestTimer(sessionExerciseId)
+            runCurrent()
+            vm.uiState.test {
+                val state = awaitUntil { it.restTimer.isActive }
+                assertEquals(75, state.restTimer.targetSeconds)
+                cancelAndIgnoreRemainingEvents()
+            }
+        } finally {
+            vm.viewModelScope.cancel()
+        }
+    }
+
     @Test
     fun `a pending edit does not resurrect a deleted set`() = runTest {
         val vm = viewModel()

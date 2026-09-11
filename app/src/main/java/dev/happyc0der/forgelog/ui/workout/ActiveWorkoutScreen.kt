@@ -379,7 +379,10 @@ private fun ExerciseLoggerCard(
                     // "%1$d exercises" string, so an untouched lift read "0 exercises".
                     // Against the plan when there is one -- "2 of 3 sets done" -- since what is
                     // left is the thing worth knowing between lifts.
-                    text = if (planned != null && planned > 0) {
+                    text = if (planned != null && planned > 0 && done > planned) {
+                        // An optional set beyond the plan read "4 of 3 sets done".
+                        pluralStringResource(R.plurals.workout_sets_done_extra, done, done, done - planned)
+                    } else if (planned != null && planned > 0) {
                         pluralStringResource(R.plurals.workout_sets_done_of_planned, planned, done, planned)
                     } else {
                         pluralStringResource(
