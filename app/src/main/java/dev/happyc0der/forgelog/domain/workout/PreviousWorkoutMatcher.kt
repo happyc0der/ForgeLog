@@ -35,7 +35,11 @@ object PreviousWorkoutMatcher {
             }
             .mapNotNull { detail ->
                 val match = detail.exercises
-                    .filter { it.matches(currentExercise) }
+                    // Only where the lift was actually done. A session where it was listed and
+                    // skipped otherwise became "last time", hiding the one where it was trained:
+                    // the planner showed that session's date over "no previous performance", and
+                    // the first set prefilled blank.
+                    .filter { it.matches(currentExercise) && it.sets.any { set -> set.completed } }
                     .minByOrNull { kotlin.math.abs(it.exercise.exerciseOrder - currentExercise.exerciseOrder) }
                     ?: return@mapNotNull null
                 RankedMatch(detail.session, match)

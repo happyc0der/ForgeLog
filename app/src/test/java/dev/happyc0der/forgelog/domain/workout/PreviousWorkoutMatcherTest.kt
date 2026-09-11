@@ -80,7 +80,7 @@ class PreviousWorkoutMatcherTest {
                     exerciseId = 8L,
                     displayName = "Bench Press",
                 ),
-                sets = emptyList(),
+                sets = listOf(setLog()),
             ),
         )
 
@@ -99,21 +99,21 @@ class PreviousWorkoutMatcherTest {
             workoutSession(id = 3L, status = SessionStatus.IN_PROGRESS, completedAt = null),
             SessionExerciseWithSets(
                 exercise = sessionExercise(id = 31L, sessionId = 3L, exerciseId = 5L, displayName = "Bench Press"),
-                sets = emptyList(),
+                sets = listOf(setLog()),
             ),
         )
         val abandoned = sessionDetail(
             workoutSession(id = 4L, status = SessionStatus.ABANDONED, completedAt = 4_000L),
             SessionExerciseWithSets(
                 exercise = sessionExercise(id = 41L, sessionId = 4L, exerciseId = 5L, displayName = "Bench Press"),
-                sets = emptyList(),
+                sets = listOf(setLog()),
             ),
         )
         val currentAsHistory = sessionDetail(
             current.copy(status = SessionStatus.COMPLETED),
             SessionExerciseWithSets(
                 exercise = currentExercise,
-                sets = emptyList(),
+                sets = listOf(setLog()),
             ),
         )
 
@@ -159,14 +159,14 @@ class PreviousWorkoutMatcherTest {
             workoutSession(id = 7L, programId = 1L, programDayId = 12L, completedAt = 2_000L),
             SessionExerciseWithSets(
                 exercise = sessionExercise(id = 71L, sessionId = 7L, exerciseId = 5L, displayName = "Bench Press"),
-                sets = emptyList(),
+                sets = listOf(setLog()),
             ),
         )
         val otherProgramNewer = sessionDetail(
             workoutSession(id = 8L, programId = 2L, programDayId = 20L, completedAt = 8_000L),
             SessionExerciseWithSets(
                 exercise = sessionExercise(id = 81L, sessionId = 8L, exerciseId = 5L, displayName = "Bench Press"),
-                sets = emptyList(),
+                sets = listOf(setLog()),
             ),
         )
 
@@ -185,14 +185,14 @@ class PreviousWorkoutMatcherTest {
             workoutSession(id = 9L, programId = 3L, programDayId = 30L, completedAt = 1_000L),
             SessionExerciseWithSets(
                 exercise = sessionExercise(id = 91L, sessionId = 9L, exerciseId = 5L, displayName = "Bench Press"),
-                sets = emptyList(),
+                sets = listOf(setLog()),
             ),
         )
         val newer = sessionDetail(
             workoutSession(id = 10L, programId = 4L, programDayId = 40L, completedAt = 4_000L),
             SessionExerciseWithSets(
                 exercise = sessionExercise(id = 101L, sessionId = 10L, exerciseId = 5L, displayName = "Bench Press"),
-                sets = emptyList(),
+                sets = listOf(setLog()),
             ),
         )
 
@@ -331,6 +331,47 @@ class PreviousPerformanceTest {
 
         val match = PreviousWorkoutMatcher.findPrevious(current, exercise, history)
         assertEquals(4L, match?.session?.id)
+    }
+
+    /*
+     * Found on the test device: Deadlift was added to a session and skipped, and from then on the
+     * planner said "Previous session: Today" above "No previous performance for this lift" --
+     * the last real deadlift was hidden, and the first set prefilled blank.
+     */
+    @Test
+    fun `a session where the lift was listed but never done is not last time`() {
+        val done = sessionDetail(
+            workoutSession(id = 1L, startedAt = day(10), completedAt = day(10)),
+            SessionExerciseWithSets(
+                exercise = sessionExercise(id = 11L, sessionId = 1L, exerciseId = 5L, displayName = "Bench"),
+                sets = listOf(setLog(id = 111L, sessionExerciseId = 11L, weight = 225.0)),
+            ),
+        )
+        val skipped = sessionDetail(
+            workoutSession(id = 2L, startedAt = day(20), completedAt = day(20)),
+            SessionExerciseWithSets(
+                exercise = sessionExercise(id = 22L, sessionId = 2L, exerciseId = 5L, displayName = "Bench"),
+                sets = listOf(
+                    setLog(id = 221L, sessionExerciseId = 22L, completed = false, completedAt = null),
+                ),
+            ),
+        )
+        val listedOnly = sessionDetail(
+            workoutSession(id = 3L, startedAt = day(30), completedAt = day(30)),
+            SessionExerciseWithSets(
+                exercise = sessionExercise(id = 33L, sessionId = 3L, exerciseId = 5L, displayName = "Bench"),
+                sets = emptyList(),
+            ),
+        )
+
+        val match = PreviousWorkoutMatcher.findPrevious(
+            currentSession = workoutSession(id = 99L, startedAt = day(40), completedAt = null),
+            currentExercise = sessionExercise(id = 990L, sessionId = 99L, exerciseId = 5L, displayName = "Bench"),
+            history = listOf(listedOnly, skipped, done),
+        )
+
+        assertEquals(1L, match?.session?.id)
+        assertEquals(225.0, match?.completedSets?.single()?.weight)
     }
 
     private fun day(n: Long): Long = n * 24L * 60L * 60L * 1000L
