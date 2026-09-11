@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -309,6 +308,5 @@ internal fun QuickActions(
                 Text(text = stringResource(R.string.home_action_create_program))
             }
         }
-        Spacer(modifier = Modifier.height(0.dp))
     }
 }
