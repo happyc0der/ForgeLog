@@ -15,6 +15,7 @@ import dev.happyc0der.forgelog.domain.model.ExerciseUnit
 import dev.happyc0der.forgelog.domain.model.SessionExercise
 import dev.happyc0der.forgelog.domain.model.SessionStartExercise
 import dev.happyc0der.forgelog.domain.model.SessionStatus
+import dev.happyc0der.forgelog.domain.model.SetType
 import dev.happyc0der.forgelog.domain.workout.SetInputField
 import dev.happyc0der.forgelog.domain.workout.SetsLeft
 import dev.happyc0der.forgelog.testing.MainDispatcherRule
@@ -337,6 +338,36 @@ class ActiveWorkoutViewModelTest {
         } finally {
             vm.viewModelScope.cancel()
         }
+    }
+
+    @Test
+    fun `reps typed and a type chosen within the autosave delay are both saved`() = runTest {
+        val vm = viewModel()
+        loaded(vm)
+        val set = addSets(vm, sessionExerciseId, count = 1).single()
+
+        vm.onSetText(set, ActiveWorkoutViewModel.FIELD_REPS, "12")
+        vm.onSetType(set, SetType.WARMUP)
+        advanceUntilIdle()
+
+        val saved = sets().single()
+        assertEquals(12, saved.reps)
+        assertEquals(SetType.WARMUP, saved.setType)
+    }
+
+    @Test
+    fun `a unit changed right after a weight is typed keeps the weight`() = runTest {
+        val vm = viewModel()
+        loaded(vm)
+        val set = addSets(vm, sessionExerciseId, count = 1).single()
+
+        vm.onSetText(set, ActiveWorkoutViewModel.FIELD_WEIGHT, "60")
+        vm.onSetUnit(set, ExerciseUnit.KG)
+        advanceUntilIdle()
+
+        val saved = sets().single()
+        assertEquals(60.0, saved.weight ?: 0.0, 0.0)
+        assertEquals(ExerciseUnit.KG, saved.weightUnit)
     }
 
     @Test

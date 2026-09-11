@@ -50,6 +50,9 @@ interface WorkoutSessionRepository {
     suspend fun deleteSession(id: Long)
     suspend fun deleteSetLog(id: Long)
 
+    /** One set as the database has it now, or null if it is gone. */
+    suspend fun getSetLog(id: Long): SetLog?
+
     /*
      * There is deliberately no findPreviousPerformance here.
      *

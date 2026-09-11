@@ -62,6 +62,8 @@ import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 
 data class ActiveExerciseUi(
@@ -500,7 +502,9 @@ class ActiveWorkoutViewModel @Inject constructor(
                     debounceJobs.remove(key)?.cancel()
                     drafts.update { it - key }
                 }
-            workoutSessionRepository.deleteSetLog(setId)
+            // In the queue with every other write, so one already reading this set cannot write it
+            // back after it has gone.
+            setWrites.withLock { workoutSessionRepository.deleteSetLog(setId) }
         }
     }
 
@@ -523,7 +527,7 @@ class ActiveWorkoutViewModel @Inject constructor(
     }
 
     fun onSetType(set: SetLog, type: SetType) {
-        persistSet(set.copy(setType = type))
+        editSet(set.id) { it.copy(setType = type) }
     }
 
     /**
@@ -548,39 +552,43 @@ class ActiveWorkoutViewModel @Inject constructor(
         val previousCompletion = completionJob
         completionJob = launchSafely(::reportAsMessage) {
             previousCompletion?.join()
-            val allSets = workoutSessionRepository.getSessionDetail(sessionId)
-                ?.exercises
-                ?.flatMap { it.sets }
-                .orEmpty()
-            // Gone from the database means deleted a moment ago; writing it would bring it back.
-            val stored = allSets.firstOrNull { it.id == set.id } ?: return@launchSafely
-            val current = setWithDrafts(stored)
-            if (!completed) {
-                // Unticking touches only this set. Its planned rest stays; the rest recorded on the
-                // set before it is left as it was, because there is no way to know what it held
-                // before this completion overwrote it.
-                workoutSessionRepository.upsertSetLog(current.copy(completed = false, completedAt = null))
-                // A mis-tapped set must not leave rest running that never began.
-                restTimerController.stopIfStartedBy(sessionId, set.id)
-                return@launchSafely
-            }
-            val now = tappedAt
-            val previous = SessionRest.previousCompleted(allSets.asSequence(), excludeSetId = set.id)
-            workoutSessionRepository.upsertSetLog(current.copy(completed = true, completedAt = now))
-            val measured = previous?.let {
-                SessionRest.restAfterSetSeconds(
-                    nowEpochMs = now,
-                    lastCompletedAt = it.completedAt,
-                    nextSetDurationSeconds = current.durationSeconds,
-                )
-            }
-            // Null when there is nothing to measure -- the first set, or sets ticked off in a row
-            // after the fact -- and then the earlier set keeps the rest it already had.
-            if (previous != null && measured != null) {
-                workoutSessionRepository.setRestAfter(setLogId = previous.id, seconds = measured)
-            }
-            startRestTimer(set.sessionExerciseId, now, startedBySetId = set.id)
+            setWrites.withLock { completeSet(set, completed, tappedAt) }
         }
+    }
+
+    private suspend fun completeSet(set: SetLog, completed: Boolean, tappedAt: Long) {
+        val allSets = workoutSessionRepository.getSessionDetail(sessionId)
+            ?.exercises
+            ?.flatMap { it.sets }
+            .orEmpty()
+        // Gone from the database means deleted a moment ago; writing it would bring it back.
+        val stored = allSets.firstOrNull { it.id == set.id } ?: return
+        val current = setWithDrafts(stored)
+        if (!completed) {
+            // Unticking touches only this set. Its planned rest stays; the rest recorded on the
+            // set before it is left as it was, because there is no way to know what it held
+            // before this completion overwrote it.
+            workoutSessionRepository.upsertSetLog(current.copy(completed = false, completedAt = null))
+            // A mis-tapped set must not leave rest running that never began.
+            restTimerController.stopIfStartedBy(sessionId, set.id)
+            return
+        }
+        val now = tappedAt
+        val previous = SessionRest.previousCompleted(allSets.asSequence(), excludeSetId = set.id)
+        workoutSessionRepository.upsertSetLog(current.copy(completed = true, completedAt = now))
+        val measured = previous?.let {
+            SessionRest.restAfterSetSeconds(
+                nowEpochMs = now,
+                lastCompletedAt = it.completedAt,
+                nextSetDurationSeconds = current.durationSeconds,
+            )
+        }
+        // Null when there is nothing to measure -- the first set, or sets ticked off in a row
+        // after the fact -- and then the earlier set keeps the rest it already had.
+        if (previous != null && measured != null) {
+            workoutSessionRepository.setRestAfter(setLogId = previous.id, seconds = measured)
+        }
+        startRestTimer(set.sessionExerciseId, now, startedBySetId = set.id)
     }
 
     /**
@@ -636,15 +644,15 @@ class ActiveWorkoutViewModel @Inject constructor(
     }
 
     fun onSetUnit(set: SetLog, unit: ExerciseUnit) {
-        persistSet(set.copy(weightUnit = unit))
+        editSet(set.id) { it.copy(weightUnit = unit) }
     }
 
     fun onSetRpe(set: SetLog, rpe: Int?) {
-        persistSet(set.copy(rpe = rpe))
+        editSet(set.id) { it.copy(rpe = rpe) }
     }
 
     fun onSetRir(set: SetLog, rir: Int?) {
-        persistSet(set.copy(rir = rir))
+        editSet(set.id) { it.copy(rir = rir) }
     }
 
     fun onSetText(set: SetLog, field: String, value: String) {
@@ -652,9 +660,10 @@ class ActiveWorkoutViewModel @Inject constructor(
         drafts.update { it + (key to value) }
         debounce(key) {
             val latest = drafts.value[key] ?: value
-            val updated = applySetField(setWithDrafts(setFromState(set.id) ?: set), field, latest)
-            workoutSessionRepository.upsertSetLog(updated)
-            drafts.update { it - key }
+            writeSet(set.id) { applySetField(it, field, latest) }
+            // Only if nothing newer was typed meanwhile: clearing it regardless dropped a value
+            // typed while this one was being written.
+            drafts.update { current -> if (current[key] == latest) current - key else current }
         }
     }
 
@@ -662,13 +671,10 @@ class ActiveWorkoutViewModel @Inject constructor(
         val key = exerciseNotesKey(sessionExerciseId)
         drafts.update { it + (key to value) }
         debounce(key) {
-            val detail = currentDetail() ?: return@debounce
-            val exercise = detail.exercises.firstOrNull { it.exercise.id == sessionExerciseId }?.exercise
-                ?: return@debounce
-            workoutSessionRepository.upsertSessionExercise(
-                exercise.copy(exerciseNotes = (drafts.value[key] ?: value).trim().ifBlank { null }),
-            )
-            drafts.update { it - key }
+            val latest = drafts.value[key] ?: value
+            // The notes column alone, not the whole row copied from the screen.
+            workoutSessionRepository.setExerciseNotes(sessionExerciseId, latest.trim().ifBlank { null })
+            drafts.update { current -> if (current[key] == latest) current - key else current }
         }
     }
 
@@ -734,9 +740,26 @@ class ActiveWorkoutViewModel @Inject constructor(
         field: SetInputField,
     ): Boolean = SetFieldVisibility.isVisible(field, unit, revealedFields, fieldsInUse)
 
-    private fun persistSet(set: SetLog) {
-        launchSafely(::reportAsMessage) {
-            workoutSessionRepository.upsertSetLog(set)
+    /**
+     * Every write of a set row goes through here or through [onSetCompleted], one at a time, each
+     * reading the row fresh from the database with anything still being typed applied.
+     *
+     * They used to start from different copies: a tick from the database, a typed value and a
+     * changed type or unit from the screen's. Two close together could each carry the other's field
+     * back to what it was -- a type chosen within the autosave delay of typing the reps lost one of
+     * the two.
+     */
+    private val setWrites = Mutex()
+
+    private fun editSet(setId: Long, change: (SetLog) -> SetLog) {
+        launchSafely(::reportAsMessage) { writeSet(setId, change) }
+    }
+
+    private suspend fun writeSet(setId: Long, change: (SetLog) -> SetLog = { it }) {
+        setWrites.withLock {
+            // Gone from the database means deleted a moment ago; writing it would bring it back.
+            val stored = workoutSessionRepository.getSetLog(setId) ?: return
+            workoutSessionRepository.upsertSetLog(change(setWithDrafts(stored)))
         }
     }
 
@@ -755,18 +778,15 @@ class ActiveWorkoutViewModel @Inject constructor(
         snapshot.forEach { (key, value) ->
             if (key.startsWith("ex:") && key.endsWith(":notes")) {
                 val id = key.removePrefix("ex:").removeSuffix(":notes").toLongOrNull() ?: return@forEach
-                val exercise = currentDetail()?.exercises?.firstOrNull { it.exercise.id == id }?.exercise
-                    ?: return@forEach
-                workoutSessionRepository.upsertSessionExercise(
-                    exercise.copy(exerciseNotes = value.trim().ifBlank { null }),
-                )
-            } else {
-                val setId = key.substringBefore(":").toLongOrNull() ?: return@forEach
-                val field = key.substringAfter(":")
-                val set = setFromState(setId) ?: return@forEach
-                workoutSessionRepository.upsertSetLog(applySetField(set, field, value))
+                workoutSessionRepository.setExerciseNotes(id, value.trim().ifBlank { null })
             }
         }
+        // Each set once, with all of its pending fields: writeSet applies every draft it has.
+        snapshot.keys
+            .filterNot { it.startsWith("ex:") }
+            .mapNotNull { it.substringBefore(":").toLongOrNull() }
+            .distinct()
+            .forEach { setId -> writeSet(setId) }
         drafts.value = emptyMap()
     }
 
@@ -792,9 +812,6 @@ class ActiveWorkoutViewModel @Inject constructor(
             else -> set
         }
     }
-
-    private fun setFromState(setId: Long): SetLog? =
-        contentState.value.exercises.asSequence().flatMap { it.item.sets.asSequence() }.firstOrNull { it.id == setId }
 
     private fun currentDetail(): SessionDetail? = contentState.value.detail
 

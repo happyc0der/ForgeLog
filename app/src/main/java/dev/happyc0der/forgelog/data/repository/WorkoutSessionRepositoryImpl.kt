@@ -140,6 +140,10 @@ class WorkoutSessionRepositoryImpl @Inject constructor(
      * The sets after the deleted one move up a place: a set's number is its position. Deleting set 2
      * of 3 used to leave "Set 1" and "Set 3", and the next set added became "Set 4".
      */
+    override suspend fun getSetLog(id: Long): SetLog? = withContext(ioDispatcher) {
+        workoutSessionDao.getSetLog(id)?.toDomain()
+    }
+
     override suspend fun deleteSetLog(id: Long) = withContext(ioDispatcher) {
         database.withTransaction {
             val deleted = workoutSessionDao.getSetLog(id) ?: return@withTransaction
