@@ -44,7 +44,9 @@ Reuse before writing new: `VolumeCalculator`, `EstimatedOneRepMax`, `PreviousWor
 ./gradlew installDebug                      # install on the connected phone
 ./gradlew installQa                         # "ForgeLog QA": same build, own database, installs beside it;
                                             # the only build with Settings > Load sample data
-./gradlew connectedDebugAndroidTest         # the same UI tests on a device (needs one attached)
+./gradlew connectedDebugAndroidTest         # the same UI tests on a device (needs one attached) -- never
+                                            # on the phone the debug build holds real training on: it
+                                            # runs against that package and can wipe its data
 ```
 
 Compose UI tests live in `app/src/sharedTest/`, which is compiled into both the unit-test and
