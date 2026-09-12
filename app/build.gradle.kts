@@ -71,6 +71,24 @@ android {
             applicationIdSuffix = ".qa"
             matchingFallbacks += listOf("debug")
         }
+        /*
+         * The release build, shrunk and obfuscated exactly as the published one, but signed with the
+         * debug key so it can actually be installed and used.
+         *
+         * R8 is the one part of the build that cannot be checked by the tests: they run against
+         * unshrunk classes, so a missing keep rule shows up only when a release build is run --
+         * typically as a backup that will not parse, or a screen that crashes on open. Without this
+         * there was no way to exercise it before publishing, since an unsigned APK will not install
+         * and the real keystore belongs to whoever publishes.
+         *
+         * Never publish this variant: it carries the debug signature.
+         */
+        create("releaseCheck") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".releasecheck"
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release")
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -101,6 +119,12 @@ android {
         getByName("androidTest") {
             assets.directories.add("$projectDir/schemas")
             kotlin.directories.add("src/sharedTest/java")
+        }
+        // releaseCheck is the release build in everything but its signature, so it takes the
+        // release source set -- including the no-op DebugTools, which is what keeps the sample-data
+        // seeder out of anything that could be published.
+        getByName("releaseCheck") {
+            kotlin.directories.add("src/release/java")
         }
     }
 }
