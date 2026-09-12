@@ -131,16 +131,18 @@ internal class CorruptionPreservingFactory(
 
                     override fun onOpen(db: SupportSQLiteDatabase) = original.onOpen(db)
 
-                    override fun onCorruption(db: SupportSQLiteDatabase) {
-                        val at = now()
-                        val preserved = name?.let { preserve(context, it, at) }
-                        recoveryLog.record(
-                            UnreadableDatabase(preservedFileName = preserved, atEpochMs = at),
-                        )
-                        // Then the platform's own handling, which deletes it and lets Room start
-                        // again. Without this the app cannot open at all.
-                        original.onCorruption(db)
-                    }
+                    override fun onCorruption(db: SupportSQLiteDatabase) = recordThenRecover(
+                        record = {
+                            val at = now()
+                            val preserved = name?.let { preserve(context, it, at) }
+                            recoveryLog.record(
+                                UnreadableDatabase(preservedFileName = preserved, atEpochMs = at),
+                            )
+                        },
+                        // The platform's own handling, which deletes the file and lets Room start
+                        // again. Without it the app cannot open at all.
+                        recover = { original.onCorruption(db) },
+                    )
                 },
             )
             .build()
@@ -173,4 +175,19 @@ internal class CorruptionPreservingFactory(
         }
         copyName
     }.getOrNull()
+}
+
+/**
+ * Records what happened, then lets the platform recover — and recovers even if recording fails.
+ *
+ * The order matters and so does the swallowing. Preserving the file and noting the loss both touch
+ * a disk that may well be the reason the database is unreadable in the first place, and neither is
+ * worth failing the open for: an exception here would stop the database being replaced, so Room
+ * could not start, so the app could not start, and the user could never reach the backup that would
+ * have saved them. Losing the notice is a bad outcome. Losing the app is the one this exists to
+ * prevent.
+ */
+internal fun recordThenRecover(record: () -> Unit, recover: () -> Unit) {
+    runCatching(record)
+    recover()
 }
