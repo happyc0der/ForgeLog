@@ -239,11 +239,19 @@ class StartWorkoutViewModel @Inject constructor(
         selectedDayId.value = dayId
     }
 
+    /**
+     * An out-of-range position is ignored, as it is on the other two reorderable lists.
+     *
+     * A drag works its indices out from the list the screen last drew, so an exercise skipped in the
+     * same frame leaves them one too high, and `removeAt` past the end is a crash rather than a
+     * missed move -- taking the whole session's setup with it.
+     */
     fun moveExercise(from: Int, to: Int) {
         roster.update { items ->
-            items.toMutableList().also { mutable ->
-                val item = mutable.removeAt(from)
-                mutable.add(to, item)
+            if (from !in items.indices || to !in items.indices) {
+                items
+            } else {
+                items.toMutableList().also { mutable -> mutable.add(to, mutable.removeAt(from)) }
             }
         }
     }

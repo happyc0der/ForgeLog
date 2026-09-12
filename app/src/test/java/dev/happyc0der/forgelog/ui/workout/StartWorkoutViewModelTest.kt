@@ -110,6 +110,28 @@ class StartWorkoutViewModelTest {
         }
     }
 
+    /**
+     * A drag reads its indices from the list the screen last drew. Skipping an exercise in the same
+     * frame leaves them pointing past the end, which used to throw out of a gesture callback and
+     * take the whole session's setup with it.
+     */
+    @Test
+    fun `a move past the end of the roster is ignored rather than thrown`() = runTest {
+        val vm = viewModel()
+        vm.uiState.test {
+            val loaded = awaitUntil { it.roster.isNotEmpty() }
+            val before = loaded.roster.map { it.localId }
+
+            vm.moveExercise(before.size, 0)
+            vm.moveExercise(0, before.size)
+            vm.moveExercise(-1, 0)
+            advanceUntilIdle()
+
+            assertEquals(before, vm.uiState.value.roster.map { it.localId })
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
     @Test
     fun `the planner shows the day's notes and each exercise's plan notes`() = runTest {
         val programDao = env.database.programDao()
