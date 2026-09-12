@@ -44,15 +44,23 @@ Reuse before writing new: `VolumeCalculator`, `EstimatedOneRepMax`, `PreviousWor
 ./gradlew installDebug                      # install on the connected phone
 ./gradlew installQa                         # "ForgeLog QA": same build, own database, installs beside it;
                                             # the only build with Settings > Load sample data
-./gradlew connectedDebugAndroidTest         # the same UI tests on a device (needs one attached) -- never
-                                            # on the phone the debug build holds real training on: it
-                                            # runs against that package and can wipe its data
+./gradlew pixelApi36DebugAndroidTest        # the same UI tests on an emulator the build owns and boots
+./gradlew pixelApi26DebugAndroidTest        # and again on minSdk 26, which lint cannot check behaviour on
+./gradlew connectedDebugAndroidTest         # the same UI tests on an attached device -- never on the phone
+                                            # the debug build holds real training on: it runs against that
+                                            # package and can wipe its data. Prefer the two above.
 ```
+
+The managed devices download their own system image on first use and need no phone, which is the
+way to run instrumented tests by default. API 26 is opted into from `gradle.properties`; AGP
+discourages it because old images are slow, and it is still the only way to run on the minSdk the
+app claims.
 
 Compose UI tests live in `app/src/sharedTest/`, which is compiled into both the unit-test and
 instrumented source sets. They use `AndroidJUnit4`, so the same file runs under Robolectric on the
 JVM and on a real device — write UI tests there, not in `androidTest`, unless something genuinely
-needs a device.
+needs a device. `app/src/androidTest/` holds the few that do: `AndroidDocumentStoreTest` exercises
+the ContentResolver that carries a backup's bytes, which has no equivalent on a desktop JVM.
 
 ## Room
 
