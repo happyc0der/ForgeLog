@@ -166,10 +166,16 @@ the final URL into the Console's Privacy policy field and into the Data safety f
 
 ## Before submitting
 
+`docs/release-checks.md` is the companion to this list, not an alternative to it: that one covers
+what to verify with a phone in your hand, this one what the Console needs.
+
+- [ ] Replace **[your contact email]** in `PRIVACY.md` — the Data safety form asks for it, so it
+      blocks submission
 - [ ] Create a release keystore and `keystore.properties` (never committed — both are gitignored)
 - [ ] `./gradlew bundleRelease` for the AAB Play wants
 - [ ] Install `./gradlew installReleaseCheck` and run one workout end to end, including an export
-      and a restore, on the shrunk build
+      and a restore, on the shrunk build — see `docs/release-checks.md`, which sets out the backup
+      round trip step by step, since it is the one flow no test covers
 - [ ] Host the privacy policy and put the URL in the Console
 - [ ] Screenshots: phone screenshots are required; Home, the logger mid-workout, History and
       Analytics show it best
