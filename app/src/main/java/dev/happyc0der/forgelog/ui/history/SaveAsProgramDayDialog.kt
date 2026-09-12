@@ -17,7 +17,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.happyc0der.forgelog.R
 import dev.happyc0der.forgelog.domain.model.WorkoutProgram
-import dev.happyc0der.forgelog.ui.components.OptionDropdown
+import dev.happyc0der.forgelog.ui.exercise.EnumDropdown
 
 /**
  * Turns a logged session into a reusable program day.
@@ -53,15 +53,20 @@ internal fun SaveAsProgramDayDialog(
                 if (programs.isEmpty()) {
                     Text(text = stringResource(R.string.home_no_programs_message))
                 } else {
-                    OptionDropdown(
-                        label = stringResource(R.string.history_filter_program),
-                        selected = selectedProgram,
-                        options = programs,
-                        optionLabel = WorkoutProgram::name,
-                        onSelect = { selectedProgramId = it?.id },
-                        anyLabel = stringResource(R.string.history_filter_any),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                    /*
+                     * A choice, not a filter, so no "Any" entry. It had one, and because a null
+                     * selection falls back to the first program, picking "Any" quietly chose that
+                     * one -- with a single program the list read "Any, PPL" and both did the same.
+                     */
+                    if (selectedProgram != null) {
+                        EnumDropdown(
+                            label = stringResource(R.string.history_filter_program),
+                            selected = selectedProgram,
+                            options = programs,
+                            optionLabel = { it.name },
+                            onSelected = { selectedProgramId = it.id },
+                        )
+                    }
                     OutlinedTextField(
                         value = dayName,
                         onValueChange = { dayName = it },

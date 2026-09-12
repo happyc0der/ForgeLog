@@ -51,7 +51,7 @@ import dev.happyc0der.forgelog.ui.components.CardHeader
 import dev.happyc0der.forgelog.ui.components.ErrorState
 import dev.happyc0der.forgelog.ui.components.ForgeCard
 import dev.happyc0der.forgelog.ui.components.LoadingState
-import dev.happyc0der.forgelog.ui.components.OptionDropdown
+import dev.happyc0der.forgelog.ui.exercise.EnumDropdown
 import dev.happyc0der.forgelog.ui.format.Formatters
 import dev.happyc0der.forgelog.ui.testing.TestTags
 import dev.happyc0der.forgelog.ui.util.label
@@ -207,13 +207,17 @@ private fun UnitsCard(settings: AppSettings, viewModel: SettingsViewModel) {
         CardHeader(title = stringResource(R.string.settings_section_units))
         val weightUnits = listOf(ExerciseUnit.LB, ExerciseUnit.KG)
         val weightLabels = weightUnits.associateWith { it.label() }
-        OptionDropdown(
+        /*
+         * EnumDropdown, not the filter one. OptionDropdown always offers a null entry first, for
+         * "no filter", and every setting here has to be something -- so passing the default's own
+         * label as that entry listed it twice: "lb, lb, kg", and "Monday, Monday, Tuesday, ...".
+         */
+        EnumDropdown(
             label = stringResource(R.string.settings_default_weight_unit),
             selected = settings.defaultWeightUnit,
             options = weightUnits,
             optionLabel = { weightLabels.getValue(it) },
-            onSelect = { viewModel.setDefaultWeightUnit(it ?: ExerciseUnit.LB) },
-            anyLabel = weightLabels.getValue(ExerciseUnit.LB),
+            onSelected = viewModel::setDefaultWeightUnit,
         )
         // The same words the sec/min chips use. This dropdown used to say "seconds"/"minutes"
         // while the chips said "sec"/"min", which read as two different settings.
@@ -225,21 +229,19 @@ private fun UnitsCard(settings: AppSettings, viewModel: SettingsViewModel) {
                 },
             )
         }
-        OptionDropdown(
+        EnumDropdown(
             label = stringResource(R.string.settings_duration_unit),
             selected = settings.durationInputUnit,
             options = DurationInputUnit.entries,
             optionLabel = { durationLabels.getValue(it) },
-            onSelect = { viewModel.setDurationInputUnit(it ?: DurationInputUnit.SECONDS) },
-            anyLabel = durationLabels.getValue(DurationInputUnit.SECONDS),
+            onSelected = viewModel::setDurationInputUnit,
         )
-        OptionDropdown(
+        EnumDropdown(
             label = stringResource(R.string.settings_rest_unit),
             selected = settings.restInputUnit,
             options = DurationInputUnit.entries,
             optionLabel = { durationLabels.getValue(it) },
-            onSelect = { viewModel.setRestInputUnit(it ?: DurationInputUnit.SECONDS) },
-            anyLabel = durationLabels.getValue(DurationInputUnit.SECONDS),
+            onSelected = viewModel::setRestInputUnit,
         )
     }
 }
@@ -293,13 +295,12 @@ private fun WeekCard(settings: AppSettings, viewModel: SettingsViewModel) {
         // system language without a restart.
         val locale = LocalConfiguration.current.locales[0]
         val dayLabels = DayOfWeek.entries.associateWith { it.getDisplayName(TextStyle.FULL, locale) }
-        OptionDropdown(
+        EnumDropdown(
             label = stringResource(R.string.settings_week_start),
             selected = settings.weekStartDay,
             options = DayOfWeek.entries,
             optionLabel = { dayLabels.getValue(it) },
-            onSelect = { viewModel.setWeekStartDay(it ?: DayOfWeek.MONDAY) },
-            anyLabel = dayLabels.getValue(DayOfWeek.MONDAY),
+            onSelected = viewModel::setWeekStartDay,
         )
         SwitchRow(
             label = stringResource(R.string.settings_include_warmup),
@@ -339,13 +340,12 @@ private fun BackupCard(
             onClick = onImport,
         )
         val rangeLabels = CsvRange.entries.associateWith { stringResource(it.labelRes()) }
-        OptionDropdown(
+        EnumDropdown(
             label = stringResource(R.string.settings_csv_range),
             selected = uiState.csvRange,
             options = CsvRange.entries,
             optionLabel = { rangeLabels.getValue(it) },
-            onSelect = { onCsvRange(it ?: CsvRange.ALL_TIME) },
-            anyLabel = rangeLabels.getValue(CsvRange.ALL_TIME),
+            onSelected = onCsvRange,
         )
         ActionRow(
             label = stringResource(R.string.settings_export_csv),
