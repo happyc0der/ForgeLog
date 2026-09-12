@@ -28,9 +28,14 @@
     kotlinx.serialization.KSerializer serializer(...);
 }
 
-# The backup DTOs are the payload of every export and import. Keeping their names as well as their
-# members means a file written by a release build and read by a debug build — or the other way
-# round — agrees on every key.
+# The backup DTOs are the payload of every export and import. What actually fixes the JSON keys is
+# not this rule: the serialization plugin bakes each key into the generated descriptor as a string
+# literal, so a renamed field keeps its key even when R8 obfuscates it. Verified on the release dex,
+# where every descriptor still spells out every key in source order.
+#
+# This rule earns its place by keeping the classes out of R8's optimiser instead. Two data classes
+# of the same shape are candidates for horizontal merging, and a merged class with someone else's
+# generated serializer attached would write a file nothing can read back.
 -keep,allowobfuscation,allowshrinking class dev.happyc0der.forgelog.data.backup.** { *; }
 
 # --- Navigation Compose typed routes ---
