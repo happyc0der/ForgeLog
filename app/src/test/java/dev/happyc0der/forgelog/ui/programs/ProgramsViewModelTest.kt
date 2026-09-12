@@ -138,6 +138,60 @@ class ProgramsViewModelTest {
         }
     }
 
+    /*
+     * The screen picks between two empty states from these flags. "Every program you have is
+     * archived" needs an archived program to exist; a fresh install has none of either, and was
+     * being told to go and unhide programs it did not have.
+     */
+
+    @Test
+    fun `a fresh install reports nothing archived to unhide`() = runTest {
+        val vm = viewModel()
+        vm.uiState.test {
+            var state = awaitItem()
+            while (state.isLoading) state = awaitItem()
+            assertTrue(state.programs.isEmpty())
+            assertTrue(!state.hasArchivedPrograms)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `an all-archived library reports that there is something to unhide`() = runTest {
+        val programId = env.database.programDao().insertProgram(programEntity(name = "Old"))
+        env.programRepository.setArchived(programId, true)
+        advanceUntilIdle()
+
+        val vm = viewModel()
+        vm.uiState.test {
+            var state = awaitItem()
+            while (state.isLoading || !state.hasArchivedPrograms) state = awaitItem()
+            assertTrue(state.programs.isEmpty())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `an archived program is reported as hideable while it is on show`() = runTest {
+        val visible = env.database.programDao().insertProgram(programEntity(name = "Current"))
+        val programId = env.database.programDao().insertProgram(programEntity(name = "Old"))
+        env.programRepository.setArchived(programId, true)
+        advanceUntilIdle()
+
+        val vm = viewModel()
+        vm.uiState.test {
+            var state = awaitItem()
+            while (state.isLoading || !state.hasArchivedPrograms) state = awaitItem()
+            // Hidden: only the live one, and the flag still says the other is there.
+            assertEquals(listOf(visible), state.programs.map { it.program.id })
+
+            vm.onToggleArchived()
+            while (state.programs.size < 2) state = awaitItem()
+            assertTrue(state.hasArchivedPrograms)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
     @Test
     fun `a chosen colour is stored on create and kept on rename`() = runTest {
         val vm = viewModel()

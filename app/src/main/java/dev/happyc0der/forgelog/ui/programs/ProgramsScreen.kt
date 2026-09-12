@@ -152,20 +152,26 @@ fun ProgramsScreen(
                         // Deliberately inside the column, below the chip. When every program was
                         // archived, a full-screen empty state replaced the one control that could
                         // reveal them, leaving the user stuck.
+                        //
+                        // "They are all archived" needs an archived program to actually exist.
+                        // Inferring it from the hidden list being empty told every new user, whose
+                        // list is empty because they have nothing at all, to go and unhide it.
+                        val hiddenByTheChip = !uiState.includeArchived &&
+                            uiState.hasArchivedPrograms
                         EmptyState(
                             icon = Icons.Outlined.FitnessCenter,
                             title = stringResource(
-                                if (uiState.includeArchived) {
-                                    R.string.programs_empty_title
-                                } else {
+                                if (hiddenByTheChip) {
                                     R.string.programs_empty_visible_title
+                                } else {
+                                    R.string.programs_empty_title
                                 },
                             ),
                             message = stringResource(
-                                if (uiState.includeArchived) {
-                                    R.string.programs_empty_message
-                                } else {
+                                if (hiddenByTheChip) {
                                     R.string.programs_empty_visible_message
+                                } else {
+                                    R.string.programs_empty_message
                                 },
                             ),
                         )

@@ -29,6 +29,12 @@ data class ProgramsUiState(
     val errorMessage: String? = null,
     val includeArchived: Boolean = false,
     val programs: List<ProgramSummary> = emptyList(),
+    /**
+     * Whether any archived program exists, which is what separates "you have none" from "the ones
+     * you have are hidden". Without it an empty list on a fresh install was reported as everything
+     * being archived.
+     */
+    val hasArchivedPrograms: Boolean = false,
 )
 
 sealed interface ProgramsEvent {
@@ -49,12 +55,17 @@ class ProgramsViewModel @Inject constructor(
     /** Bumped by [retry] to re-subscribe after a failure, since `catch` ends the source flow. */
     private val retryToken = MutableStateFlow(0)
 
+    /**
+     * Always every program, archived included, filtered for display below.
+     *
+     * One subscription rather than one per chip state: the screen needs to know whether anything
+     * archived exists even while it is hiding it, and toggling the chip no longer re-runs the query.
+     */
     @OptIn(ExperimentalCoroutinesApi::class)
-    private val summaries = combine(includeArchived, retryToken) { archived, _ -> archived }
-        .flatMapLatest { archived ->
-            programRepository.observeProgramSummaries(archived)
-                .reportErrors(emptyList()) { reportError(it) }
-        }
+    private val summaries = retryToken.flatMapLatest {
+        programRepository.observeProgramSummaries(includeArchived = true)
+            .reportErrors(emptyList()) { reportError(it) }
+    }
 
     val uiState: StateFlow<ProgramsUiState> = combine(
         includeArchived,
@@ -65,7 +76,8 @@ class ProgramsViewModel @Inject constructor(
             isLoading = false,
             errorMessage = error,
             includeArchived = showArchived,
-            programs = programs,
+            programs = if (showArchived) programs else programs.filterNot { it.program.isArchived },
+            hasArchivedPrograms = programs.any { it.program.isArchived },
         )
     }.stateIn(
         scope = viewModelScope,
