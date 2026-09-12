@@ -505,6 +505,84 @@ class ActiveWorkoutViewModelTest {
         }
     }
 
+    /*
+     * Correcting a number in the moment after tapping Finish, before the screen has left.
+     *
+     * Finishing flushes the pending drafts and then clears the map wholesale, so a keystroke
+     * arriving around it has to be picked up by something. It is: the debounced write falls back to
+     * the value its own closure captured when the draft is gone by the time it runs.
+     *
+     * What these two do NOT cover, and it is worth being straight about: the keystroke landing
+     * *inside* flushDrafts, between its snapshot and its clear. On a virtual clock the flush either
+     * completes or has not started, so that interleaving cannot be produced here -- removing the
+     * captured-value fallback leaves both of these passing. That path is held up by reading the code
+     * rather than by this test.
+     */
+
+    @Test
+    fun `a weight typed just after finishing is still saved`() = runTest {
+        val vm = viewModel()
+        try {
+            vm.uiState.test {
+                awaitUntil { it.detail != null }
+                vm.addSet(sessionExerciseId)
+                val set = awaitUntil { it.exercises.single().item.sets.isNotEmpty() }
+                    .exercises.single().item.sets.single()
+
+                vm.onSetText(set, ActiveWorkoutViewModel.FIELD_WEIGHT, "140")
+                runCurrent()
+                // Finish, then type again before it has settled.
+                vm.finish()
+                vm.onSetText(set, ActiveWorkoutViewModel.FIELD_WEIGHT, "145")
+                // Not advanceUntilIdle: the rest controller's ticker never goes idle, and the
+                // debounced write lives on the application scope, which wants the clock moved past
+                // the autosave delay rather than drained.
+                advanceTimeBy(ActiveWorkoutViewModel.AUTOSAVE_DELAY_MS * 3)
+                runCurrent()
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            assertEquals(
+                "the weight typed just after finishing was lost",
+                145.0,
+                sets().single().weight ?: 0.0,
+                0.0,
+            )
+        } finally {
+            vm.viewModelScope.cancel()
+        }
+    }
+
+    @Test
+    fun `a weight typed just after abandoning is still saved`() = runTest {
+        val vm = viewModel()
+        try {
+            vm.uiState.test {
+                awaitUntil { it.detail != null }
+                vm.addSet(sessionExerciseId)
+                val set = awaitUntil { it.exercises.single().item.sets.isNotEmpty() }
+                    .exercises.single().item.sets.single()
+
+                vm.onSetText(set, ActiveWorkoutViewModel.FIELD_WEIGHT, "100")
+                runCurrent()
+                vm.abandon()
+                vm.onSetText(set, ActiveWorkoutViewModel.FIELD_WEIGHT, "105")
+                advanceTimeBy(ActiveWorkoutViewModel.AUTOSAVE_DELAY_MS * 3)
+                runCurrent()
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            assertEquals(
+                "the weight typed just after abandoning was lost",
+                105.0,
+                sets().single().weight ?: 0.0,
+                0.0,
+            )
+        } finally {
+            vm.viewModelScope.cancel()
+        }
+    }
+
     @Test
     fun `a pending edit does not resurrect a deleted set`() = runTest {
         val vm = viewModel()
