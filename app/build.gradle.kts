@@ -111,6 +111,29 @@ android {
         unitTests {
             isIncludeAndroidResources = true
         }
+        /*
+         * An emulator the build owns, so the instrumented tests can run without a phone plugged in.
+         *
+         * Gradle downloads the system image the first time one of these is used and manages the
+         * virtual device itself; nothing has to be created by hand in Android Studio. Running
+         * `./gradlew pixelApi36DebugAndroidTest` boots it, runs the same UI tests that
+         * `testDebugUnitTest` runs under Robolectric -- but on a real Android runtime -- and tears it
+         * down again.
+         *
+         * This is also the only safe way to run instrumented tests at all: connectedDebugAndroidTest
+         * installs over whichever ForgeLog is on the attached phone, and on the phone the debug build
+         * holds real training, that would wipe it.
+         */
+        managedDevices {
+            localDevices {
+                create("pixelApi36") {
+                    device = "Pixel 6"
+                    apiLevel = 36
+                    // The automated-test image: smaller, and built for exactly this.
+                    systemImageSource = "aosp-atd"
+                }
+            }
+        }
     }
     // Migration tests read the committed schema JSONs to build an older database and let Room
     // perform the real upgrade, so the schema directory is mounted as a test asset source. (The JVM
