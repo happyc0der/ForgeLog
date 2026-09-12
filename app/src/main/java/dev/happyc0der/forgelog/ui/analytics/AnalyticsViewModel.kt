@@ -187,13 +187,16 @@ class AnalyticsViewModel @Inject constructor(
         val (currentSessions, previousSessions, rangePair) = windows
         val zone = zoneProvider.zone()
         val categories = exercises.associate { it.id to it.category }
+        // The library's current names. A session keeps the name the lift had when it was logged, so
+        // a rename left the picker offering it under a name the user no longer uses.
+        val names = exercises.associate { it.id to it.name }
         val recordsByKey = PersonalRecords.byExercise(all)
         // An exercise the user trained in the window but has since deleted still appears, by name.
         val loggedExercises = trend
             .flatMap { detail -> detail.exercises }
             .mapNotNull { logged ->
-                logged.exercise.exerciseId?.let {
-                    LoggedExercise(it, logged.exercise.displayNameSnapshot)
+                logged.exercise.exerciseId?.let { id ->
+                    LoggedExercise(id, names[id] ?: logged.exercise.displayNameSnapshot)
                 }
             }
             .distinctBy { it.exerciseId }

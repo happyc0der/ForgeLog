@@ -225,6 +225,29 @@ class AnalyticsViewModelTest {
         }
     }
 
+    /**
+     * The picker took its names from the sessions' snapshots, so a lift renamed in the library went
+     * on being offered under whatever it was called when it was first logged.
+     */
+    @Test
+    fun `a renamed lift is offered under the name it has now`() = runTest {
+        logSession(day = 9, exerciseId = benchId, exerciseName = "Bench press")
+        logSession(day = 11, exerciseId = benchId, exerciseName = "Bench press")
+        env.database.exerciseDao().upsert(
+            exerciseEntity(name = "Barbell bench press", category = ExerciseCategory.PUSH)
+                .copy(id = benchId),
+        )
+
+        val vm = viewModel()
+        vm.uiState.test {
+            var state = awaitItem()
+            while (state.exercises.isEmpty()) state = awaitItem()
+            while (state.exercises.first().displayName == "Bench press") state = awaitItem()
+            assertEquals(listOf("Barbell bench press"), state.exercises.map { it.displayName })
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
     @Test
     fun `sets are grouped by the library category`() = runTest {
         logSession(day = 11, exerciseId = benchId)

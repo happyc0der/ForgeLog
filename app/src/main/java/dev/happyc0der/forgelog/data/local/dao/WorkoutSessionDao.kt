@@ -113,13 +113,23 @@ interface WorkoutSessionDao {
         untilEpochMs: Long?,
     ): Flow<List<SessionDetailEntity>>
 
-    /** Distinct exercises that appear anywhere in history, for the history filter picker. */
+    /**
+     * The library exercises that appear anywhere in history, for the history filter picker.
+     *
+     * From the library rather than from the sessions' name snapshots. Snapshots are per session and
+     * a rename leaves the old one behind, so listing those gave one entry per name a lift had ever
+     * been logged under -- the same lift twice, both filtering to exactly the same sessions. The
+     * library also has the name the user would now recognise it by.
+     *
+     * A lift deleted from the library is not offered: deleting sets its sessions' exerciseId to
+     * null, and this filter matches on that id, so there would be nothing to filter by.
+     */
     @Query(
         """
-        SELECT DISTINCT e.exerciseId AS exerciseId, e.displayNameSnapshot AS displayName
-        FROM session_exercises e
-        WHERE e.exerciseId IS NOT NULL
-        ORDER BY e.displayNameSnapshot COLLATE NOCASE ASC
+        SELECT x.id AS exerciseId, x.name AS displayName
+        FROM exercises x
+        WHERE EXISTS (SELECT 1 FROM session_exercises e WHERE e.exerciseId = x.id)
+        ORDER BY x.name COLLATE NOCASE ASC
         """,
     )
     fun observeLoggedExercises(): Flow<List<LoggedExerciseEntity>>

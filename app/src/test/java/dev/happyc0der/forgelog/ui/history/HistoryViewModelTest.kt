@@ -296,6 +296,27 @@ class HistoryViewModelTest {
         }
     }
 
+    /**
+     * Renaming a lift in the library leaves the old name on the sessions already logged. The filter
+     * listed one entry per name, so the same lift appeared twice -- both filtering to the same thing.
+     */
+    @Test
+    fun `a renamed lift is offered once, under the name it has now`() = runTest {
+        session("Old", day = 9, exerciseId = benchId, exerciseName = "Bench press")
+        session("New", day = 11, exerciseId = benchId, exerciseName = "Barbell bench press")
+        env.database.exerciseDao().upsert(
+            exerciseEntity(name = "Barbell bench press").copy(id = benchId),
+        )
+
+        val vm = viewModel()
+        vm.uiState.test {
+            var state = awaitItem()
+            while (state.loggedExercises.isEmpty()) state = awaitItem()
+            assertEquals(listOf("Barbell bench press"), state.loggedExercises.map { it.displayName })
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
     @Test
     fun `deleting a session removes it from the list`() = runTest {
         val sessionId = session("Doomed", day = 11)
