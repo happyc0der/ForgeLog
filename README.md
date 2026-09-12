@@ -39,9 +39,13 @@ echo "sdk.dir=$HOME/Library/Android/sdk" > local.properties
 2. Let Gradle sync finish. The version catalog is `gradle/libs.versions.toml` — add dependencies there, not inline.
 3. Select the `app` run configuration.
 
-## Run on a physical phone (Redmi Note 12 Pro)
+## Run on a physical phone
 
-The app is tuned for a 6.67" 1080×2400 20:9 display in portrait.
+Any phone on Android 8.0 or newer will do. Enable Developer options and USB debugging, plug it in,
+and `./gradlew installDebug`.
+
+The steps below are for MIUI/HyperOS specifically, which needs more than most; the layout notes are
+for the display it was developed against, a 6.67" 1080×2400 20:9 panel in portrait.
 
 1. On the phone: **Settings → About phone → MIUI version**, tap it 7 times to unlock Developer options.
 2. **Settings → Additional settings → Developer options**, then enable:
@@ -75,17 +79,23 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 ## Tests
 
-622 tests, all runnable on a laptop with no device attached. Room runs under Robolectric, so the DAO queries, the migrations and the backup round-trip are genuinely executed rather than mocked — and so do the Compose UI tests, which drive the real screens.
+705 tests, all runnable on a laptop with no device attached. Room runs under Robolectric, so the DAO queries, the migrations and the backup round-trip are genuinely executed rather than mocked — and so do the Compose UI tests, which drive the real screens.
 
-The UI tests live in `app/src/sharedTest/` and run twice from one source: on the JVM with `testDebugUnitTest`, and on a device with `connectedDebugAndroidTest`.
+The UI tests live in `app/src/sharedTest/` and run twice from one source: on the JVM with `testDebugUnitTest`, and on a real Android runtime with any of the device tasks below. `app/src/androidTest/` holds the few that genuinely need a device — `AndroidDocumentStoreTest` exercises the `ContentResolver` a backup's bytes travel through, which has no equivalent on a desktop JVM.
 
 ```bash
 ./gradlew testDebugUnitTest            # JVM unit tests
-./gradlew connectedDebugAndroidTest    # the same UI tests on a device, needs one attached --
-                                       # not the phone you train with: it runs against the
-                                       # debug app and can wipe its data
+./gradlew pixelApi36DebugAndroidTest   # the same UI tests on an emulator the build boots itself
+./gradlew pixelApi26DebugAndroidTest   # and on Android 8, the oldest release the app supports
+./gradlew connectedDebugAndroidTest    # or on an attached phone -- not the one you train with:
+                                       # it runs against the debug app and can wipe its data
 ./gradlew assembleDebug testDebugUnitTest   # what to run after every change
 ```
+
+The two emulator tasks download their own system image on first use and need no phone, which makes
+them the default way to run the instrumented suite. Android 8 is opted into from
+`gradle.properties`: AGP discourages it because old images are slow, and it is still the only way to
+run on the minimum the app claims.
 
 ## Backup and restore
 
@@ -113,7 +123,8 @@ unsigned.
 
 Before publishing a release build, run the backup round-trip on it by hand — export, reinstall,
 import. R8 breaking reflective serialization is the classic failure, and it does not show up in a
-debug build.
+debug build. [`docs/release-checks.md`](docs/release-checks.md) sets that out step by step, along
+with the rest of what a release needs and no test can cover.
 
 ## Architecture
 

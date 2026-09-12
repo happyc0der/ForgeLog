@@ -150,13 +150,14 @@ restricted permission, and the rest countdown holds a wake lock for the length o
 
 ## Hosting the privacy policy
 
-Play requires a publicly reachable URL, and this repository is private, so the policy has to be
-published somewhere else. Any of these works:
+Play requires a publicly reachable URL. This repository is public, so the simplest answer is to
+serve the policy from it — the file is already here and already version-controlled:
 
-1. **A separate public repository with GitHub Pages.** Create a public repo, copy `PRIVACY.md` in as
-   `index.md`, turn on Pages in its settings, and use the resulting
-   `https://<user>.github.io/<repo>/` URL. Free, durable, and version-controlled.
-2. **A public GitHub Gist.** Quickest, but the URL is less tidy and easier to lose track of.
+1. **GitHub Pages from this repository.** Settings → Pages → deploy from `main`. `PRIVACY.md` is
+   then reachable at `https://<user>.github.io/ForgeLog/PRIVACY`, and editing the file in place
+   updates the published policy. Nothing to keep in sync.
+2. **A link to the file on GitHub.** `https://github.com/<user>/ForgeLog/blob/main/PRIVACY.md`
+   is publicly reachable and acceptable to Play, though a Pages URL reads better to a user.
 3. **Any static host** you already use.
 
 Whichever you choose, replace **[your contact email]** in `PRIVACY.md` before publishing, and paste

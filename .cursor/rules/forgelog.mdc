@@ -24,7 +24,7 @@ ForgeLog is a **personal-use, native Android** gym workout tracker. One user, on
 
 - The app must remain **fully functional with no network**. No accounts, no cloud backend, no analytics, no ads, no social features, no subscription or paywall.
 - There is no `INTERNET` permission in the manifest, and adding one is a deliberate, discussed decision — not an implementation detail.
-- Any future sync (Garmin, Strava) is an **isolated, opt-in module that core never depends on**. Core talks to it only through a port interface in `domain/sync/`. File import through the Storage Access Framework is preferred over any network API.
+- Any future sync (Garmin, Strava) is an **isolated, opt-in module that core never depends on**. Core would talk to it only through a port interface under `domain/sync/`; none is written yet, and the one that used to sit there was removed for going unused rather than kept as a placeholder. What already exists for it is the storage: `SessionSource.IMPORTED`, and the `externalSource`/`externalId` pair with its unique index, which is what makes re-importing the same activity update a row instead of duplicating it. File import through the Storage Access Framework is preferred over any network API.
 - Data leaves the device only when the user explicitly exports it.
 
 ## Architecture boundaries

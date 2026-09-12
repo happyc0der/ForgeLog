@@ -60,8 +60,8 @@ real app, export first.
 ## B. Only you can do these
 
 - [ ] Put a real contact address in `PRIVACY.md` — it still reads `[your contact email]`
-- [ ] Host the privacy policy somewhere public. This repository is private, so it has to live
-      elsewhere; `docs/play-console.md` lists the options
+- [ ] Host the privacy policy and put the URL in the Console. This repository is public, so turning
+      on GitHub Pages serves `PRIVACY.md` straight from it; `docs/play-console.md` has the details
 - [ ] Create the release keystore and `keystore.properties`. Both are gitignored, and
       `app/build.gradle.kts` wires a signing config only when that file exists, so nothing breaks
       until you add it
