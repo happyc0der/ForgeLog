@@ -511,6 +511,10 @@ class ActiveWorkoutViewModel @Inject constructor(
             // In the queue with every other write, so one already reading this set cannot write it
             // back after it has gone.
             setWrites.withLock { workoutSessionRepository.deleteSetLog(setId) }
+            // For the same reason unticking does it: the rest this set started is a rest that never
+            // began, and leaving it running counts down and buzzes for a set that no longer exists.
+            // Deleting says that more plainly than unticking does.
+            restTimerController.stopIfStartedBy(sessionId, setId)
         }
     }
 

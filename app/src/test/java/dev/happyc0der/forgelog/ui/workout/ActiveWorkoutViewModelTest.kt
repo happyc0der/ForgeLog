@@ -455,6 +455,56 @@ class ActiveWorkoutViewModelTest {
         }
     }
 
+    /*
+     * Unticking a mis-tapped set already stops the rest it started, because that rest never began.
+     * Deleting the set says the same thing more plainly, and used to leave the countdown running --
+     * counting down, and buzzing, for a set that was no longer there.
+     */
+
+    @Test
+    fun `deleting the set that started a rest ends that rest`() = runTest {
+        val vm = viewModel()
+        try {
+            loaded(vm)
+            val (first) = addSets(vm, sessionExerciseId, count = 1)
+            vm.uiState.test {
+                vm.onSetCompleted(first, true)
+                awaitUntil { it.restTimer.isActive }
+
+                vm.deleteSet(first.id)
+
+                awaitUntil { !it.restTimer.isActive }
+                cancelAndIgnoreRemainingEvents()
+            }
+        } finally {
+            vm.viewModelScope.cancel()
+        }
+    }
+
+    @Test
+    fun `deleting a different set leaves the running rest alone`() = runTest {
+        val vm = viewModel()
+        try {
+            loaded(vm)
+            val (first, second) = addSets(vm, sessionExerciseId, count = 2)
+            vm.uiState.test {
+                vm.onSetCompleted(second, true)
+                awaitUntil { it.restTimer.isActive }
+
+                vm.deleteSet(first.id)
+                runCurrent()
+
+                assertTrue(
+                    "the rest belongs to the set that is still there",
+                    vm.uiState.value.restTimer.isActive,
+                )
+                cancelAndIgnoreRemainingEvents()
+            }
+        } finally {
+            vm.viewModelScope.cancel()
+        }
+    }
+
     @Test
     fun `a pending edit does not resurrect a deleted set`() = runTest {
         val vm = viewModel()
