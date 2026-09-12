@@ -34,7 +34,7 @@ import dev.happyc0der.forgelog.domain.model.ExerciseUnit
 import dev.happyc0der.forgelog.domain.model.SetLog
 import dev.happyc0der.forgelog.domain.model.SetType
 import dev.happyc0der.forgelog.domain.workout.asWeightUnit
-import dev.happyc0der.forgelog.ui.components.OptionDropdown
+import dev.happyc0der.forgelog.ui.exercise.EnumDropdown
 import dev.happyc0der.forgelog.ui.input.DurationSecondsField
 import dev.happyc0der.forgelog.ui.input.NumericInput
 import dev.happyc0der.forgelog.ui.input.rememberDurationInputUnit
@@ -134,14 +134,19 @@ internal fun SetEditorDialog(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                /*
+                 * EnumDropdown, not the filter dropdown: a set has a type, so there is no "any" to
+                 * offer. Built on the filter one, the no-filter entry had to be given a name, and
+                 * naming it after the default listed "Working" twice -- two identical entries that
+                 * did the same thing.
+                 */
                 val setTypeLabels = SetType.entries.associateWith { it.label() }
-                OptionDropdown(
+                EnumDropdown(
                     label = stringResource(R.string.session_detail_field_type),
                     selected = setType,
                     options = SetType.entries,
                     optionLabel = { setTypeLabels.getValue(it) },
-                    onSelect = { setTypeName = (it ?: SetType.WORKING).name },
-                    anyLabel = setTypeLabels.getValue(SetType.WORKING),
+                    onSelected = { setTypeName = it.name },
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     NumberEntry(
@@ -160,13 +165,12 @@ internal fun SetEditorDialog(
                 }
                 val weightUnits = listOf(ExerciseUnit.LB, ExerciseUnit.KG)
                 val unitLabels = weightUnits.associateWith { it.label() }
-                OptionDropdown(
+                EnumDropdown(
                     label = stringResource(R.string.session_detail_field_unit),
                     selected = unit,
                     options = weightUnits,
                     optionLabel = { unitLabels.getValue(it) },
-                    onSelect = { unitName = (it ?: ExerciseUnit.LB).name },
-                    anyLabel = unitLabels.getValue(ExerciseUnit.LB),
+                    onSelected = { unitName = it.name },
                 )
                 // Duration and rest in the same sec/min units as the logger. They were plain seconds
                 // here, so with rest entered in minutes, "3" meant three minutes in the logger and
