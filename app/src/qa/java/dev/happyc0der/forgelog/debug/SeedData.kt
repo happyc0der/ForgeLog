@@ -17,6 +17,7 @@ import dev.happyc0der.forgelog.domain.time.TimeProvider
 import dev.happyc0der.forgelog.domain.workout.asWeightUnit
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.flow.first
 import kotlin.random.Random
 
 /**
@@ -39,37 +40,55 @@ class SeedData @Inject constructor(
     private val timeProvider: TimeProvider,
 ) {
 
+    /**
+     * Seeds the library and the program once, then adds [weeks] of sessions against them.
+     *
+     * Everything the program is made of is looked up by name before it is created, so running this
+     * twice adds more training rather than a second copy of everything. It used to insert
+     * unconditionally: a second run left three "Bench Press" entries in the library and two
+     * identical programs, which makes the QA build worse at the one job it has -- and cost real time
+     * chasing a bug that turned out to be nothing but duplicated sample data.
+     */
     suspend fun seed(weeks: Int = DEFAULT_WEEKS) {
         val exercises = SEED_EXERCISES.associate { template ->
-            template.name to exerciseRepository.upsert(
-                Exercise(
-                    name = template.name,
-                    category = template.category,
-                    defaultUnit = template.unit,
-                    howToUrl = template.howToUrl,
-                    defaultPointers = template.pointers,
-                    isArchived = false,
-                    createdAt = 0L,
-                    updatedAt = 0L,
-                ),
-            )
+            template.name to (
+                exerciseRepository.findByName(template.name)?.id
+                    ?: exerciseRepository.upsert(
+                        Exercise(
+                            name = template.name,
+                            category = template.category,
+                            defaultUnit = template.unit,
+                            howToUrl = template.howToUrl,
+                            defaultPointers = template.pointers,
+                            isArchived = false,
+                            createdAt = 0L,
+                            updatedAt = 0L,
+                        ),
+                    )
+                )
         }
 
-        val programId = programRepository.upsertProgram(
+        val existingProgram = programRepository.observePrograms(includeArchived = true)
+            .first()
+            .firstOrNull { it.name == PROGRAM_NAME }
+        val programId = existingProgram?.id ?: programRepository.upsertProgram(
             WorkoutProgram(
-                name = "PPL Strength",
+                name = PROGRAM_NAME,
                 description = "Push, pull and legs, three days a week.",
                 color = "#A855F7",
                 createdAt = 0L,
                 updatedAt = 0L,
             ),
         )
+        val existingDays = programRepository.getProgramDetail(programId)?.days.orEmpty()
 
         val days = SEED_DAYS.mapIndexed { index, day ->
-            val dayId = programRepository.upsertDay(
+            val existingDay = existingDays.firstOrNull { it.day.name == day.name }
+            val dayId = existingDay?.day?.id ?: programRepository.upsertDay(
                 ProgramDay(programId = programId, name = day.name, dayOrder = index, notes = day.notes),
             )
-            day.exercises.forEachIndexed { exerciseIndex, planned ->
+            // Only for a day this run created; an existing one already lists them.
+            if (existingDay == null) day.exercises.forEachIndexed { exerciseIndex, planned ->
                 programRepository.upsertProgramExercise(
                     ProgramExercise(
                         programDayId = dayId,
@@ -178,6 +197,7 @@ class SeedData @Inject constructor(
     )
 
     private companion object {
+        const val PROGRAM_NAME = "PPL Strength"
         const val DEFAULT_WEEKS = 12
         const val SEED = 20260311
         const val DAY_MS = 24L * 60L * 60L * 1000L
