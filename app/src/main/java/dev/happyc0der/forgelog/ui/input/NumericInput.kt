@@ -11,6 +11,8 @@ package dev.happyc0der.forgelog.ui.input
  *    the field went on showing "9.", with nothing to say the number had been thrown away.
  *  - Weight parsed with toDoubleOrNull, which does not accept a comma, so anyone whose locale writes
  *    62,5 lost the weight the same silent way.
+ *  - Char.isDigit is true for the digits of every script, so a Hindi or Arabic keyboard's "१" was
+ *    accepted into the field -- and then toDoubleOrNull, which reads ASCII only, stored nothing.
  *
  * So a keystroke that would make the text unparseable is refused outright, and a decimal comma is
  * read as a decimal point. The field can then never show something different from what is stored.
@@ -26,11 +28,11 @@ object NumericInput {
     fun accept(text: String, decimal: Boolean): String? {
         if (!decimal) {
             return text.takeIf { candidate ->
-                candidate.all(Char::isDigit) && candidate.length <= MAX_WHOLE_DIGITS
+                candidate.all { it.isAsciiDigit() } && candidate.length <= MAX_WHOLE_DIGITS
             }
         }
         val normalised = text.replace(',', '.')
-        if (!normalised.all { it.isDigit() || it == '.' }) return null
+        if (!normalised.all { it.isAsciiDigit() || it == '.' }) return null
         val parts = normalised.split('.')
         return normalised.takeIf {
             parts.size <= 2 &&
@@ -47,4 +49,14 @@ object NumericInput {
      */
     private const val MAX_WHOLE_DIGITS = 6
     private const val MAX_FRACTION_DIGITS = 2
+
+    /**
+     * ASCII digits only, not [Char.isDigit], which is true for the digits of every script.
+     *
+     * The number is parsed downstream by toDoubleOrNull and toIntOrNull, and those disagree about
+     * anything else: toIntOrNull reads "१" as 1, so a rep count showed one script and stored
+     * another, while toDoubleOrNull reads ASCII alone, so a weight typed on a Hindi keyboard was
+     * accepted into the field and stored as nothing at all.
+     */
+    private fun Char.isAsciiDigit(): Boolean = this in '0'..'9'
 }
