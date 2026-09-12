@@ -14,6 +14,7 @@ import dev.happyc0der.forgelog.domain.repository.ExerciseRepository
 import dev.happyc0der.forgelog.domain.repository.ProgramRepository
 import dev.happyc0der.forgelog.domain.repository.WorkoutSessionRepository
 import dev.happyc0der.forgelog.domain.time.TimeProvider
+import dev.happyc0der.forgelog.domain.workout.asWeightUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.random.Random
@@ -128,6 +129,9 @@ class SeedData @Inject constructor(
                     val progression = (weeks - 1 - week) * planned.weeklyIncrement
                     val workingWeight = planned.startingWeight?.plus(progression)
 
+                    // A set's weightUnit is the unit of its weight -- lb or kg -- never the
+                    // exercise's own. Writing "bodyweight" or "seconds" there gave the sample data
+                    // rows the app itself cannot produce, in the build used to check the app.
                     // Only a loaded lift gets a warm-up, and only then does it take set number 1.
                     // The working sets were numbered from 2 regardless, so a bodyweight or timed
                     // lift came out as "Set 2, Set 3, Set 4" with no first set -- which reads as a
@@ -147,7 +151,7 @@ class SeedData @Inject constructor(
                                 setType = SetType.WORKING,
                                 reps = if (planned.durationSeconds == null) reps else null,
                                 weight = workingWeight,
-                                weightUnit = planned.unit,
+                                weightUnit = planned.unit.asWeightUnit(fallback = ExerciseUnit.LB),
                                 durationSeconds = planned.durationSeconds,
                                 restAfterSetSeconds = planned.restSeconds,
                                 rpe = 6 + random.nextInt(4),
@@ -167,7 +171,7 @@ class SeedData @Inject constructor(
         setType = SetType.WARMUP,
         reps = 10,
         weight = planned.startingWeight?.times(0.5),
-        weightUnit = planned.unit,
+        weightUnit = planned.unit.asWeightUnit(fallback = ExerciseUnit.LB),
         restAfterSetSeconds = 60,
         completed = true,
         completedAt = startedAt,
