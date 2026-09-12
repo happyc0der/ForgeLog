@@ -17,6 +17,12 @@ import dev.happyc0der.forgelog.domain.debug.DebugTools
 import dev.happyc0der.forgelog.testing.NoDebugTools
 import dev.happyc0der.forgelog.testing.NoDocumentStore
 import dev.happyc0der.forgelog.testing.TestEnvironment
+import dev.happyc0der.forgelog.domain.model.ExerciseUnit
+import dev.happyc0der.forgelog.domain.model.SetLog
+import dev.happyc0der.forgelog.domain.model.SetType
+import dev.happyc0der.forgelog.ui.history.SetEditorDialog
+import dev.happyc0der.forgelog.ui.programs.ProgramEditorDialog
+import dev.happyc0der.forgelog.ui.programs.ProgramEditorTarget
 import dev.happyc0der.forgelog.ui.settings.SettingsScreen
 import dev.happyc0der.forgelog.ui.settings.SettingsViewModel
 import dev.happyc0der.forgelog.ui.theme.ForgeLogTheme
@@ -135,6 +141,73 @@ class TappableThingsAreLabelledTest {
         "Restore from JSON",
         "Delete all data",
     )
+
+
+    /*
+     * Two dialogs, which need no ViewModel and between them hold the controls a label is easiest to
+     * forget: a checkbox whose text sits beside it, and six colour swatches that are nothing but
+     * colour. Both were right when this was written; the point is that they stay right.
+     */
+
+    private fun showSetEditor() {
+        composeRule.setContent {
+            ForgeLogTheme {
+                SetEditorDialog(
+                    set = SetLog(
+                        id = 7L,
+                        sessionExerciseId = 1L,
+                        setNumber = 2,
+                        setType = SetType.WORKING,
+                        reps = 5,
+                        weight = 185.0,
+                        weightUnit = ExerciseUnit.LB,
+                        completed = true,
+                    ),
+                    onSave = {},
+                    onDelete = {},
+                    onDismiss = {},
+                )
+            }
+        }
+        composeRule.waitForIdle()
+    }
+
+    @Test
+    fun everyTappableControlInTheSetEditorHasAName() {
+        showSetEditor()
+        val nodes = placedControls()
+        assertTrue("nothing tappable in the set editor", nodes.isNotEmpty())
+        val unnamed = nodes.filter { announcedName(it.config) == null }
+        assertTrue(
+            "${unnamed.size} of ${nodes.size} controls would be announced with no name; bounds " +
+                unnamed.joinToString { it.boundsInRoot.toString() },
+            unnamed.isEmpty(),
+        )
+    }
+
+    @Test
+    fun everyColourSwatchSaysWhichColourItIs() {
+        composeRule.setContent {
+            ForgeLogTheme {
+                ProgramEditorDialog(
+                    target = ProgramEditorTarget.Create,
+                    onDismiss = {},
+                    onConfirm = { _, _, _ -> },
+                )
+            }
+        }
+        composeRule.waitForIdle()
+
+        val nodes = placedControls()
+        assertTrue("nothing tappable in the program editor", nodes.isNotEmpty())
+        val unnamed = nodes.filter { announcedName(it.config) == null }
+        assertTrue(
+            "${unnamed.size} of ${nodes.size} controls would be announced with no name -- a colour " +
+                "swatch is nothing but colour, so a missing description leaves it unusable; bounds " +
+                unnamed.joinToString { it.boundsInRoot.toString() },
+            unnamed.isEmpty(),
+        )
+    }
 
     @Test
     fun everyTappableControlOnSettingsHasAName() {
