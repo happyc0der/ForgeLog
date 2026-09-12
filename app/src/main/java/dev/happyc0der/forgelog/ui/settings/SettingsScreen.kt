@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -36,6 +37,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -398,6 +400,16 @@ private fun AboutCard(uiState: SettingsUiState) {
     }
 }
 
+/**
+ * The whole row is the switch, not just the switch.
+ *
+ * The toggle used to carry the click itself, which made it its own node in the accessibility tree
+ * with a role and a state but no name -- a screen reader announced "switch, off" without saying
+ * what it switches, three times over on this screen. Putting [toggleable] on the row and handing
+ * the Switch a null callback leaves one node that folds the label in, so it reads "Vibrate when
+ * rest ends, switch, off". Tapping anywhere on the row works too, which is a larger target for
+ * everyone.
+ */
 @Composable
 private fun SwitchRow(
     label: String,
@@ -407,7 +419,12 @@ private fun SwitchRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 48.dp),
+            .heightIn(min = 48.dp)
+            .toggleable(
+                value = checked,
+                onValueChange = onCheckedChange,
+                role = Role.Switch,
+            ),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
@@ -416,7 +433,8 @@ private fun SwitchRow(
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(end = 12.dp),
         )
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        // Null: the row owns the toggle, so the Switch is not a second thing to focus.
+        Switch(checked = checked, onCheckedChange = null)
     }
 }
 

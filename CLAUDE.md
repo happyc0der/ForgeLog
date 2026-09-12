@@ -56,6 +56,10 @@ way to run instrumented tests by default. API 26 is opted into from `gradle.prop
 discourages it because old images are slow, and it is still the only way to run on the minSdk the
 app claims.
 
+Run them as two invocations, not one. Passing both tasks to a single `./gradlew` call boots both
+emulators at once, and the slower one has been seen to fail with no test results at all -- an
+infrastructure failure that reads like a test failure. Sequentially they pass.
+
 Compose UI tests live in `app/src/sharedTest/`, which is compiled into both the unit-test and
 instrumented source sets. They use `AndroidJUnit4`, so the same file runs under Robolectric on the
 JVM and on a real device — write UI tests there, not in `androidTest`, unless something genuinely

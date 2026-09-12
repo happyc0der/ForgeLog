@@ -17,6 +17,8 @@ import dev.happyc0der.forgelog.R
 import dev.happyc0der.forgelog.domain.backup.DocumentHandle
 import dev.happyc0der.forgelog.domain.backup.DocumentStore
 import dev.happyc0der.forgelog.domain.debug.DebugTools
+import dev.happyc0der.forgelog.testing.NoDebugTools
+import dev.happyc0der.forgelog.testing.NoDocumentStore
 import dev.happyc0der.forgelog.testing.TestEnvironment
 import dev.happyc0der.forgelog.ui.settings.SettingsScreen
 import dev.happyc0der.forgelog.ui.settings.SettingsViewModel
@@ -30,16 +32,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-
-private class NoDebugTools : DebugTools {
-    override val isAvailable = false
-    override suspend fun seedSampleData() = Unit
-}
-
-private class NoDocumentStore : DocumentStore {
-    override suspend fun readText(handle: DocumentHandle) = Result.success("")
-    override suspend fun writeText(handle: DocumentHandle, content: String) = Result.success(Unit)
-}
 
 /**
  * Settings' dropdowns are choices, not filters.
