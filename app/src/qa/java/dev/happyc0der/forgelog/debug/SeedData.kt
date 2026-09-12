@@ -128,7 +128,12 @@ class SeedData @Inject constructor(
                     val progression = (weeks - 1 - week) * planned.weeklyIncrement
                     val workingWeight = planned.startingWeight?.plus(progression)
 
-                    if (planned.startingWeight != null) {
+                    // Only a loaded lift gets a warm-up, and only then does it take set number 1.
+                    // The working sets were numbered from 2 regardless, so a bodyweight or timed
+                    // lift came out as "Set 2, Set 3, Set 4" with no first set -- which reads as a
+                    // bug in the app when the sample data is there to check the app against.
+                    val warmupSets = if (planned.startingWeight != null) 1 else 0
+                    if (warmupSets == 1) {
                         sessionRepository.upsertSetLog(
                             warmupSet(sessionExerciseId, planned, startedAt),
                         )
@@ -138,7 +143,7 @@ class SeedData @Inject constructor(
                         sessionRepository.upsertSetLog(
                             SetLog(
                                 sessionExerciseId = sessionExerciseId,
-                                setNumber = setIndex + 2,
+                                setNumber = setIndex + warmupSets + 1,
                                 setType = SetType.WORKING,
                                 reps = if (planned.durationSeconds == null) reps else null,
                                 weight = workingWeight,
