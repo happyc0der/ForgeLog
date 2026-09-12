@@ -10,7 +10,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.dropWhile
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -41,9 +40,9 @@ data class ActiveRest(
  * was rebuilt from the database at its planned length, forgetting any +15 or pause. Held here, it
  * runs and alerts wherever the user is in the app; the logger only shows it and adjusts it.
  *
- * The alert itself is an exact alarm ([RestAlarmScheduler]) kept on the rest's end, because the
- * countdown here stops when the phone's CPU sleeps -- screen off, face down on a bench, which is
- * when rests end. The countdown raises the alert only where exact alarms are not allowed.
+ * The countdown here is what raises the alert. It would otherwise stop when the phone's CPU sleeps
+ * -- screen off, face down on a bench, which is exactly when rests end -- so a wake lock is held for
+ * as long as a rest is running and no longer; see [RestWakeLock].
  *
  * One rest at a time, belonging to one session. It is saved as it changes ([RestStateStore]), so a
  * rest outlives the process: skipped, paused or extended, it comes back as it was. Only when nothing
@@ -53,7 +52,7 @@ class RestTimerController(
     scope: CoroutineScope,
     private val timeProvider: TimeProvider,
     private val alert: RestAlert,
-    private val alarm: RestAlarmScheduler = NoRestAlarm,
+    private val wakeLock: RestWakeLock = NoRestWakeLock,
     /** The in-progress session's id, or null when there is none. */
     inProgressSessionId: Flow<Long?> = emptyFlow(),
     private val store: RestStateStore = NoRestStateStore,
@@ -65,10 +64,9 @@ class RestTimerController(
      * it is not rebuilt running, and running if it is not yet over.
      *
      * One that ended while the app was closed comes back as done -- skipped, in effect: shown
-     * nowhere and setting no alarm, since its alarm has gone off already and one for a time already
-     * past would buzz again the moment the app returned. Forgetting it instead would leave the
-     * logger free to rebuild a rest from the last set, which after a rest started by hand could be
-     * one still running, and buzz a second time.
+     * nowhere and raising no alert, since the moment it would have buzzed is already past.
+     * Forgetting it instead would leave the logger free to rebuild a rest from the last set, which
+     * after a rest started by hand could be one still running, and buzz for it late.
      */
     private fun asRestored(saved: ActiveRest?): ActiveRest? {
         val rest = saved ?: return null
@@ -129,8 +127,7 @@ class RestTimerController(
     /** The session is over; its rest goes with it. */
     fun clear(sessionId: Long) {
         active.update { current -> if (current?.sessionId == sessionId) null else current }
-        // Directly, too: an alarm set by an earlier process is not one this state knows about.
-        alarm.cancel()
+        wakeLock.release()
     }
 
     init {
@@ -141,16 +138,15 @@ class RestTimerController(
 
         /*
          * A rest only lives as long as its workout. Whatever ends one -- finishing, abandoning,
-         * deleting it from History mid-rest, a restore, deleting all data -- the rest and its alarm
-         * go with it. Deleting an in-progress workout from History used to leave the alarm set, so
-         * the phone buzzed later for a workout that no longer existed.
+         * deleting it from History mid-rest, a restore, deleting all data -- the rest goes with it,
+         * and so does the CPU hold. Deleting an in-progress workout from History used to leave the
+         * alert armed, so the phone buzzed later for a workout that no longer existed.
          */
         scope.launch {
             inProgressSessionId.collect { current ->
                 if (current == null) {
                     active.value = null
-                    // Directly as well: an alarm left by an earlier process is not in this state.
-                    alarm.cancel()
+                    wakeLock.release()
                 } else {
                     active.update { rest -> rest?.takeIf { it.sessionId == current } }
                 }
@@ -158,25 +154,20 @@ class RestTimerController(
         }
 
         /*
-         * Keeps the exact alarm on the rest's end: moved by +15, dropped by a pause, a skip, an
-         * untick or the end of the workout, and set again on resume.
+         * Keeps the CPU awake for exactly as long as a rest is running: extended by +15, let go by a
+         * pause, a skip, an untick or the end of the workout, and taken again on resume.
          */
         scope.launch {
             active
                 .map { it?.state?.endsAtEpochMs() }
                 .distinctUntilChanged()
-                // Not the starting "no rest": a new process begins with nothing running, and
-                // cancelling then would drop the alarm a killed process left for a rest still
-                // under way, before the logger can restore it.
-                .dropWhile { it == null }
                 .collect { endsAt ->
-                    if (endsAt != null && alarm.canScheduleExact) alarm.schedule(endsAt) else alarm.cancel()
+                    if (endsAt != null) wakeLock.hold(endsAt) else wakeLock.release()
                 }
         }
 
         /*
-         * Announces the end of rest exactly once per timer -- when the exact alarm cannot, since
-         * that alarm is what wakes a sleeping phone and this countdown sleeps with it.
+         * Announces the end of rest exactly once per timer.
          *
          * The ticker runs only while a timer is active and still counting: transformWhile stops it
          * on the tick that reaches zero, so nothing wakes once a second between rests.
@@ -201,7 +192,7 @@ class RestTimerController(
                 }
                 .distinctUntilChanged()
                 .collect { finished ->
-                    if (!finished || alarm.canScheduleExact) return@collect
+                    if (!finished) return@collect
                     // An alert that fails -- no vibrator, a muted stream -- must not end the watch.
                     try {
                         alert.restFinished()
@@ -209,6 +200,8 @@ class RestTimerController(
                         throw cancellation
                     } catch (_: Exception) {
                     }
+                    // The rest is over: nothing more needs the CPU held awake.
+                    wakeLock.release()
                 }
         }
     }
@@ -219,11 +212,4 @@ internal fun RestTimerState.endsAtEpochMs(): Long? {
     val anchor = anchorEpochMs ?: return null
     if (!isActive || isPaused) return null
     return anchor + targetSeconds * 1_000L
-}
-
-/** For callers without an alarm service: the in-app countdown raises the alert itself. */
-object NoRestAlarm : RestAlarmScheduler {
-    override val canScheduleExact: Boolean = false
-    override fun schedule(atEpochMs: Long) = Unit
-    override fun cancel() = Unit
 }

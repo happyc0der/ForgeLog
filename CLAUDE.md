@@ -29,8 +29,8 @@ app/src/main/java/dev/happyc0der/forgelog/
 ├── ui/               one package per feature; each has Screen + ViewModel
 └── workout/          WorkoutForegroundService (live session timer notification),
                       RestTimerController (the rest countdown, app-wide -- not in the logger's
-                      ViewModel, which dies when the logger is left), RestAlarm (the exact alarm and
-                      receiver that buzz at rest end even with the phone asleep)
+                      ViewModel, which dies when the logger is left), RestWakeLock (holds the CPU
+                      awake while a rest runs, so the countdown reaches zero with the phone asleep)
 ```
 
 Reuse before writing new: `VolumeCalculator`, `EstimatedOneRepMax`, `PreviousWorkoutMatcher`, `SessionRest`, `SetPrefill`, `SetFieldVisibility`, `DurationInput`, `formatElapsed`/`formatSeconds`, `WeekBoundary`, `ConfirmDialog`, `EmptyState`/`LoadingState`/`ErrorState`, `TextInputDialog`.

@@ -10,7 +10,7 @@ import dev.happyc0der.forgelog.domain.repository.WorkoutSessionRepository
 import dev.happyc0der.forgelog.domain.settings.SettingsRepository
 import dev.happyc0der.forgelog.domain.time.TimeProvider
 import dev.happyc0der.forgelog.ui.workout.RestTimerFeedback
-import dev.happyc0der.forgelog.workout.AndroidRestAlarmScheduler
+import dev.happyc0der.forgelog.workout.AndroidRestWakeLock
 import dev.happyc0der.forgelog.workout.RestTimerController
 import dev.happyc0der.forgelog.workout.SharedPreferencesRestStateStore
 import javax.inject.Singleton
@@ -27,9 +27,8 @@ object WorkoutModule {
 
     /**
      * One for the app, on a scope that is never cancelled: outliving the logger screen is the
-     * whole point of it. The rest-end alert is normally the exact alarm; [alert] is the fallback
-     * for when exact alarms are not allowed. Either way the settings are read when it fires, so
-     * switching vibration or sound off mid-rest is honoured.
+     * whole point of it. [alert] is what buzzes when a rest ends, and it reads the settings as it
+     * fires, so switching vibration or sound off mid-rest is honoured.
      */
     @Provides
     @Singleton
@@ -42,7 +41,7 @@ object WorkoutModule {
     ): RestTimerController = RestTimerController(
         scope = CoroutineScope(SupervisorJob() + mainDispatcher),
         timeProvider = timeProvider,
-        alarm = AndroidRestAlarmScheduler(context),
+        wakeLock = AndroidRestWakeLock(context, timeProvider),
         store = SharedPreferencesRestStateStore(context),
         inProgressSessionId = workoutSessionRepository.observeInProgressSession()
             .map { it?.id }
