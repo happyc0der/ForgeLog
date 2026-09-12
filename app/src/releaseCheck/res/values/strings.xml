@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        The shrunk release build, installed over the QA app so it is unmistakably neither the real
+        app nor a normal QA build. Its name says which of the three is on the phone.
+    -->
+    <string name="app_name">ForgeLog R8</string>
+</resources>

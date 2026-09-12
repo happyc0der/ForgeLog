@@ -85,7 +85,16 @@ android {
          */
         create("releaseCheck") {
             initWith(getByName("release"))
-            applicationIdSuffix = ".releasecheck"
+            /*
+             * The QA app's id, not one of its own.
+             *
+             * MIUI refuses to install a package it has not seen before over USB, so a fresh id
+             * cannot be put on the phone at all; an update to one already installed is allowed.
+             * Sharing the QA id -- and its debug signature -- is what makes this build reachable on
+             * the device it needs to be checked on. `installQa` puts the ordinary QA build back, and
+             * the two never coexist, which is the point: whichever is installed says so on its icon.
+             */
+            applicationIdSuffix = ".qa"
             signingConfig = signingConfigs.getByName("debug")
             matchingFallbacks += listOf("release")
         }
