@@ -132,6 +132,13 @@ android {
                     // The automated-test image: smaller, and built for exactly this.
                     systemImageSource = "aosp-atd"
                 }
+                // The oldest Android the app claims to run on. Lint is the only other thing that
+                // catches an API above minSdk, and it cannot catch behaviour that merely differs.
+                create("pixelApi26") {
+                    device = "Pixel 2"
+                    apiLevel = 26
+                    systemImageSource = "aosp"
+                }
             }
         }
     }

@@ -3,6 +3,7 @@ package dev.happyc0der.forgelog.data.backup
 import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
+import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import androidx.test.core.app.ApplicationProvider
@@ -16,6 +17,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.File
 
 /**
  * The one piece of the backup flow that never runs on a desktop JVM: the ContentResolver.
@@ -38,22 +40,40 @@ class AndroidDocumentStoreTest {
 
     @After
     fun tearDown() {
-        written.forEach { runCatching { context.contentResolver.delete(it, null, null) } }
+        written.forEach { runCatching { forget(it) } }
         written.clear()
     }
 
-    /** A real document, from a real provider, of the kind the picker would hand back. */
+    /**
+     * A real document, of the kind the picker would hand back.
+     *
+     * MediaStore's Downloads collection arrived in Android 10, and minSdk here is Android 8, so on
+     * older releases this falls back to a file the resolver opens directly. Both go through
+     * ContentResolver, which is the code under test.
+     */
     private fun newDocument(name: String): UriDocumentHandle {
-        val values = ContentValues().apply {
-            put(MediaStore.Downloads.DISPLAY_NAME, name)
-            put(MediaStore.Downloads.MIME_TYPE, "application/json")
-            put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+        val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val values = ContentValues().apply {
+                put(MediaStore.Downloads.DISPLAY_NAME, name)
+                put(MediaStore.Downloads.MIME_TYPE, "application/json")
+                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+            }
+            requireNotNull(
+                context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values),
+            ) { "The test could not create a document to write to" }
+        } else {
+            Uri.fromFile(File(context.cacheDir, name).apply { createNewFile() })
         }
-        val uri = requireNotNull(
-            context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values),
-        ) { "The test could not create a document to write to" }
         written += uri
         return UriDocumentHandle(uri)
+    }
+
+    private fun forget(uri: Uri) {
+        if (uri.scheme == "file") {
+            uri.path?.let { File(it).delete() }
+        } else {
+            context.contentResolver.delete(uri, null, null)
+        }
     }
 
     @Test
@@ -101,12 +121,16 @@ class AndroidDocumentStoreTest {
     fun aDocumentThatIsGoneFailsRatherThanCrashes() = runTest {
         val handle = newDocument("forgelog-missing-${System.nanoTime()}.json")
         store.writeText(handle, "{}").getOrThrow()
-        context.contentResolver.delete(handle.uri, null, null)
+        forget(handle.uri)
 
         // A user can restore a backup, delete the file, then rotate the screen. Nothing here may
         // throw out of the coroutine.
         assertTrue(store.readText(handle).isFailure)
-        assertTrue(store.writeText(handle, "{}").isFailure)
+        if (handle.uri.scheme != "file") {
+            // A document provider cannot resurrect a row it has dropped. A plain file can be
+            // recreated by opening it, which is the fallback's behaviour, not the app's.
+            assertTrue(store.writeText(handle, "{}").isFailure)
+        }
     }
 
     @Test
