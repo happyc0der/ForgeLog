@@ -102,10 +102,15 @@ internal class CorruptionPreservingFactory(
         val context = configuration.context
         val name = configuration.name
 
+        // Every field of the configuration has to be carried across, not just the ones that look
+        // relevant: what is built here replaces Room's own, and anything left out silently reverts
+        // to a default. allowDataLossOnRecovery is the one that matters most -- it decides whether
+        // the helper may delete a database it cannot open, which is the very thing being handled.
         val wrapped = SupportSQLiteOpenHelper.Configuration
             .builder(context)
             .name(name)
             .noBackupDirectory(configuration.useNoBackupDirectory)
+            .allowDataLossOnRecovery(configuration.allowDataLossOnRecovery)
             .callback(
                 object : SupportSQLiteOpenHelper.Callback(original.version) {
                     override fun onConfigure(db: SupportSQLiteDatabase) = original.onConfigure(db)
