@@ -1,0 +1,29 @@
+# GitHub Pages configuration.
+#
+# This exists for one reason: Google Play requires the privacy policy at a publicly reachable URL,
+# and the policy already lives in this repository as PRIVACY.md. Serving it from here means there is
+# no second copy to keep in sync — editing PRIVACY.md updates the published policy.
+#
+# The pages are index.md and privacy-policy.md. Everything excluded below is the Android project,
+# which Jekyll has no reason to copy into a website.
+
+title: ForgeLog
+description: >-
+  An offline-first Android gym tracker. No accounts, no backend, no network permission.
+theme: jekyll-theme-primer
+
+exclude:
+  - app/
+  - gradle/
+  - gradlew
+  - gradlew.bat
+  - build.gradle.kts
+  - settings.gradle.kts
+  - gradle.properties
+  - local.properties
+  - keystore.properties
+  - docs/
+  - CLAUDE.md
+  - .cursor/
+  - .github/
+  - LICENSE
