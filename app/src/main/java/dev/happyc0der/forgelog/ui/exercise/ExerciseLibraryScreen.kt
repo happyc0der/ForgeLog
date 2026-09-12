@@ -181,20 +181,27 @@ fun ExerciseLibraryScreen(
                     }
                     if (uiState.exercises.isEmpty()) {
                         val isSearch = uiState.query.isNotBlank() || uiState.category != null
+                        // Something matches and the archive filter is what is holding it back, so
+                        // the advice is the chip above, not "add one". Telling a user with an
+                        // archived lift that they have none invites a second copy of it.
+                        val hiddenByTheChip = uiState.hiddenArchivedCount > 0
                         EmptyState(
                             icon = Icons.Outlined.FitnessCenter,
                             title = stringResource(
-                                if (isSearch) {
-                                    R.string.exercise_library_empty_search_title
-                                } else {
-                                    R.string.exercise_library_empty_title
+                                when {
+                                    isSearch -> R.string.exercise_library_empty_search_title
+                                    hiddenByTheChip -> R.string.exercise_library_empty_hidden_title
+                                    else -> R.string.exercise_library_empty_title
                                 },
                             ),
                             message = stringResource(
-                                if (isSearch) {
-                                    R.string.exercise_library_empty_search_message
-                                } else {
-                                    R.string.exercise_library_empty_message
+                                when {
+                                    isSearch && hiddenByTheChip ->
+                                        R.string.exercise_library_empty_search_hidden_message
+                                    isSearch -> R.string.exercise_library_empty_search_message
+                                    hiddenByTheChip ->
+                                        R.string.exercise_library_empty_hidden_message
+                                    else -> R.string.exercise_library_empty_message
                                 },
                             ),
                         )

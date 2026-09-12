@@ -65,6 +65,80 @@ class ExerciseLibraryViewModelTest {
         env.database.exerciseDao().upsert(exerciseEntity(name = name)),
     )!!
 
+    /*
+     * The empty state picks its advice from this count. Zero means the library really has nothing
+     * to show and the answer is to add a lift; anything else means the archive filter is holding
+     * one back, and telling the user to add one gets them a second copy of a lift they own.
+     */
+
+    @Test
+    fun `an empty library hides nothing`() = runTest {
+        val vm = viewModel()
+        vm.uiState.test {
+            var current = awaitItem()
+            while (current.isLoading) current = awaitItem()
+            assertTrue(current.exercises.isEmpty())
+            assertEquals(0, current.hiddenArchivedCount)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `an all-archived library reports what the filter is holding back`() = runTest {
+        val squat = exercise("Squat")
+        env.exerciseRepository.setArchived(squat.id, true)
+        advanceUntilIdle()
+
+        val vm = viewModel()
+        vm.uiState.test {
+            var current = awaitItem()
+            while (current.isLoading || current.hiddenArchivedCount == 0) current = awaitItem()
+            assertTrue(current.exercises.isEmpty())
+            assertEquals(1, current.hiddenArchivedCount)
+
+            vm.onToggleArchived()
+            while (current.exercises.isEmpty()) current = awaitItem()
+            assertEquals(0, current.hiddenArchivedCount)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `a search only counts the archived lifts it would have matched`() = runTest {
+        val squat = exercise("Squat")
+        val curl = exercise("Bicep Curl")
+        env.exerciseRepository.setArchived(squat.id, true)
+        env.exerciseRepository.setArchived(curl.id, true)
+        advanceUntilIdle()
+
+        val vm = viewModel()
+        vm.onQueryChange("squat")
+        vm.uiState.test {
+            var current = awaitItem()
+            while (current.isLoading || current.query != "squat") current = awaitItem()
+            // Both are archived; only one of them was ever going to match this search.
+            assertEquals(1, current.hiddenArchivedCount)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `a search that matches nothing at all blames the search, not the filter`() = runTest {
+        val squat = exercise("Squat")
+        env.exerciseRepository.setArchived(squat.id, true)
+        advanceUntilIdle()
+
+        val vm = viewModel()
+        vm.onQueryChange("deadlift")
+        vm.uiState.test {
+            var current = awaitItem()
+            while (current.isLoading || current.query != "deadlift") current = awaitItem()
+            assertTrue(current.exercises.isEmpty())
+            assertEquals(0, current.hiddenArchivedCount)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
     @Test
     fun `an exercise with history is refused before anything is confirmed`() = runTest {
         val squat = exercise("Squat")

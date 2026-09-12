@@ -343,6 +343,9 @@
     <string name="exercise_library_empty_message">Add the lifts you train so you can drop them into program days.</string>
     <string name="exercise_library_empty_search_title">No matching exercises</string>
     <string name="exercise_library_empty_search_message">Try a different name or category.</string>
+    <string name="exercise_library_empty_hidden_title">Nothing here right now</string>
+    <string name="exercise_library_empty_hidden_message">Every exercise you have is archived. Use Show archived above to see them, or add a new one.</string>
+    <string name="exercise_library_empty_search_hidden_message">Nothing matches here, and archived exercises are hidden. Use Show archived above to include them.</string>
     <string name="exercise_library_pick_title">Choose an exercise</string>
     <string name="exercise_editor_create_title">New exercise</string>
     <string name="exercise_editor_edit_title">Edit exercise</string>

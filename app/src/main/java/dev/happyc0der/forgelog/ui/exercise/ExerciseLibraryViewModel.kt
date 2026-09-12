@@ -31,6 +31,14 @@ data class ExerciseLibraryUiState(
     val category: ExerciseCategory? = null,
     val includeArchived: Boolean = false,
     val exercises: List<Exercise> = emptyList(),
+    /**
+     * How many exercises match the search and category but are held back by the archive filter.
+     *
+     * An empty list on its own cannot tell "you have none of these" from "the ones you have are
+     * hidden", and the two need opposite advice: add one, or turn the filter on. Guessing wrong
+     * invites the user to re-create a lift they already own, under a second entry.
+     */
+    val hiddenArchivedCount: Int = 0,
 )
 
 /** An exercise the user asked to delete, and how many program days it would be taken out of. */
@@ -71,12 +79,12 @@ class ExerciseLibraryViewModel @Inject constructor(
         includeArchived,
         loadError,
     ) { exercises, search, selectedCategory, showArchived, error ->
-        val filtered = exercises
-            .filter { exercise -> showArchived || !exercise.isArchived }
+        val matching = exercises
             .filter { exercise -> selectedCategory == null || exercise.category == selectedCategory }
             .filter { exercise ->
                 search.isBlank() || exercise.name.contains(search.trim(), ignoreCase = true)
             }
+        val filtered = matching.filter { exercise -> showArchived || !exercise.isArchived }
         ExerciseLibraryUiState(
             isLoading = false,
             errorMessage = error,
@@ -84,6 +92,7 @@ class ExerciseLibraryViewModel @Inject constructor(
             category = selectedCategory,
             includeArchived = showArchived,
             exercises = filtered,
+            hiddenArchivedCount = matching.size - filtered.size,
         )
     }.stateIn(
         scope = viewModelScope,
