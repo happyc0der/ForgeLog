@@ -371,6 +371,12 @@
     <string name="exercise_deleted">Exercise deleted.</string>
 
     <string name="programs_title">Programs</string>
+    <!-- Shown once when SQLite could not open the database and the app had to start again empty. -->
+    <string name="home_data_unreadable_title">Your training data could not be read</string>
+    <string name="home_data_unreadable_message">The database on this device was damaged and could not be opened, so ForgeLog has started with an empty one. If you have a backup, restore it from Settings.</string>
+    <string name="home_data_unreadable_kept">The unreadable file has been kept on the device as %1$s, in case it turns out to be worth something.</string>
+    <string name="home_data_unreadable_not_kept">A copy of the unreadable file could not be made.</string>
+    <string name="home_data_unreadable_dismiss">Got it</string>
     <string name="programs_empty_visible_title">Nothing here right now</string>
     <string name="programs_empty_visible_message">Every program you have is archived. Use Show archived above to see them, or create a new one.</string>
     <string name="programs_last_performed">Last done %1$s</string>

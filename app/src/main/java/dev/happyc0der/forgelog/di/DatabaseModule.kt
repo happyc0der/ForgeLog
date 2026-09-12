@@ -2,8 +2,12 @@ package dev.happyc0der.forgelog.di
 
 import android.content.Context
 import androidx.room.Room
+import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
+import dev.happyc0der.forgelog.data.local.CorruptionPreservingFactory
+import dev.happyc0der.forgelog.data.local.DatabaseRecoveryLog
 import dev.happyc0der.forgelog.data.local.ForgeLogDatabase
 import dev.happyc0der.forgelog.data.local.ForgeLogMigrations
+import dev.happyc0der.forgelog.data.local.SharedPreferencesDatabaseRecoveryLog
 import dev.happyc0der.forgelog.BuildConfig
 import dev.happyc0der.forgelog.data.local.dao.BackupDao
 import dev.happyc0der.forgelog.data.local.dao.ExerciseDao
@@ -25,13 +29,34 @@ import javax.inject.Singleton
 object DatabaseModule {
     @Provides
     @Singleton
+    fun provideDatabaseRecoveryLog(
+        @ApplicationContext context: Context,
+    ): DatabaseRecoveryLog = SharedPreferencesDatabaseRecoveryLog(context)
+
+    /**
+     * The open helper keeps a copy of an unreadable database before the platform deletes it.
+     *
+     * SQLite's own corruption handling deletes the file and lets Room build an empty one, which is
+     * silent total loss of a training history. See CorruptionPreservingFactory.
+     */
+    @Provides
+    @Singleton
     fun provideDatabase(
         @ApplicationContext context: Context,
+        recoveryLog: DatabaseRecoveryLog,
+        timeProvider: TimeProvider,
     ): ForgeLogDatabase = Room.databaseBuilder(
         context,
         ForgeLogDatabase::class.java,
         "forgelog.db",
     )
+        .openHelperFactory(
+            CorruptionPreservingFactory(
+                delegate = FrameworkSQLiteOpenHelperFactory(),
+                recoveryLog = recoveryLog,
+                now = timeProvider::nowEpochMs,
+            ),
+        )
         .addMigrations(*ForgeLogMigrations.ALL)
         .build()
 

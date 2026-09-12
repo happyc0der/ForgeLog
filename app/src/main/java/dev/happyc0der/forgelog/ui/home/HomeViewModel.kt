@@ -9,6 +9,8 @@ import dev.happyc0der.forgelog.domain.home.Greeting
 import dev.happyc0der.forgelog.domain.home.SessionSummary
 import dev.happyc0der.forgelog.domain.home.TrainingSummaries
 import dev.happyc0der.forgelog.domain.home.TrainingTotals
+import dev.happyc0der.forgelog.data.local.DatabaseRecoveryLog
+import dev.happyc0der.forgelog.data.local.UnreadableDatabase
 import dev.happyc0der.forgelog.domain.model.ExerciseUnit
 import dev.happyc0der.forgelog.domain.model.WorkoutSession
 import dev.happyc0der.forgelog.domain.repository.ProgramRepository
@@ -50,6 +52,11 @@ data class HomeUiState(
     val week: TrainingTotals = TrainingTotals.EMPTY,
     /** Unit the user reads volume in. Volume is always computed in pounds and converted for display. */
     val weightUnit: ExerciseUnit = ExerciseUnit.LB,
+    /**
+     * Set when the database could not be read on a previous start and the app began again empty.
+     * Shown until dismissed, because it is the only sign the user gets that anything was lost.
+     */
+    val unreadableDatabase: UnreadableDatabase? = null,
 )
 
 /** Everything Home reads from storage, gathered so the clock can be combined separately. */
@@ -84,9 +91,16 @@ class HomeViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val timeProvider: TimeProvider,
     private val zoneProvider: ZoneProvider,
+    private val databaseRecoveryLog: DatabaseRecoveryLog,
 ) : ViewModel() {
 
     private val errorMessage = MutableStateFlow<String?>(null)
+
+    /**
+     * Read once at construction: a database that failed to open did so before this screen existed,
+     * and cannot start failing while it is on show.
+     */
+    private val unreadableDatabase = MutableStateFlow(databaseRecoveryLog.unreported())
 
     /** Bumped by [retry] to re-subscribe after a failure, since `catch` ends the source flow. */
     private val retryToken = MutableStateFlow(0)
@@ -169,7 +183,8 @@ class HomeViewModel @Inject constructor(
         elapsedLabel,
         clock,
         errorMessage,
-    ) { homeData, elapsed, homeClock, error ->
+        unreadableDatabase,
+    ) { homeData, elapsed, homeClock, error, unreadable ->
         HomeUiState(
             isLoading = false,
             errorMessage = error,
@@ -181,12 +196,19 @@ class HomeViewModel @Inject constructor(
             lastWorkout = homeData.lastWorkout,
             week = homeData.week,
             weightUnit = homeData.settings.defaultWeightUnit,
+            unreadableDatabase = unreadable,
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = HomeUiState(),
     )
+
+    /** The user has read the notice that their data could not be recovered. */
+    fun dismissUnreadableDatabaseNotice() {
+        databaseRecoveryLog.markReported()
+        unreadableDatabase.value = null
+    }
 
     fun retry() {
         errorMessage.value = null

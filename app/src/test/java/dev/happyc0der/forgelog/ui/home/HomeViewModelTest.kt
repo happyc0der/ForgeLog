@@ -13,6 +13,9 @@ import dev.happyc0der.forgelog.domain.model.SessionStatus
 import dev.happyc0der.forgelog.domain.model.SetType
 import dev.happyc0der.forgelog.domain.model.WorkoutProgram
 import dev.happyc0der.forgelog.testing.MainDispatcherRule
+import dev.happyc0der.forgelog.data.local.DatabaseRecoveryLog
+import dev.happyc0der.forgelog.data.local.NoDatabaseRecoveryLog
+import dev.happyc0der.forgelog.data.local.UnreadableDatabase
 import dev.happyc0der.forgelog.testing.TestEnvironment
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
@@ -65,14 +68,34 @@ class HomeViewModelTest {
         env.tearDown()
     }
 
-    private fun viewModel(): HomeViewModel = HomeViewModel(
+    private fun viewModel(
+        recoveryLog: DatabaseRecoveryLog = NoDatabaseRecoveryLog,
+    ): HomeViewModel = HomeViewModel(
         application = ApplicationProvider.getApplicationContext<Application>(),
         programRepository = env.programRepository,
         workoutSessionRepository = env.sessionRepository,
         settingsRepository = env.settingsRepository,
         timeProvider = env.time,
         zoneProvider = env.zone,
+        databaseRecoveryLog = recoveryLog,
     ).also(created::add)
+
+    /** Remembers one loss, as the real one does across a process restart. */
+    private class RecordedLoss(private var value: UnreadableDatabase?) : DatabaseRecoveryLog {
+        var reported = false
+            private set
+
+        override fun record(unreadable: UnreadableDatabase) {
+            value = unreadable
+        }
+
+        override fun unreported(): UnreadableDatabase? = value
+
+        override fun markReported() {
+            value = null
+            reported = true
+        }
+    }
 
     private suspend fun logSession(
         name: String,
@@ -334,6 +357,78 @@ class HomeViewModelTest {
             var afterRetry = awaitItem()
             while (afterRetry.errorMessage == null) afterRetry = awaitItem()
             assertNotNull(afterRetry.errorMessage)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    /*
+     * SQLite's own corruption handling deletes the database and lets Room build an empty one, so
+     * the app comes up looking freshly installed with a training history silently gone. It cannot
+     * be refused outright -- starting is what it takes to reach Settings and restore a backup -- so
+     * the file is kept aside and the user is told. This is the telling.
+     */
+
+    @Test
+    fun `an ordinary start says nothing about lost data`() = runTest {
+        val vm = viewModel()
+        vm.uiState.test {
+            var state = awaitItem()
+            while (state.isLoading) state = awaitItem()
+            assertNull(state.unreadableDatabase)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `a database that could not be read is reported, with the file that was kept`() = runTest {
+        val loss = RecordedLoss(
+            UnreadableDatabase(preservedFileName = "forgelog.db.unreadable-123", atEpochMs = 123L),
+        )
+        val vm = viewModel(recoveryLog = loss)
+        vm.uiState.test {
+            var state = awaitItem()
+            while (state.isLoading) state = awaitItem()
+            assertEquals(
+                "forgelog.db.unreadable-123",
+                state.unreadableDatabase?.preservedFileName,
+            )
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `the loss is still reported when no copy could be kept`() = runTest {
+        val loss = RecordedLoss(UnreadableDatabase(preservedFileName = null, atEpochMs = 9L))
+        val vm = viewModel(recoveryLog = loss)
+        vm.uiState.test {
+            var state = awaitItem()
+            while (state.isLoading) state = awaitItem()
+            assertNotNull("a loss with no preserved copy went unreported", state.unreadableDatabase)
+            assertNull(state.unreadableDatabase?.preservedFileName)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `dismissing the notice clears it for good`() = runTest {
+        val loss = RecordedLoss(UnreadableDatabase(preservedFileName = "kept.db", atEpochMs = 5L))
+        val vm = viewModel(recoveryLog = loss)
+        vm.uiState.test {
+            var state = awaitItem()
+            while (state.unreadableDatabase == null) state = awaitItem()
+
+            vm.dismissUnreadableDatabaseNotice()
+
+            while (state.unreadableDatabase != null) state = awaitItem()
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertTrue("the dismissal was not written down", loss.reported)
+        // A fresh ViewModel, as a later launch would build, says nothing.
+        val later = viewModel(recoveryLog = loss)
+        later.uiState.test {
+            var state = awaitItem()
+            while (state.isLoading) state = awaitItem()
+            assertNull("the notice came back after being dismissed", state.unreadableDatabase)
             cancelAndIgnoreRemainingEvents()
         }
     }

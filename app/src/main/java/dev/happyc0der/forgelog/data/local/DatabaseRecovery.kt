@@ -1,0 +1,161 @@
+package dev.happyc0der.forgelog.data.local
+
+import android.content.Context
+import android.content.SharedPreferences
+import androidx.core.content.edit
+import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.sqlite.db.SupportSQLiteOpenHelper
+import java.io.File
+
+/**
+ * A database SQLite would not open, and the copy kept of it.
+ *
+ * [preservedFileName] is null when the copy could not be made — the disk being full is a plausible
+ * reason for the corruption in the first place — and the loss is still worth reporting either way.
+ */
+data class UnreadableDatabase(
+    val preservedFileName: String?,
+    val atEpochMs: Long,
+)
+
+/**
+ * Remembers that the database could not be read, so the app can say so once.
+ *
+ * Kept in SharedPreferences for the obvious reason: the thing being reported is the database.
+ */
+interface DatabaseRecoveryLog {
+    fun record(unreadable: UnreadableDatabase)
+
+    /** The loss the user has not been told about yet, or null. */
+    fun unreported(): UnreadableDatabase?
+
+    fun markReported()
+}
+
+/** Remembers nothing, for tests and for anything with no need to report. */
+object NoDatabaseRecoveryLog : DatabaseRecoveryLog {
+    override fun record(unreadable: UnreadableDatabase) = Unit
+    override fun unreported(): UnreadableDatabase? = null
+    override fun markReported() = Unit
+}
+
+class SharedPreferencesDatabaseRecoveryLog(context: Context) : DatabaseRecoveryLog {
+
+    private val prefs: SharedPreferences =
+        context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
+
+    override fun record(unreadable: UnreadableDatabase) {
+        // commit, not apply: this is written while the database is failing to open, and the process
+        // may not survive long enough to flush an asynchronous write.
+        prefs.edit(commit = true) {
+            putLong(KEY_AT, unreadable.atEpochMs)
+            if (unreadable.preservedFileName != null) {
+                putString(KEY_FILE, unreadable.preservedFileName)
+            } else {
+                remove(KEY_FILE)
+            }
+        }
+    }
+
+    override fun unreported(): UnreadableDatabase? {
+        val at = prefs.getLong(KEY_AT, 0L).takeIf { it > 0L } ?: return null
+        return UnreadableDatabase(
+            preservedFileName = prefs.getString(KEY_FILE, null),
+            atEpochMs = at,
+        )
+    }
+
+    override fun markReported() {
+        prefs.edit { clear() }
+    }
+
+    private companion object {
+        const val FILE_NAME = "forgelog_db_recovery"
+        const val KEY_AT = "unreadableAtEpochMs"
+        const val KEY_FILE = "preservedFileName"
+    }
+}
+
+/**
+ * Keeps a copy of a database SQLite refuses to open, before the framework deletes it.
+ *
+ * The platform's own corruption handler deletes the file and lets Room build an empty one in its
+ * place, which is silent total loss of someone's training history — the same thing this project
+ * refuses to do on a missing migration, reached through a different door. It cannot simply be
+ * blocked: refusing to recover leaves the app unable to start, and starting is what it takes to
+ * reach Settings and restore a backup.
+ *
+ * So the file is copied aside first. The user is told, gets an app that works, and keeps the bytes
+ * in case they are worth anything later. The journal files go with it, since a database is not
+ * necessarily readable without them.
+ */
+internal class CorruptionPreservingFactory(
+    private val delegate: SupportSQLiteOpenHelper.Factory,
+    private val recoveryLog: DatabaseRecoveryLog,
+    private val now: () -> Long,
+) : SupportSQLiteOpenHelper.Factory {
+
+    override fun create(
+        configuration: SupportSQLiteOpenHelper.Configuration,
+    ): SupportSQLiteOpenHelper {
+        val original = configuration.callback
+        val context = configuration.context
+        val name = configuration.name
+
+        val wrapped = SupportSQLiteOpenHelper.Configuration
+            .builder(context)
+            .name(name)
+            .noBackupDirectory(configuration.useNoBackupDirectory)
+            .callback(
+                object : SupportSQLiteOpenHelper.Callback(original.version) {
+                    override fun onConfigure(db: SupportSQLiteDatabase) = original.onConfigure(db)
+
+                    override fun onCreate(db: SupportSQLiteDatabase) = original.onCreate(db)
+
+                    override fun onUpgrade(
+                        db: SupportSQLiteDatabase,
+                        oldVersion: Int,
+                        newVersion: Int,
+                    ) = original.onUpgrade(db, oldVersion, newVersion)
+
+                    override fun onDowngrade(
+                        db: SupportSQLiteDatabase,
+                        oldVersion: Int,
+                        newVersion: Int,
+                    ) = original.onDowngrade(db, oldVersion, newVersion)
+
+                    override fun onOpen(db: SupportSQLiteDatabase) = original.onOpen(db)
+
+                    override fun onCorruption(db: SupportSQLiteDatabase) {
+                        val at = now()
+                        val preserved = name?.let { preserve(context, it, at) }
+                        recoveryLog.record(
+                            UnreadableDatabase(preservedFileName = preserved, atEpochMs = at),
+                        )
+                        // Then the platform's own handling, which deletes it and lets Room start
+                        // again. Without this the app cannot open at all.
+                        original.onCorruption(db)
+                    }
+                },
+            )
+            .build()
+
+        return delegate.create(wrapped)
+    }
+
+    /** Copies the database and its journals aside. Returns the copy's name, or null if it failed. */
+    private fun preserve(context: Context, name: String, atEpochMs: Long): String? = runCatching {
+        val source = context.getDatabasePath(name)
+        if (!source.exists()) return null
+        val copyName = "$name.unreadable-$atEpochMs"
+        val target = File(source.parentFile, copyName)
+        source.copyTo(target, overwrite = true)
+        listOf("-wal", "-shm").forEach { suffix ->
+            val journal = File(source.path + suffix)
+            if (journal.exists()) {
+                journal.copyTo(File(target.path + suffix), overwrite = true)
+            }
+        }
+        copyName
+    }.getOrNull()
+}
