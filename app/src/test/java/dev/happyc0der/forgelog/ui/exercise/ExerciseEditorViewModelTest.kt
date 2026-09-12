@@ -14,6 +14,7 @@ import dev.happyc0der.forgelog.testing.MainDispatcherRule
 import dev.happyc0der.forgelog.testing.TestEnvironment
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -254,5 +255,73 @@ class ExerciseEditorViewModelTest {
         // A scheme-less URL is normalised rather than rejected.
         assertEquals("https://example.com/fly", saved?.howToUrl)
         assertEquals("Slight bend in the elbows.", saved?.defaultPointers)
+    }
+
+    /*
+     * Saving is guarded against a second tap, and the guard has to hold until the screen is gone,
+     * not until the write finishes. It used to reopen in between, so an ordinary double tap on a
+     * save that felt slow put the same lift in the library twice -- and then history was split
+     * across the two of them. Reproduced on a device before this was fixed.
+     */
+
+    @Test
+    fun `tapping save twice creates the exercise once`() = runTest {
+        val vm = viewModel()
+        vm.onNameChange("Cable Fly")
+
+        vm.save()
+        advanceUntilIdle()
+        // The write is done and the screen has not left yet: the window the second tap landed in.
+        vm.save()
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf("Bench Press", "Cable Fly"),
+            env.exerciseRepository.observeExercises(includeArchived = true).first().map { it.name },
+        )
+    }
+
+    @Test
+    fun `tapping save twice in the same frame creates the exercise once`() = runTest {
+        val vm = viewModel()
+        vm.onNameChange("Cable Fly")
+
+        vm.save()
+        vm.save()
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf("Bench Press", "Cable Fly"),
+            env.exerciseRepository.observeExercises(includeArchived = true).first().map { it.name },
+        )
+    }
+
+    @Test
+    fun `a save that failed can be tried again`() = runTest {
+        val vm = viewModel(repository = FailingOnceExerciseRepository(env.exerciseRepository))
+        vm.onNameChange("Cable Fly")
+
+        vm.save()
+        advanceUntilIdle()
+        // The form is still in front of the user, so the button has to work.
+        vm.save()
+        advanceUntilIdle()
+
+        assertNotNull(env.exerciseRepository.findByName("Cable Fly"))
+    }
+}
+
+/** Fails the first upsert and then behaves, to check the guard reopens after a failure. */
+private class FailingOnceExerciseRepository(
+    private val delegate: ExerciseRepository,
+) : ExerciseRepository by delegate {
+    private var failed = false
+
+    override suspend fun upsert(exercise: dev.happyc0der.forgelog.domain.model.Exercise): Long {
+        if (!failed) {
+            failed = true
+            throw IllegalStateException("disk full")
+        }
+        return delegate.upsert(exercise)
     }
 }

@@ -214,7 +214,11 @@ class ExerciseEditorViewModel @Inject constructor(
                     updatedAt = existing?.updatedAt ?: 0L,
                 ),
             )
-            _uiState.update { it.copy(isSaving = false) }
+            // The guard stays closed. Releasing it here reopened the button for the frames between
+            // the write finishing and the screen actually leaving, and a second tap in that window
+            // -- an ordinary double tap on a save that felt slow -- created the lift twice. A
+            // successful save is always followed by navigating away from this ViewModel; only a
+            // failure puts the user back in front of the form, and that releases it.
             eventsChannel.send(ExerciseEditorEvent.Saved(exerciseId ?: savedId))
         }
     }
