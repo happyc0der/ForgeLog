@@ -150,15 +150,21 @@ restricted permission, and the rest countdown holds a wake lock for the length o
 
 ## Hosting the privacy policy
 
-Play requires a publicly reachable URL. This repository is public, so the simplest answer is to
-serve the policy from it — the file is already here and already version-controlled:
+Play requires a publicly reachable URL. This is **done** — GitHub Pages is enabled on this
+repository and serves the policy at:
 
-1. **GitHub Pages from this repository.** Settings → Pages → deploy from `main`. `PRIVACY.md` is
-   then reachable at `https://<user>.github.io/ForgeLog/PRIVACY`, and editing the file in place
-   updates the published policy. Nothing to keep in sync.
-2. **A link to the file on GitHub.** `https://github.com/<user>/ForgeLog/blob/main/PRIVACY.md`
-   is publicly reachable and acceptable to Play, though a Pages URL reads better to a user.
-3. **Any static host** you already use.
+**<https://happyc0der.github.io/ForgeLog/privacy-policy>**
+
+That is the URL to paste into the Console's Privacy policy field and into the Data safety form.
+
+How it is wired, so it stays working: Pages builds from `main` at the repository root.
+`privacy-policy.md` carries the front matter Jekyll needs and pulls the policy in with
+`{% include_relative PRIVACY.md %}`, so **`PRIVACY.md` is the only copy** — edit that file, push,
+and the published page follows within a minute. `_config.yml` keeps the Android project out of the
+generated site.
+
+If Pages is ever turned off, `https://github.com/happyc0der/ForgeLog/blob/main/PRIVACY.md` is also
+publicly reachable and acceptable to Play, though it reads less well to a user.
 
 Whichever you choose, replace **[your contact email]** in `PRIVACY.md` before publishing, and paste
 the final URL into the Console's Privacy policy field and into the Data safety form.

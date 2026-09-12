@@ -59,9 +59,12 @@ real app, export first.
 
 ## B. Only you can do these
 
-- [ ] Put a real contact address in `PRIVACY.md` — it still reads `[your contact email]`
-- [ ] Host the privacy policy and put the URL in the Console. This repository is public, so turning
-      on GitHub Pages serves `PRIVACY.md` straight from it; `docs/play-console.md` has the details
+- [ ] **Put a real contact address in `PRIVACY.md`** — it still reads `[your contact email]`, and
+      the policy is now live at a public URL, so that placeholder is on display. Push the fix and
+      the published page updates within a minute
+- [x] ~~Host the privacy policy~~ — done, GitHub Pages serves it from this repository at
+      <https://happyc0der.github.io/ForgeLog/privacy-policy>
+- [ ] Paste that URL into the Console's Privacy policy field and into the Data safety form
 - [ ] Create the release keystore and `keystore.properties`. Both are gitignored, and
       `app/build.gradle.kts` wires a signing config only when that file exists, so nothing breaks
       until you add it
