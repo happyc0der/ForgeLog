@@ -143,7 +143,17 @@ internal class CorruptionPreservingFactory(
         return delegate.create(wrapped)
     }
 
-    /** Copies the database and its journals aside. Returns the copy's name, or null if it failed. */
+    /**
+     * Copies the database and its journals aside. Returns the copy's name, or null if it failed.
+     *
+     * Copies are not capped or cleaned up, deliberately. A second corruption would want preserving
+     * too -- by then the database has a fresh history in it -- and there is no way to tell from here
+     * which copy is the one worth keeping, so throwing any of them away would be a guess. What that
+     * costs is a file of a megabyte or two per event, in a directory only the app can read, with no
+     * way for the user to delete it short of clearing the app's data. That is a poor trade only if
+     * corruption happens repeatedly, which is not the failure being planned for. Code running while
+     * the database is already failing is the wrong place for logic that could fail on its own.
+     */
     private fun preserve(context: Context, name: String, atEpochMs: Long): String? = runCatching {
         val source = context.getDatabasePath(name)
         if (!source.exists()) return null
