@@ -31,9 +31,20 @@ object Formatters {
             else -> loadLb
         }
         val suffix = if (unit == ExerciseUnit.KG) "kg" else "lb"
+        /*
+         * The abbreviation carries on past thousands.
+         *
+         * It used to stop at "k", so anything from a million pounds up was printed in full with a
+         * "k" stuck on the end: a year of training read "3000.0k lb", and an all-time total
+         * "81599264.0k lb". Volume is a running total over every session ever logged, so this is
+         * not an extreme case -- it is where a regular lifter ends up. Trailing zeros go too:
+         * "10.0k" was ten thousand.
+         */
         return when {
             value <= 0.0 -> "0 $suffix"
-            value >= 10_000 -> String.format(Locale.US, "%.1fk %s", value / 1000.0, suffix)
+            value >= 1_000_000_000 -> decimals(value / 1_000_000_000, places = 1) + "B $suffix"
+            value >= 1_000_000 -> decimals(value / 1_000_000, places = 1) + "M $suffix"
+            value >= 10_000 -> decimals(value / 1_000, places = 1) + "k $suffix"
             value >= 100 -> String.format(Locale.US, "%.0f %s", value, suffix)
             else -> String.format(Locale.US, "%.1f %s", value, suffix)
         }

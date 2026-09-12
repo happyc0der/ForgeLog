@@ -3,6 +3,7 @@ package dev.happyc0der.forgelog.ui.format
 import dev.happyc0der.forgelog.domain.model.ExerciseUnit
 import dev.happyc0der.forgelog.domain.workout.KG_TO_LB
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNull
 import org.junit.Test
 import java.time.LocalDate
@@ -34,6 +35,35 @@ class FormattersTest {
         assertEquals("12.5k lb", Formatters.volume(12_500.0, ExerciseUnit.LB))
         assertEquals("45.0 lb", Formatters.volume(45.0, ExerciseUnit.LB))
         assertEquals("0 lb", Formatters.volume(0.0, ExerciseUnit.LB))
+    }
+
+    /*
+     * Volume on Home and in Analytics is a running total over everything ever logged, so these are
+     * the numbers an ordinary lifter reaches, not extremes. The abbreviation used to stop at "k"
+     * and print the rest in full: a year of training read "3000.0k lb".
+     */
+
+    @Test
+    fun `the abbreviation carries on past thousands`() {
+        assertEquals("1M lb", Formatters.volume(1_000_000.0, ExerciseUnit.LB))
+        assertEquals("3.2M lb", Formatters.volume(3_200_000.0, ExerciseUnit.LB))
+        assertEquals("999.9k lb", Formatters.volume(999_900.0, ExerciseUnit.LB))
+        assertEquals("2.5B lb", Formatters.volume(2_500_000_000.0, ExerciseUnit.LB))
+    }
+
+    @Test
+    fun `a round abbreviated volume drops its trailing zero`() {
+        assertEquals("10k lb", Formatters.volume(10_000.0, ExerciseUnit.LB))
+        assertEquals("50k lb", Formatters.volume(50_000.0, ExerciseUnit.LB))
+    }
+
+    @Test
+    fun `no volume a lift can produce is printed in full`() {
+        // The set fields cap at six characters each, so this is the largest single set there is.
+        val biggest = 999_999.0 * 999_999.0
+        val rendered = Formatters.volume(biggest, ExerciseUnit.LB)
+        val digits = rendered.takeWhile { it.isDigit() || it == '.' }
+        assertTrue("$rendered spells the number out", digits.length <= 6)
     }
 
     @Test
