@@ -158,9 +158,54 @@ object BackupSerializer {
                     return BackupProblem.InvalidValue("set_logs", "rir", rir.toString())
                 }
             }
+            negative("set_logs", "reps", set.reps)?.let { return it }
+            negative("set_logs", "durationSeconds", set.durationSeconds)?.let { return it }
+            negative("set_logs", "restAfterSetSeconds", set.restAfterSetSeconds)?.let { return it }
+            unusable("set_logs", "weight", set.weight)?.let { return it }
+            unusable("set_logs", "distanceMeters", set.distanceMeters)?.let { return it }
+        }
+        envelope.programExercises.forEach { planned ->
+            negative("program_exercises", "plannedSets", planned.plannedSets)?.let { return it }
+            negative("program_exercises", "targetRepMin", planned.targetRepMin)?.let { return it }
+            negative("program_exercises", "targetRepMax", planned.targetRepMax)?.let { return it }
+            negative("program_exercises", "targetDurationSeconds", planned.targetDurationSeconds)
+                ?.let { return it }
+            negative("program_exercises", "targetRestSeconds", planned.targetRestSeconds)?.let { return it }
+            unusable("program_exercises", "targetWeight", planned.targetWeight)?.let { return it }
+        }
+        envelope.sessionExercises.forEach { snapshot ->
+            negative("session_exercises", "plannedSets", snapshot.plannedSets)?.let { return it }
+            negative("session_exercises", "targetRepMin", snapshot.targetRepMin)?.let { return it }
+            negative("session_exercises", "targetRepMax", snapshot.targetRepMax)?.let { return it }
+            negative("session_exercises", "targetDurationSeconds", snapshot.targetDurationSeconds)
+                ?.let { return it }
+            negative("session_exercises", "targetRestSeconds", snapshot.targetRestSeconds)
+                ?.let { return it }
+            unusable("session_exercises", "targetWeight", snapshot.targetWeight)?.let { return it }
         }
         return null
     }
+
+    /*
+     * The measurements themselves, which were checked for their kind but never their size.
+     *
+     * Nothing the app writes can be negative -- the numeric fields refuse a minus sign -- and no
+     * weight it writes exceeds six digits, so these only ever appear in a file edited by hand. They
+     * are worth refusing anyway, for the same reason an rpe of 40 is: the importer's job is to turn
+     * away what it cannot trust, and what it lets through is shown as fact. A weight of 1e308 was
+     * accepted and then rendered as a 309-digit number on the summary, which no screen recovers
+     * from.
+     *
+     * The bound is the input fields' own: six whole digits and two decimals.
+     */
+
+    private fun negative(table: String, field: String, value: Int?): BackupProblem? =
+        value?.takeIf { it < 0 || it > MAX_WHOLE }
+            ?.let { BackupProblem.InvalidValue(table, field, it.toString()) }
+
+    private fun unusable(table: String, field: String, value: Double?): BackupProblem? =
+        value?.takeIf { !it.isFinite() || it < 0.0 || it > MAX_MEASUREMENT }
+            ?.let { BackupProblem.InvalidValue(table, field, it.toString()) }
 
     /**
      * Every foreign key has to resolve inside the file. A restore wipes the database first, so a row
@@ -237,4 +282,8 @@ object BackupSerializer {
     private val FEELING_RANGE = 1..5
     private val RPE_RANGE = 1..10
     private val RIR_RANGE = 0..10
+
+    /** The numeric fields take six whole digits, and weights two decimals besides. */
+    private const val MAX_WHOLE = 999_999
+    private const val MAX_MEASUREMENT = 999_999.99
 }

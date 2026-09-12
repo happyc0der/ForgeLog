@@ -260,6 +260,79 @@ class BackupSerializerTest {
         )
     }
 
+    /*
+     * The measurements were checked for their kind but never their size. Nothing the app writes can
+     * be negative -- the numeric fields refuse a minus sign -- and none exceeds six digits, so these
+     * only appear in a file edited by hand. Letting them through means showing them as fact: a
+     * weight of 1e308 imported cleanly and then rendered as a 309-digit number on the summary.
+     */
+
+    @Test
+    fun `a negative measurement is refused`() {
+        val envelope = fullEnvelope()
+        val problem = problem(
+            envelope.copy(setLogs = envelope.setLogs.map { it.copy(weight = -5.0) }),
+        )
+        assertTrue(problem is BackupProblem.InvalidValue)
+        assertEquals("weight", (problem as BackupProblem.InvalidValue).field)
+    }
+
+    @Test
+    fun `a measurement too big to have been typed is refused`() {
+        val envelope = fullEnvelope()
+        assertTrue(
+            problem(envelope.copy(setLogs = envelope.setLogs.map { it.copy(weight = 1e308) }))
+                is BackupProblem.InvalidValue,
+        )
+        assertTrue(
+            problem(envelope.copy(setLogs = envelope.setLogs.map { it.copy(reps = 1_000_000) }))
+                is BackupProblem.InvalidValue,
+        )
+    }
+
+    @Test
+    fun `the largest values the fields accept are still allowed`() {
+        val envelope = fullEnvelope()
+        valid(
+            envelope.copy(
+                setLogs = envelope.setLogs.map {
+                    it.copy(weight = 999_999.99, reps = 999_999, restAfterSetSeconds = 999_999)
+                },
+            ),
+        )
+    }
+
+    @Test
+    fun `a planned target cannot be negative either`() {
+        val envelope = fullEnvelope()
+        assertTrue(
+            problem(
+                envelope.copy(
+                    programExercises = envelope.programExercises.map { it.copy(targetWeight = -1.0) },
+                ),
+            ) is BackupProblem.InvalidValue,
+        )
+        assertTrue(
+            problem(
+                envelope.copy(
+                    sessionExercises = envelope.sessionExercises.map { it.copy(targetRestSeconds = -30) },
+                ),
+            ) is BackupProblem.InvalidValue,
+        )
+    }
+
+    @Test
+    fun `zero is a measurement, not a refusal`() {
+        val envelope = fullEnvelope()
+        valid(
+            envelope.copy(
+                setLogs = envelope.setLogs.map {
+                    it.copy(weight = 0.0, reps = 0, durationSeconds = 0, distanceMeters = 0.0)
+                },
+            ),
+        )
+    }
+
     @Test
     fun `out-of-range subjective values are refused`() {
         assertEquals(
