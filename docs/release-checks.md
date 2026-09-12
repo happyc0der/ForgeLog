@@ -44,6 +44,17 @@ real app, export first.
 - [ ] At the Restore step, pick **a file the app did not write** — a photo will do. Confirm it is
       refused with a sentence that says what is wrong, not a crash.
 
+### Know what a damaged database looks like
+
+Nothing to do here, and nothing to provoke on your own phone — this is covered by tests and was
+checked end to end on an emulator. It is listed so the message is recognisable if it ever appears.
+
+SQLite deletes a database it cannot open and Room builds an empty one in its place, so the app used
+to come up looking freshly installed with the history silently gone. It now keeps the unreadable
+file beside the new one as `forgelog.db.unreadable-<millis>` and says so on Home until dismissed,
+pointing at Settings → Restore. If you ever see that card, the backup from section A is the thing
+that saves you.
+
 ### The build people will actually install
 
 - [ ] The **release** build installs on your own phone, not just the emulator. MIUI refused a new
