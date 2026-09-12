@@ -17,6 +17,9 @@ No accounts, no backend, no analytics, no ads. Your training data lives on your 
 
 Nothing here needs a network. The app declares no `INTERNET` permission.
 
+What that means for your data is written out in [PRIVACY.md](PRIVACY.md); the Play Console text
+is drafted in [docs/play-console.md](docs/play-console.md).
+
 ## Prerequisites
 
 - **Android Studio** (a version that supports AGP 9.3.x — Narwhal or newer)
