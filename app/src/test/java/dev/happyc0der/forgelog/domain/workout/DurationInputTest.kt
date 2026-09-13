@@ -78,4 +78,59 @@ class DurationInputTest {
         assertEquals(599_940, DurationInput.parseSeconds("9999", DurationInputUnit.MINUTES))
         assertEquals(90, DurationInput.parseSeconds("1.5", DurationInputUnit.MINUTES))
     }
+
+    /**
+     * Whatever it is handed, it returns nothing or something storable — and never throws.
+     *
+     * The clamp is the contract: [DurationInput.parseSeconds] is the last thing between a typed
+     * entry and a column the backup importer will refuse, so "no result" and "a result inside the
+     * bound" are the only two answers allowed. The alphabet is what a numeric field can actually
+     * contain plus the things that have caught this code before — a comma from a European keyboard,
+     * a lone dot mid-typing, the words that parse as doubles and then throw on rounding.
+     */
+    @Test
+    fun anythingAtAllIsEitherRefusedOrStorable() {
+        val alphabet = "0123456789.,-+eE ".toCharArray()
+        val words = listOf("", " ", ".", ",", "-", "NaN", "Infinity", "-Infinity", "1e400", "999999.99")
+        val cases = mutableListOf<String>()
+        cases += words
+        var seed = 1
+        repeat(20_000) {
+            seed = seed * 1_103_515_245 + 12_345
+            val length = (seed ushr 16) % 7
+            cases += buildString {
+                var n = seed
+                repeat(length) {
+                    n = n * 1_103_515_245 + 12_345
+                    append(alphabet[((n ushr 16) % alphabet.size + alphabet.size) % alphabet.size])
+                }
+            }
+        }
+
+        DurationInputUnit.entries.forEach { unit ->
+            cases.forEach { text ->
+                val parsed = runCatching { DurationInput.parseSeconds(text, unit) }
+                assertTrue("parseSeconds threw on ${text.quoted()} as $unit: $parsed", parsed.isSuccess)
+                val seconds = parsed.getOrNull()
+                if (seconds != null) {
+                    assertTrue(
+                        "${text.quoted()} as $unit gave $seconds, which no backup could carry",
+                        seconds in StoredNumbers.STORABLE_WHOLE,
+                    )
+                }
+                // isParseable has to agree, or a field shows text it will not store.
+                val parseable = runCatching { DurationInput.isParseable(text, unit) }
+                assertTrue("isParseable threw on ${text.quoted()}", parseable.isSuccess)
+                if (text.isNotBlank()) {
+                    assertEquals(
+                        "isParseable disagrees with parseSeconds on ${text.quoted()} as $unit",
+                        seconds != null,
+                        parseable.getOrNull(),
+                    )
+                }
+            }
+        }
+    }
+
+    private fun String.quoted(): String = "\"" + this + "\""
 }
