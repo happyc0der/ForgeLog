@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlinx.coroutines.Job
 
 data class ProgramDetailUiState(
     val isLoading: Boolean = true,
@@ -96,8 +97,21 @@ class ProgramDetailViewModel @Inject constructor(
         }
     }
 
+    /*
+     * The creates and duplicates below are guarded against a second tap before their coroutine
+     * starts, the way ExerciseEditorViewModel.save is and for the same reason: the confirm handler
+     * calls the ViewModel and closes the dialog, or the menu, both synchronously, so there is no
+     * enabled check to rely on and two taps can land in one frame before any recomposition. Each one
+     * made the thing twice.
+     */
+
+    private var createJob: Job? = null
+    private var duplicateJob: Job? = null
+    private var duplicatingId: Long? = null
+
     fun createDay(name: String) {
-        launchSafely(::reportAsMessage) {
+        if (createJob?.isActive == true) return
+        createJob = launchSafely(::reportAsMessage) {
             // The repository picks the order inside a transaction. Counting the days here and then
             // inserting has the same two failure modes as anywhere else: a gap left by a deleted
             // day makes the count collide with a position still in use, and two quick creates both
@@ -114,7 +128,11 @@ class ProgramDetailViewModel @Inject constructor(
     }
 
     fun duplicateDay(dayId: Long) {
-        launchSafely(::reportAsMessage) {
+        // By id, so duplicating a different day while this one is still writing is not
+        // mistaken for a double tap and dropped.
+        if (duplicateJob?.isActive == true && duplicatingId == dayId) return
+        duplicatingId = dayId
+        duplicateJob = launchSafely(::reportAsMessage) {
             programRepository.duplicateDay(dayId)
             eventsChannel.send(
                 ProgramDetailEvent.Message(application.getString(R.string.program_day_duplicated)),

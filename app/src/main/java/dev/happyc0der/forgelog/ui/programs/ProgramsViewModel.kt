@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlinx.coroutines.Job
 
 data class ProgramsUiState(
     val isLoading: Boolean = true,
@@ -118,8 +119,21 @@ class ProgramsViewModel @Inject constructor(
         }
     }
 
+    /*
+     * The creates and duplicates below are guarded against a second tap before their coroutine
+     * starts, the way ExerciseEditorViewModel.save is and for the same reason: the confirm handler
+     * calls the ViewModel and closes the dialog, or the menu, both synchronously, so there is no
+     * enabled check to rely on and two taps can land in one frame before any recomposition. Each one
+     * made the thing twice.
+     */
+
+    private var createJob: Job? = null
+    private var duplicateJob: Job? = null
+    private var duplicatingId: Long? = null
+
     fun createProgram(name: String, description: String, color: String = DEFAULT_PROGRAM_COLOR) {
-        launchSafely(::reportAsMessage) {
+        if (createJob?.isActive == true) return
+        createJob = launchSafely(::reportAsMessage) {
             programRepository.upsertProgram(
                 WorkoutProgram(
                     name = name,
@@ -150,7 +164,11 @@ class ProgramsViewModel @Inject constructor(
     }
 
     fun duplicate(programId: Long) {
-        launchSafely(::reportAsMessage) {
+        // By id, so duplicating a different program while this one is still writing is not
+        // mistaken for a double tap and dropped.
+        if (duplicateJob?.isActive == true && duplicatingId == programId) return
+        duplicatingId = programId
+        duplicateJob = launchSafely(::reportAsMessage) {
             programRepository.duplicateProgram(programId)
             eventsChannel.send(
                 ProgramsEvent.Message(application.getString(R.string.program_duplicated)),

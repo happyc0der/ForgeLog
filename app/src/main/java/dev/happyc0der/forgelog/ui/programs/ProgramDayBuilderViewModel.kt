@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlinx.coroutines.Job
 
 data class ProgramDayBuilderUiState(
     val isLoading: Boolean = true,
@@ -107,6 +108,9 @@ class ProgramDayBuilderViewModel @Inject constructor(
         }
     }
 
+    /** The in-flight inline create, so a second tap in the same frame does not start another. */
+    private var createJob: Job? = null
+
     fun addExercise(exerciseId: Long) {
         launchSafely(::reportAsMessage) { appendExercise(exerciseId, announce = true) }
     }
@@ -127,12 +131,23 @@ class ProgramDayBuilderViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Creates a lift and appends it, reporting whether the sheet should close.
+     *
+     * Guarded against a second tap before the coroutine starts, the way the full editor is: the
+     * sheet's button has no enabled check, and two taps can land in one frame before any
+     * recomposition removes it -- so an ordinary double tap on a save that felt slow put two
+     * identical lifts in the library and appended both of them to the day. The guard is the write's
+     * own job rather than a flag, because the sheet closes on this call returning true, not on the
+     * write finishing, so there is no window after it to keep a flag raised for.
+     */
     fun createExerciseAndAdd(form: ExerciseFormState): Boolean {
+        if (createJob?.isActive == true) return true
         val name = form.name.trim()
         if (name.isEmpty()) return false
         val url = HowToUrl.normalize(form.howToUrl).getOrNull()
         if (form.howToUrl.isNotBlank() && url == null) return false
-        launchSafely(::reportAsMessage) {
+        createJob = launchSafely(::reportAsMessage) {
             val newId = exerciseRepository.upsert(
                 Exercise(
                     name = name,

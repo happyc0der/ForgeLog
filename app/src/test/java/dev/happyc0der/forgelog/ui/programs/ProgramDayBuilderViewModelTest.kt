@@ -15,6 +15,7 @@ import dev.happyc0der.forgelog.testing.TestEnvironment
 import dev.happyc0der.forgelog.ui.exercise.ExerciseFormState
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -179,5 +180,73 @@ class ProgramDayBuilderViewModelTest {
         assertEquals(185.0, updated.targetWeight ?: 0.0, 0.001)
         assertEquals(150, updated.targetRestSeconds)
         assertEquals("work up", updated.notes)
+    }
+
+    /*
+     * Creating a lift from inside the day builder is guarded the same way the full editor is.
+     *
+     * The editor learned this the hard way: the button's enabled check is not a guard, because two
+     * taps can land in one frame before any recomposition. This sheet had no guard at all and no
+     * enabled check either -- it validates, launches the write, and returns true at once so the
+     * caller can close the sheet -- so the same double tap on a save that felt slow put two
+     * identical lifts in the library and appended both of them to the day.
+     */
+
+    @Test
+    fun `tapping save twice in the same frame creates the exercise once`() = runTest {
+        val vm = viewModel()
+        val form = ExerciseFormState(name = "Cable Fly", category = ExerciseCategory.PUSH)
+
+        assertTrue(vm.createExerciseAndAdd(form))
+        vm.createExerciseAndAdd(form)
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf("Bench Press", "Cable Fly", "Squat"),
+            env.exerciseRepository.observeExercises(includeArchived = true).first().map { it.name },
+        )
+        assertEquals(
+            "the day got the new lift twice",
+            1,
+            env.programRepository.observeDayDetail(dayId).first()!!.exercises
+                .count { it.exercise.name == "Cable Fly" },
+        )
+    }
+
+    /**
+     * And the guard lets go, or the sheet could only ever be used once per screen.
+     *
+     * It is the write's job, not a flag held until the screen leaves -- which is right here, because
+     * this sheet closes on the call returning true rather than on the write finishing, so there is no
+     * window after the write to keep anything raised for.
+     */
+    @Test
+    fun `a second lift can be created once the first write is done`() = runTest {
+        val vm = viewModel()
+
+        vm.createExerciseAndAdd(ExerciseFormState(name = "Cable Fly", category = ExerciseCategory.PUSH))
+        advanceUntilIdle()
+        vm.createExerciseAndAdd(ExerciseFormState(name = "Pec Deck", category = ExerciseCategory.PUSH))
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf("Bench Press", "Cable Fly", "Pec Deck", "Squat"),
+            env.exerciseRepository.observeExercises(includeArchived = true).first().map { it.name },
+        )
+    }
+
+    /** And a create that was refused can be tried again, or the sheet would be a dead end. */
+    @Test
+    fun `a create refused for a blank name can be tried again`() = runTest {
+        val vm = viewModel()
+
+        assertTrue(!vm.createExerciseAndAdd(ExerciseFormState(name = "   ")))
+        assertTrue(vm.createExerciseAndAdd(ExerciseFormState(name = "Cable Fly")))
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf("Bench Press", "Cable Fly", "Squat"),
+            env.exerciseRepository.observeExercises(includeArchived = true).first().map { it.name },
+        )
     }
 }

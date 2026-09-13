@@ -273,6 +273,7 @@ class HistoryViewModel @Inject constructor(
      * stays tappable through the menu's closing animation, which is long enough for a second tap.
      */
     private var repeatJob: Job? = null
+    private var saveAsDayJob: Job? = null
 
     fun repeatSession(sessionId: Long) {
         if (repeatJob?.isActive == true) return
@@ -297,8 +298,14 @@ class HistoryViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Guarded against a second tap before the coroutine starts, as the creates elsewhere are:
+     * the dialog's confirm handler calls this and closes the dialog, both synchronously, so two
+     * taps in one frame made the same day twice in the user's program.
+     */
     fun saveAsProgramDay(sessionId: Long, programId: Long, dayName: String) {
-        launchSafely(::reportAsMessage) {
+        if (saveAsDayJob?.isActive == true) return
+        saveAsDayJob = launchSafely(::reportAsMessage) {
             programRepository.createDayFromSession(programId, sessionId, dayName)
             eventsChannel.send(
                 HistoryEvent.Message(application.getString(R.string.history_saved_as_day)),

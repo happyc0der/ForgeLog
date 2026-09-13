@@ -35,6 +35,7 @@ import org.robolectric.annotation.Config
 import java.io.IOException
 import java.time.LocalDateTime
 import java.time.ZoneId
+import kotlinx.coroutines.flow.first
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -450,5 +451,42 @@ class HistoryViewModelTest {
             assertTrue("PPL" in state.programs.map { it.name })
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    /*
+     * Promoting a session to a program day is guarded against a second tap. The dialog's confirm
+     * handler calls this and then closes the dialog, both synchronously, so two taps in one frame
+     * made the same day twice -- in a program the user then has to tidy up by hand.
+     */
+
+    @Test
+    fun `tapping save-as-day twice in the same frame makes one day`() = runTest {
+        val sessionId = session("Push Day", day = 11, programId = pplId, exerciseId = benchId)
+        val vm = viewModel()
+
+        vm.saveAsProgramDay(sessionId, pplId, "From Session")
+        vm.saveAsProgramDay(sessionId, pplId, "From Session")
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf("Push Day", "From Session"),
+            env.programRepository.observeDays(pplId).first().map { it.name },
+        )
+    }
+
+    @Test
+    fun `a second day can be promoted once the first is done`() = runTest {
+        val sessionId = session("Push Day", day = 11, programId = pplId, exerciseId = benchId)
+        val vm = viewModel()
+
+        vm.saveAsProgramDay(sessionId, pplId, "From Session")
+        advanceUntilIdle()
+        vm.saveAsProgramDay(sessionId, pplId, "And Again")
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf("Push Day", "From Session", "And Again"),
+            env.programRepository.observeDays(pplId).first().map { it.name },
+        )
     }
 }

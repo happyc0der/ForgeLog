@@ -29,6 +29,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.io.IOException
+import kotlinx.coroutines.flow.first
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -275,5 +276,42 @@ class ProgramsViewModelTest {
             assertNotNull(state.errorMessage)
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    /*
+     * Creating a program is guarded against a second tap. The editor dialog's confirm handler calls
+     * this and then closes the dialog, both synchronously, so two taps can land in one frame before
+     * any recomposition removes it -- and made two identical programs. Duplicate names are allowed
+     * here by design, so nothing downstream would have objected.
+     */
+
+    @Test
+    fun `tapping create twice in the same frame makes one program`() = runTest {
+        val vm = viewModel()
+
+        vm.createProgram("PPL", "split")
+        vm.createProgram("PPL", "split")
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf("PPL"),
+            env.programRepository.observePrograms(includeArchived = true).first().map { it.name },
+        )
+    }
+
+    @Test
+    fun `a second program can be created once the first is done`() = runTest {
+        val vm = viewModel()
+
+        vm.createProgram("PPL", "split")
+        advanceUntilIdle()
+        vm.createProgram("Upper Lower", "")
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf("PPL", "Upper Lower"),
+            env.programRepository.observePrograms(includeArchived = true).first()
+                .map { it.name }.sorted(),
+        )
     }
 }
