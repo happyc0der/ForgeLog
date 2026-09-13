@@ -57,11 +57,19 @@ class SharedPreferencesDatabaseRecoveryLog(context: Context) : DatabaseRecoveryL
         }
     }
 
+    /**
+     * Whether a record exists is asked of the key, not of the time in it.
+     *
+     * Reading "no timestamp" out of a zero used to double as "nothing recorded", which is wrong on
+     * a phone whose clock has not been set yet — a factory reset before it reaches the network
+     * starts at the epoch. That is exactly a first boot, which is exactly when a database might be
+     * unreadable, and the loss would have gone unmentioned.
+     */
     override fun unreported(): UnreadableDatabase? {
-        val at = prefs.getLong(KEY_AT, 0L).takeIf { it > 0L } ?: return null
+        if (!prefs.contains(KEY_AT)) return null
         return UnreadableDatabase(
             preservedFileName = prefs.getString(KEY_FILE, null),
-            atEpochMs = at,
+            atEpochMs = prefs.getLong(KEY_AT, 0L),
         )
     }
 
