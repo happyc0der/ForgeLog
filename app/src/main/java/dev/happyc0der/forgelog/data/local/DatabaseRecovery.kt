@@ -108,7 +108,7 @@ internal class CorruptionPreservingFactory(
     ): SupportSQLiteOpenHelper {
         val original = configuration.callback
         val context = configuration.context
-        val name = configuration.name
+        val databaseFile = databaseFile(configuration)
 
         // Every field of the configuration has to be carried across, not just the ones that look
         // relevant: what is built here replaces Room's own, and anything left out silently reverts
@@ -116,7 +116,7 @@ internal class CorruptionPreservingFactory(
         // the helper may delete a database it cannot open, which is the very thing being handled.
         val wrapped = SupportSQLiteOpenHelper.Configuration
             .builder(context)
-            .name(name)
+            .name(configuration.name)
             .noBackupDirectory(configuration.useNoBackupDirectory)
             .allowDataLossOnRecovery(configuration.allowDataLossOnRecovery)
             .callback(
@@ -142,7 +142,7 @@ internal class CorruptionPreservingFactory(
                     override fun onCorruption(db: SupportSQLiteDatabase) = recordThenRecover(
                         record = {
                             val at = now()
-                            val preserved = name?.let { preserve(context, it, at) }
+                            val preserved = databaseFile?.let { preserve(it, at) }
                             recoveryLog.record(
                                 UnreadableDatabase(preservedFileName = preserved, atEpochMs = at),
                             )
@@ -159,6 +159,25 @@ internal class CorruptionPreservingFactory(
     }
 
     /**
+     * Where the helper will actually keep the database, or null when it is in memory.
+     *
+     * Not always the databases directory: with [SupportSQLiteOpenHelper.Configuration.useNoBackupDirectory]
+     * set, the framework helper keeps it in the no-backup directory instead. Guessing the databases
+     * directory would find no file there, so nothing would be copied and the notice would say no
+     * copy could be kept — quietly, and wrongly.
+     */
+    private fun databaseFile(
+        configuration: SupportSQLiteOpenHelper.Configuration,
+    ): File? {
+        val name = configuration.name ?: return null
+        return if (configuration.useNoBackupDirectory) {
+            File(configuration.context.noBackupFilesDir, name)
+        } else {
+            configuration.context.getDatabasePath(name)
+        }
+    }
+
+    /**
      * Copies the database and its journals aside. Returns the copy's name, or null if it failed.
      *
      * Copies are not capped or cleaned up, deliberately. A second corruption would want preserving
@@ -169,10 +188,9 @@ internal class CorruptionPreservingFactory(
      * corruption happens repeatedly, which is not the failure being planned for. Code running while
      * the database is already failing is the wrong place for logic that could fail on its own.
      */
-    private fun preserve(context: Context, name: String, atEpochMs: Long): String? = runCatching {
-        val source = context.getDatabasePath(name)
+    private fun preserve(source: File, atEpochMs: Long): String? = runCatching {
         if (!source.exists()) return null
-        val copyName = "$name.unreadable-$atEpochMs"
+        val copyName = "${source.name}.unreadable-$atEpochMs"
         val target = File(source.parentFile, copyName)
         source.copyTo(target, overwrite = true)
         listOf("-wal", "-shm").forEach { suffix ->
