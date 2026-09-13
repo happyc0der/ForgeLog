@@ -97,10 +97,20 @@ class HomeViewModel @Inject constructor(
     private val errorMessage = MutableStateFlow<String?>(null)
 
     /**
-     * Read once at construction: a database that failed to open did so before this screen existed,
-     * and cannot start failing while it is on show.
+     * Set when the user dismisses the data-loss notice. The notice itself is not held here: it is
+     * read from the log each time [uiState] is built, and this flag is what makes a dismissal take
+     * effect at once, since nothing else would emit at that moment.
+     *
+     * Reading the log once at construction, as this used to, read it too early. Nothing opens the
+     * database before this screen is built — Room opens it lazily, on its first query, and the first
+     * query comes from the flows below — so a corruption found at launch is recorded *after* the
+     * constructor has run. The launch that lost the history was then the one launch that said
+     * nothing about it, and the more there was to lose the more reliably it stayed quiet: the
+     * database is copied aside before the record is written, and that copy is slower the bigger the
+     * file. Every source of [uiState] emits only once storage has answered, so a read there cannot
+     * be early.
      */
-    private val unreadableDatabase = MutableStateFlow(databaseRecoveryLog.unreported())
+    private val noticeDismissed = MutableStateFlow(false)
 
     /** Bumped by [retry] to re-subscribe after a failure, since `catch` ends the source flow. */
     private val retryToken = MutableStateFlow(0)
@@ -183,8 +193,8 @@ class HomeViewModel @Inject constructor(
         elapsedLabel,
         clock,
         errorMessage,
-        unreadableDatabase,
-    ) { homeData, elapsed, homeClock, error, unreadable ->
+        noticeDismissed,
+    ) { homeData, elapsed, homeClock, error, dismissed ->
         HomeUiState(
             isLoading = false,
             errorMessage = error,
@@ -196,7 +206,7 @@ class HomeViewModel @Inject constructor(
             lastWorkout = homeData.lastWorkout,
             week = homeData.week,
             weightUnit = homeData.settings.defaultWeightUnit,
-            unreadableDatabase = unreadable,
+            unreadableDatabase = if (dismissed) null else databaseRecoveryLog.unreported(),
         )
     }.stateIn(
         scope = viewModelScope,
@@ -207,7 +217,7 @@ class HomeViewModel @Inject constructor(
     /** The user has read the notice that their data could not be recovered. */
     fun dismissUnreadableDatabaseNotice() {
         databaseRecoveryLog.markReported()
-        unreadableDatabase.value = null
+        noticeDismissed.value = true
     }
 
     fun retry() {

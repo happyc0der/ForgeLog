@@ -432,4 +432,65 @@ class HomeViewModelTest {
             cancelAndIgnoreRemainingEvents()
         }
     }
+
+    /**
+     * The ordering that actually happens, which every test above skips by seeding the loss first.
+     *
+     * Nothing opens the database before this screen is built: Room opens it lazily, on its first
+     * query, and the query comes from the ViewModel's own flows. So the corruption is detected --
+     * and the record written -- after Hilt has finished constructing the ViewModel, not before.
+     * Reading the log once in the constructor therefore reads it too early, and the launch that
+     * loses the history is the one launch that says nothing about it.
+     */
+    @Test
+    fun `a loss found while the app was starting is reported on that same start`() = runTest {
+        val loss = RecordedLoss(null)
+        val vm = viewModel(recoveryLog = loss)
+
+        // Room opens the database, cannot read it, keeps a copy aside and notes the loss. All of
+        // that happens on a background thread while composition carries on, and the copy is slower
+        // the more training there was to lose.
+        loss.record(
+            UnreadableDatabase(preservedFileName = "forgelog.db.unreadable-7", atEpochMs = 7L),
+        )
+
+        vm.uiState.test {
+            var state = awaitItem()
+            while (state.isLoading) state = awaitItem()
+            assertEquals(
+                "the launch that lost the history said nothing about it",
+                "forgelog.db.unreadable-7",
+                state.unreadableDatabase?.preservedFileName,
+            )
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    /** And a loss noted later still surfaces, rather than waiting for the next launch. */
+    @Test
+    fun `a loss noted after the screen is up is reported when storage next changes`() = runTest {
+        val loss = RecordedLoss(null)
+        val vm = viewModel(recoveryLog = loss)
+
+        vm.uiState.test {
+            var state = awaitItem()
+            while (state.isLoading) state = awaitItem()
+            assertNull(state.unreadableDatabase)
+
+            loss.record(UnreadableDatabase(preservedFileName = "late.db", atEpochMs = 11L))
+            env.programRepository.upsertProgram(
+                WorkoutProgram(
+                    name = "Anything",
+                    description = null,
+                    color = "#A855F7",
+                    createdAt = 0,
+                    updatedAt = 0,
+                ),
+            )
+
+            while (state.unreadableDatabase == null) state = awaitItem()
+            assertEquals("late.db", state.unreadableDatabase?.preservedFileName)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
 }
