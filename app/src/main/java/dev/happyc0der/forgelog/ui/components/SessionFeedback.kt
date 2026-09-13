@@ -18,9 +18,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.happyc0der.forgelog.R
+import dev.happyc0der.forgelog.domain.model.StoredNumbers
 
 /** How a session or an exercise felt, on the app's 1–5 scale. */
-val FEELING_RANGE = 1..5
+/** The scale the control offers, which is the one the backup importer checks. */
+val FEELING_RANGE = StoredNumbers.FEELING_RANGE
 
 /**
  * The feeling picker, shared by the logger and the session detail screen.

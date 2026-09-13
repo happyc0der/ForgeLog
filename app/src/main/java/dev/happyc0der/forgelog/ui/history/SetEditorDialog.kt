@@ -40,6 +40,7 @@ import dev.happyc0der.forgelog.ui.input.NumericInput
 import dev.happyc0der.forgelog.ui.input.rememberDurationInputUnit
 import dev.happyc0der.forgelog.ui.input.rememberRestInputUnit
 import dev.happyc0der.forgelog.ui.util.label
+import dev.happyc0der.forgelog.domain.model.StoredNumbers
 
 /**
  * Post-hoc editor for one logged set.
@@ -304,5 +305,6 @@ private fun String.optionalDouble(): Parsed<Double>? {
 
 private class Parsed<T>(val value: T?)
 
-private val RPE_RANGE = 1..10
-private val RIR_RANGE = 0..10
+// The scales the backup importer checks on the way back in, not a second copy of them.
+private val RPE_RANGE = StoredNumbers.RPE_RANGE
+private val RIR_RANGE = StoredNumbers.RIR_RANGE

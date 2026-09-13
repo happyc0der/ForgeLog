@@ -24,4 +24,21 @@ object StoredNumbers {
 
     /** Whole values that can be stored and read back, for clamping a converted entry. */
     val STORABLE_WHOLE: IntRange = 0..MAX_WHOLE
+
+    /*
+     * The rating scales, here for the same reason as the limits above rather than because they are
+     * likely to be converted: each was written down twice, once where it is offered and once where
+     * it is checked on the way back in. They agreed, but only by being kept in step by hand, which
+     * is exactly what failed for durations -- and the failure is not a rejected keystroke, it is a
+     * backup file the app will not restore.
+     */
+
+    /** How a session or an exercise felt, as the rating control offers it. */
+    val FEELING_RANGE: IntRange = 1..5
+
+    /** Rate of perceived exertion. */
+    val RPE_RANGE: IntRange = 1..10
+
+    /** Reps in reserve. Zero is a real answer: nothing left. */
+    val RIR_RANGE: IntRange = 0..10
 }

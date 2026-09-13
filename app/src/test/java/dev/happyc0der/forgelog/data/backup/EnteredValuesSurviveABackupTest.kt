@@ -1,8 +1,10 @@
 package dev.happyc0der.forgelog.data.backup
 
 import dev.happyc0der.forgelog.domain.backup.BackupCheck
+import dev.happyc0der.forgelog.domain.model.StoredNumbers
 import dev.happyc0der.forgelog.domain.workout.DurationInput
 import dev.happyc0der.forgelog.domain.workout.DurationInputUnit
+import dev.happyc0der.forgelog.ui.components.FEELING_RANGE
 import dev.happyc0der.forgelog.ui.input.NumericInput
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -10,7 +12,15 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Whatever the app lets you type has to be something the app can read back.
+ * Whatever the app lets you enter has to be something the app can read back.
+ *
+ * The importer is the only thing standing between a backup file and the database, so it is strict --
+ * and every bound it enforces is also a bound the app has to respect on the way out, or it writes
+ * files it will not accept. That fails in the worst direction: the entry saves, the export writes it
+ * out, and the *restore* refuses, rejecting the whole file. One bad value quietly makes every backup
+ * from then on unusable, with nothing to say which row is at fault.
+ *
+ * So this is a seam test, per bound, from what the app accepts through to a restore.
  *
  * Durations and rests are typed in either seconds or minutes, and a minutes entry is multiplied by
  * sixty before it is stored. The field's own ceiling is six whole digits, which is the importer's
@@ -23,7 +33,7 @@ import org.junit.Test
  * nothing to say which set is the problem. Entering it at all takes a stray digit, which is the very
  * thing [DurationInput] says it clamps rather than discards.
  */
-class TypedDurationsSurviveABackupTest {
+class EnteredValuesSurviveABackupTest {
 
     /** The most a duration field will accept, and some ordinary entries for comparison. */
     private val accepted = listOf("1", "90", "2.5", "16666.65", "99999", "999999", "999999.99")
@@ -40,6 +50,9 @@ class TypedDurationsSurviveABackupTest {
         setRest: Int? = null,
         targetDuration: Int? = null,
         targetRest: Int? = null,
+        feeling: Int? = null,
+        rpe: Int? = null,
+        rir: Int? = null,
     ) = BackupEnvelope(
         appVersion = "1.0",
         databaseVersion = 3,
@@ -65,6 +78,7 @@ class TypedDurationsSurviveABackupTest {
                 startedAt = 1_000,
                 completedAt = 5_000,
                 status = "completed",
+                overallFeeling = feeling,
             ),
         ),
         sessionExercises = listOf(
@@ -73,6 +87,7 @@ class TypedDurationsSurviveABackupTest {
                 sessionId = 1,
                 exerciseId = 1,
                 displayNameSnapshot = "Plank",
+                feeling = feeling,
                 targetDurationSeconds = targetDuration,
                 targetRestSeconds = targetRest,
             ),
@@ -86,6 +101,8 @@ class TypedDurationsSurviveABackupTest {
                 weightUnit = "seconds",
                 durationSeconds = setDuration,
                 restAfterSetSeconds = setRest,
+                rpe = rpe,
+                rir = rir,
                 completed = true,
                 completedAt = 2_000,
             ),
@@ -139,5 +156,49 @@ class TypedDurationsSurviveABackupTest {
             assertNotNull(seconds)
             assertRestorable("a $typed second set", envelopeWith(setDuration = seconds))
         }
+    }
+
+    // --- and the rating scales, which were written down twice the same way -------------------------
+
+    private fun assertRefused(what: String, envelope: BackupEnvelope) {
+        val reread = BackupSerializer.decode(BackupSerializer.encode(envelope))
+        assertTrue("a backup holding $what was accepted: $reread", reread is BackupCheck.Invalid)
+    }
+
+    /** Every rating the feeling control offers can be restored; one outside the scale cannot. */
+    @Test
+    fun `every feeling the control offers can be restored`() {
+        FEELING_RANGE.forEach { feeling ->
+            assertRestorable("a feeling of $feeling", envelopeWith(feeling = feeling))
+        }
+        assertRefused("a feeling of ${FEELING_RANGE.last + 1}", envelopeWith(feeling = FEELING_RANGE.last + 1))
+        assertRefused("a feeling of ${FEELING_RANGE.first - 1}", envelopeWith(feeling = FEELING_RANGE.first - 1))
+    }
+
+    @Test
+    fun `every rpe the set editor accepts can be restored`() {
+        StoredNumbers.RPE_RANGE.forEach { rpe ->
+            assertRestorable("an rpe of $rpe", envelopeWith(rpe = rpe))
+        }
+        assertRefused("an rpe of 11", envelopeWith(rpe = StoredNumbers.RPE_RANGE.last + 1))
+    }
+
+    @Test
+    fun `every rir the set editor accepts can be restored, zero included`() {
+        StoredNumbers.RIR_RANGE.forEach { rir ->
+            assertRestorable("a rir of $rir", envelopeWith(rir = rir))
+        }
+        assertRefused("a rir of 11", envelopeWith(rir = StoredNumbers.RIR_RANGE.last + 1))
+    }
+
+    /**
+     * And the scale the control offers is the scale the importer checks.
+     *
+     * Tautological now that there is one definition, which is the point: it fails the moment someone
+     * gives either side its own copy again.
+     */
+    @Test
+    fun `the control and the importer use one scale`() {
+        assertEquals(StoredNumbers.FEELING_RANGE, FEELING_RANGE)
     }
 }

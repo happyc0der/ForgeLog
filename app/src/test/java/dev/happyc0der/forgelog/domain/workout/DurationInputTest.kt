@@ -55,7 +55,7 @@ class DurationInputTest {
      * It used to be Int.MAX_VALUE, which overflows nothing and stores fine — and is then refused by
      * the backup importer, which turns down the whole file. Sixty times the six digits a minutes
      * field accepts is already past that bound, so an ordinary stray digit was enough: see
-     * [dev.happyc0der.forgelog.data.backup.TypedDurationsSurviveABackupTest].
+     * [dev.happyc0der.forgelog.data.backup.EnteredValuesSurviveABackupTest].
      */
     @Test
     fun anAbsurdlyLargeEntryClampsToWhatCanBeStored() {

@@ -282,9 +282,9 @@ object BackupSerializer {
         return null
     }
 
-    private val FEELING_RANGE = 1..5
-    private val RPE_RANGE = 1..10
-    private val RIR_RANGE = 0..10
+    private val FEELING_RANGE = StoredNumbers.FEELING_RANGE
+    private val RPE_RANGE = StoredNumbers.RPE_RANGE
+    private val RIR_RANGE = StoredNumbers.RIR_RANGE
 
     /** The numeric fields take six whole digits, and weights two decimals besides. */
     /** Shared with the entry fields, so a converted entry cannot land outside them. */
