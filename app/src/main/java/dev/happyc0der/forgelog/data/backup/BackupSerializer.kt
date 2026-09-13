@@ -1,6 +1,7 @@
 package dev.happyc0der.forgelog.data.backup
 
 import dev.happyc0der.forgelog.domain.backup.BackupCheck
+import dev.happyc0der.forgelog.domain.model.StoredNumbers
 import dev.happyc0der.forgelog.domain.backup.BackupProblem
 import dev.happyc0der.forgelog.domain.model.ExerciseCategory
 import dev.happyc0der.forgelog.domain.model.ExerciseUnit
@@ -196,7 +197,9 @@ object BackupSerializer {
      * accepted and then rendered as a 309-digit number on the summary, which no screen recovers
      * from.
      *
-     * The bound is the input fields' own: six whole digits and two decimals.
+     * The bound is the input fields' own -- six whole digits and two decimals -- and is shared with
+     * them rather than restated here, since a value converted on its way to storage has to be
+     * measured against the same number. See [StoredNumbers].
      */
 
     private fun negative(table: String, field: String, value: Int?): BackupProblem? =
@@ -284,6 +287,7 @@ object BackupSerializer {
     private val RIR_RANGE = 0..10
 
     /** The numeric fields take six whole digits, and weights two decimals besides. */
-    private const val MAX_WHOLE = 999_999
-    private const val MAX_MEASUREMENT = 999_999.99
+    /** Shared with the entry fields, so a converted entry cannot land outside them. */
+    private const val MAX_WHOLE = StoredNumbers.MAX_WHOLE
+    private const val MAX_MEASUREMENT = StoredNumbers.MAX_MEASUREMENT
 }

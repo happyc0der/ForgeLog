@@ -1,5 +1,6 @@
 package dev.happyc0der.forgelog.domain.workout
 
+import dev.happyc0der.forgelog.domain.model.StoredNumbers
 import kotlin.math.roundToInt
 import java.util.Locale
 
@@ -10,10 +11,16 @@ enum class DurationInputUnit {
 
 object DurationInput {
     /**
-     * A minute value large enough to overflow `Int` is a typo, not a set. Clamped rather than
-     * rejected so a stray digit caps out instead of silently discarding the whole entry.
+     * A value this large is a typo, not a set. Clamped rather than rejected so a stray digit caps
+     * out instead of silently discarding the whole entry.
+     *
+     * The ceiling is what can be stored and read back again, not what fits in an `Int`. Sixty times
+     * the six digits a minutes field accepts fits an `Int` easily, and the backup importer refuses
+     * it — so the set saved, the export wrote it out, and the restore turned down the whole file.
+     * See [StoredNumbers].
      */
-    private val SAFE_SECONDS = Int.MIN_VALUE.toDouble()..Int.MAX_VALUE.toDouble()
+    private val STORABLE = StoredNumbers.STORABLE_WHOLE
+    private val STORABLE_AS_DOUBLE = STORABLE.first.toDouble()..STORABLE.last.toDouble()
 
     fun toDisplay(seconds: Int?, unit: DurationInputUnit): String {
         if (seconds == null) return ""
@@ -34,12 +41,12 @@ object DurationInput {
         val trimmed = display.trim()
         if (trimmed.isEmpty()) return null
         return when (unit) {
-            DurationInputUnit.SECONDS -> trimmed.toIntOrNull()
+            DurationInputUnit.SECONDS -> trimmed.toIntOrNull()?.coerceIn(STORABLE)
             // "NaN" and "Infinity" both parse as doubles, and roundToInt throws on NaN rather
             // than saturating. A field the user can paste into must reject them as unparseable.
             DurationInputUnit.MINUTES -> trimmed.toDoubleOrNull()
                 ?.takeIf { it.isFinite() }
-                ?.let { minutes -> (minutes * 60.0).coerceIn(SAFE_SECONDS).roundToInt() }
+                ?.let { minutes -> (minutes * 60.0).coerceIn(STORABLE_AS_DOUBLE).roundToInt() }
         }
     }
 
