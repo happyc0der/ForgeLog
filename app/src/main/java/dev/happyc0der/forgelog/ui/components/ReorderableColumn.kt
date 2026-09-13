@@ -81,12 +81,31 @@ fun <T> ReorderableColumn(
      * at the time: every move, including its own, leaves that copy stale, and every index worked out
      * from it is then wrong. It read one that never changed, so a second drag on the same screen did
      * nothing at all, or moved a row the user had not grabbed, until the screen was left and opened
-     * again. Held here, the gesture always reads the list as it now stands.
+     * again.
      */
     val currentItems by rememberUpdatedState(items)
     val currentKey by rememberUpdatedState(key)
     val currentOnMove by rememberUpdatedState(onMove)
     val currentOnDragEnd by rememberUpdatedState(onDragEnd)
+
+    /*
+     * The order the drag itself has reached, which is not always the order the caller has got round
+     * to showing.
+     *
+     * Holding the list through [rememberUpdatedState] was not enough on its own, because that is
+     * only refreshed when composition runs. Pointer events are not: several arrive within one frame
+     * whenever a finger moves quickly, and every one after the first in that frame read the order
+     * from before the frame's moves. Each then reported a move from an index that had already
+     * changed hands, so a quick drag did not merely land in the wrong place -- it moved rows the
+     * finger had never touched, and [onDragEnd] wrote that down.
+     *
+     * Keys rather than items, because heights are kept per key and the index is all a move needs.
+     * It is seeded when the finger goes down, where composition has settled, and every move the
+     * gesture reports is applied to it first -- so it always matches what the caller was last told,
+     * which is what the next index has to be relative to. The callers all apply a move the same
+     * way, and only ever decline one whose indices are out of bounds, which these never are.
+     */
+    val dragOrder = remember { mutableListOf<Any>() }
 
     Column(modifier = modifier.fillMaxWidth()) {
         items.forEachIndexed { index, item ->
@@ -132,24 +151,26 @@ fun <T> ReorderableColumn(
                                 onDragStart = {
                                     draggingKey = itemKey
                                     dragOffset = 0f
+                                    dragOrder.clear()
+                                    currentItems.forEach { dragOrder += currentKey(it) }
                                 },
                                 onDragCancel = {
                                     draggingKey = null
                                     dragOffset = 0f
+                                    dragOrder.clear()
                                     currentOnDragEnd()
                                 },
                                 onDragEnd = {
                                     draggingKey = null
                                     dragOffset = 0f
+                                    dragOrder.clear()
                                     // The single persistence point for a whole drag.
                                     currentOnDragEnd()
                                 },
                                 onDrag = { change, dragAmount ->
                                     change.consume()
                                     dragOffset += dragAmount.y
-                                    val rows = currentItems
-                                    val rowKey = currentKey
-                                    val currentIndex = rows.indexOfFirst { rowKey(it) == draggingKey }
+                                    val currentIndex = dragOrder.indexOf(draggingKey)
                                     if (currentIndex < 0) return@detectDragGesturesAfterLongPress
 
                                     scrollState?.let { state ->
@@ -159,20 +180,20 @@ fun <T> ReorderableColumn(
                                     val target = targetIndex(
                                         currentIndex = currentIndex,
                                         offset = dragOffset,
-                                        items = rows,
-                                        key = rowKey,
+                                        order = dragOrder,
                                         heights = heights,
                                     )
                                     if (target != currentIndex) {
                                         // Offset shrinks by the distance actually travelled, so the row
                                         // stays under the finger whatever the neighbours' heights are.
+                                        // Measured before the move, which is the order it describes.
                                         dragOffset -= travelled(
                                             from = currentIndex,
                                             to = target,
-                                            items = rows,
-                                            key = rowKey,
+                                            order = dragOrder,
                                             heights = heights,
                                         )
+                                        dragOrder.add(target, dragOrder.removeAt(currentIndex))
                                         currentOnMove(currentIndex, target)
                                     }
                                 },
@@ -189,11 +210,10 @@ fun <T> ReorderableColumn(
  * The index the dragged row should occupy, found by walking neighbours and accumulating their real
  * heights until the drag offset is used up.
  */
-private fun <T> targetIndex(
+private fun targetIndex(
     currentIndex: Int,
     offset: Float,
-    items: List<T>,
-    key: (T) -> Any,
+    order: List<Any>,
     heights: Map<Any, Int>,
 ): Int {
     if (offset == 0f) return currentIndex
@@ -203,8 +223,8 @@ private fun <T> targetIndex(
 
     while (true) {
         val neighbour = target + step
-        if (neighbour !in items.indices) break
-        val neighbourHeight = heights[key(items[neighbour])] ?: break
+        if (neighbour !in order.indices) break
+        val neighbourHeight = heights[order[neighbour]] ?: break
         // Swap once the row has travelled past half of the neighbour it is passing.
         if (remaining < neighbourHeight / 2f) break
         remaining -= neighbourHeight
@@ -214,16 +234,15 @@ private fun <T> targetIndex(
 }
 
 /** Total pixel distance between two positions, using each intervening row's own height. */
-private fun <T> travelled(
+private fun travelled(
     from: Int,
     to: Int,
-    items: List<T>,
-    key: (T) -> Any,
+    order: List<Any>,
     heights: Map<Any, Int>,
 ): Float {
     val range = if (to > from) (from + 1)..to else to until from
     val distance = range.sumOf { index ->
-        heights[key(items[index])] ?: 0
+        heights[order[index]] ?: 0
     }
     return if (to > from) distance.toFloat() else -distance.toFloat()
 }
