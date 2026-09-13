@@ -254,6 +254,24 @@ class SessionHistoryQueryTest {
         assertEquals(listOf("Push_A"), search("Push_"))
     }
 
+    /**
+     * The escape character itself, which is the half of the rule with no test on it.
+     *
+     * [HistoryFilter.normalizedQuery] escapes the backslash before the wildcards, "or it would
+     * escape the escapes". Reordering those two steps is caught by the two tests above; dropping the
+     * backslash step altogether was caught by nothing, and it does not fail loudly -- a search for a
+     * backslash quietly becomes a search for a percent sign, because `\\%` in the pattern is
+     * exactly what a literal percent looks like.
+     */
+    @Test
+    fun `a backslash in the search term is literal`() = runTest {
+        session("Push \\ Pull", 9_000L, 9_500L, SessionStatus.COMPLETED, null, null, null, "Bench Press")
+        session("Push 100% Pull", 9_600L, 9_700L, SessionStatus.COMPLETED, null, null, null, "Bench Press")
+
+        assertEquals(listOf("Push \\ Pull"), search("\\"))
+        assertEquals(listOf("Push 100% Pull"), search("100%"))
+    }
+
     @Test
     fun `a plain term still matches`() = runTest {
         assertEquals(listOf("PPL Strength \u00b7 Push Day"), search("Push Day"))
