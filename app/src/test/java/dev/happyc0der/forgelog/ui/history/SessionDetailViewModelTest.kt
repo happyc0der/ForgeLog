@@ -499,4 +499,51 @@ class SessionDetailViewModelTest {
             cancelAndIgnoreRemainingEvents()
         }
     }
+
+    /*
+     * Adding a set is guarded against a second tap, as the creates elsewhere are. The dialog's
+     * confirm handler calls this and closes the dialog, both synchronously, so two taps in one frame
+     * wrote the same set twice into a workout already logged -- and a logged workout with a
+     * phantom extra set in it is training history that reads wrong.
+     */
+
+    @Test
+    fun `tapping add twice in the same frame adds one set`() = runTest {
+        val vm = viewModel()
+        vm.uiState.test {
+            loaded()
+            val template = vm.newSet(sessionExerciseId)!!.copy(reps = 6, weight = 140.0)
+
+            vm.addSet(template)
+            vm.addSet(template)
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf(5, 6),
+                env.sessionRepository.getSessionDetail(sessionId)!!
+                    .exercises.first().sets.sortedBy { it.setNumber }.map { it.reps },
+            )
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `a second set can be added once the first is written`() = runTest {
+        val vm = viewModel()
+        vm.uiState.test {
+            loaded()
+
+            vm.addSet(vm.newSet(sessionExerciseId)!!.copy(reps = 6))
+            advanceUntilIdle()
+            vm.addSet(vm.newSet(sessionExerciseId)!!.copy(reps = 7))
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf(5, 6, 7),
+                env.sessionRepository.getSessionDetail(sessionId)!!
+                    .exercises.first().sets.sortedBy { it.setNumber }.map { it.reps },
+            )
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
 }

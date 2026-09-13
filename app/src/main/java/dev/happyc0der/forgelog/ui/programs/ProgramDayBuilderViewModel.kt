@@ -110,6 +110,7 @@ class ProgramDayBuilderViewModel @Inject constructor(
 
     /** The in-flight inline create, so a second tap in the same frame does not start another. */
     private var createJob: Job? = null
+    private var duplicateJob: Job? = null
 
     fun addExercise(exerciseId: Long) {
         launchSafely(::reportAsMessage) { appendExercise(exerciseId, announce = true) }
@@ -208,8 +209,10 @@ class ProgramDayBuilderViewModel @Inject constructor(
         }
     }
 
+    /** Guarded like the inline create: a second tap made two copies, and two navigations. */
     fun duplicateDay() {
-        launchSafely(::reportAsMessage) {
+        if (duplicateJob?.isActive == true) return
+        duplicateJob = launchSafely(::reportAsMessage) {
             val newId = programRepository.duplicateDay(dayId)
             eventsChannel.send(ProgramDayBuilderEvent.Duplicated(newId))
             eventsChannel.send(

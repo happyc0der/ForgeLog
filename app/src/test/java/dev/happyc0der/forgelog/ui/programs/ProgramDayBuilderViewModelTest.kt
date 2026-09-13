@@ -40,6 +40,7 @@ class ProgramDayBuilderViewModelTest {
     private lateinit var env: TestEnvironment
     private val created = mutableListOf<ProgramDayBuilderViewModel>()
     private var dayId = 0L
+    private var programId = 0L
     private var benchId = 0L
     private var squatId = 0L
 
@@ -47,7 +48,7 @@ class ProgramDayBuilderViewModelTest {
     fun setUp() = runTest {
         env = TestEnvironment(mainDispatcherRule.dispatcher)
         val programDao = env.database.programDao()
-        val programId = programDao.insertProgram(programEntity(name = "PPL"))
+        programId = programDao.insertProgram(programEntity(name = "PPL"))
         dayId = programDao.insertDay(dayEntity(programId = programId, name = "Push Day"))
         benchId = env.database.exerciseDao().upsert(exerciseEntity(name = "Bench Press"))
         squatId = env.database.exerciseDao().upsert(exerciseEntity(name = "Squat"))
@@ -247,6 +248,22 @@ class ProgramDayBuilderViewModelTest {
         assertEquals(
             listOf("Bench Press", "Cable Fly", "Squat"),
             env.exerciseRepository.observeExercises(includeArchived = true).first().map { it.name },
+        )
+    }
+
+    /** Duplicating the day is the same shape again: a second tap made two copies, and two moves. */
+    @Test
+    fun `tapping duplicate twice in the same frame makes one copy`() = runTest {
+        val vm = viewModel()
+
+        vm.duplicateDay()
+        vm.duplicateDay()
+        advanceUntilIdle()
+
+        assertEquals(
+            "the day was duplicated twice",
+            2,
+            env.programRepository.observeDays(programId).first().size,
         )
     }
 }

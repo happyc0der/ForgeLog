@@ -183,8 +183,14 @@ class SessionDetailViewModel @Inject constructor(
      * was opened with. Its completion time is left empty: it is not known, and a made-up one would
      * be taken for real by anything that orders sets by when they were done.
      */
+    /**
+     * Guarded against a second tap before the coroutine starts, as the creates elsewhere are:
+     * the dialog's confirm handler calls this and closes the dialog, both synchronously, so two
+     * taps in one frame wrote the same set twice into a workout already logged.
+     */
     fun addSet(set: SetLog) {
-        launchSafely(::reportAsMessage) {
+        if (addSetJob?.isActive == true) return
+        addSetJob = launchSafely(::reportAsMessage) {
             // Still in the session: it may have gone while the dialog was open.
             workoutSessionRepository.getSessionDetail(sessionId)
                 ?.exercises
@@ -213,6 +219,7 @@ class SessionDetailViewModel @Inject constructor(
 
     /** One repeat at a time, for the same reason as starting a workout: two taps made two. */
     private var repeatJob: Job? = null
+    private var addSetJob: Job? = null
 
     fun repeatSession() {
         if (repeatJob?.isActive == true) return
