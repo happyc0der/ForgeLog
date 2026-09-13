@@ -553,6 +553,68 @@ class ActiveWorkoutViewModelTest {
         }
     }
 
+    /**
+     * Notes take a different road out of the drafts than a set's fields do.
+     *
+     * flushDrafts routes them by key: anything starting "ex:" and ending ":notes" is written as an
+     * exercise's notes, everything else as a set. The two branches test different things about the
+     * key, so a note could match neither and be dropped without a sound -- and every test around this
+     * one types into a set field, which goes down the other road entirely.
+     */
+    @Test
+    fun `notes typed just before finishing are still saved`() = runTest {
+        val vm = viewModel()
+        try {
+            vm.uiState.test {
+                awaitUntil { it.detail != null }
+
+                vm.onExerciseNotes(sessionExerciseId, "left elbow twinged on set two")
+                runCurrent()
+                // Finish inside the autosave delay, so only the flush can save this.
+                vm.finish()
+                advanceTimeBy(ActiveWorkoutViewModel.AUTOSAVE_DELAY_MS * 3)
+                runCurrent()
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            assertEquals(
+                "the note typed just before finishing was lost",
+                "left elbow twinged on set two",
+                env.sessionRepository.getSessionDetail(sessionId)
+                    ?.exercises?.single()?.exercise?.exerciseNotes,
+            )
+        } finally {
+            vm.viewModelScope.cancel()
+        }
+    }
+
+    @Test
+    fun `notes and a set field typed together both survive finishing`() = runTest {
+        val vm = viewModel()
+        try {
+            vm.uiState.test {
+                awaitUntil { it.detail != null }
+                vm.addSet(sessionExerciseId)
+                val set = awaitUntil { it.exercises.single().item.sets.isNotEmpty() }
+                    .exercises.single().item.sets.single()
+
+                vm.onSetText(set, ActiveWorkoutViewModel.FIELD_WEIGHT, "142.5")
+                vm.onExerciseNotes(sessionExerciseId, "felt heavy")
+                runCurrent()
+                vm.finish()
+                advanceTimeBy(ActiveWorkoutViewModel.AUTOSAVE_DELAY_MS * 3)
+                runCurrent()
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            val detail = env.sessionRepository.getSessionDetail(sessionId)!!
+            assertEquals("felt heavy", detail.exercises.single().exercise.exerciseNotes)
+            assertEquals(142.5, detail.exercises.single().sets.single().weight ?: 0.0, 0.0)
+        } finally {
+            vm.viewModelScope.cancel()
+        }
+    }
+
     @Test
     fun `a weight typed just after abandoning is still saved`() = runTest {
         val vm = viewModel()

@@ -3,7 +3,7 @@
 The checks a release needs that no test can make. `docs/play-console.md` has the text the Console
 asks for; this has the things to do with a phone in your hand.
 
-Nothing here has been done. Everything a test *can* cover already is: 809 unit tests, 38
+Nothing here has been done. Everything a test *can* cover already is: 811 unit tests, 38
 instrumented on each of API 26 and API 36, lint clean on debug and release. What follows is what those
 cannot reach.
 

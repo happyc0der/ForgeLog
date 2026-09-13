@@ -79,7 +79,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 ## Tests
 
-809 tests, all runnable on a laptop with no device attached. Room runs under Robolectric, so the DAO queries, the migrations and the backup round-trip are genuinely executed rather than mocked — and so do the Compose UI tests, which drive the real screens.
+811 tests, all runnable on a laptop with no device attached. Room runs under Robolectric, so the DAO queries, the migrations and the backup round-trip are genuinely executed rather than mocked — and so do the Compose UI tests, which drive the real screens.
 
 The UI tests live in `app/src/sharedTest/` and run twice from one source: on the JVM with `testDebugUnitTest`, and on a real Android runtime with any of the device tasks below. `app/src/androidTest/` holds the few that genuinely need a device — `AndroidDocumentStoreTest` exercises the `ContentResolver` a backup's bytes travel through, which has no equivalent on a desktop JVM.
 
