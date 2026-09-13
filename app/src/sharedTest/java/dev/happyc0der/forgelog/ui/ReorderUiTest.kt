@@ -1,5 +1,8 @@
 package dev.happyc0der.forgelog.ui
 
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -21,6 +24,7 @@ import dev.happyc0der.forgelog.ui.components.DragHandle
 import dev.happyc0der.forgelog.ui.components.ReorderableColumn
 import dev.happyc0der.forgelog.ui.theme.ForgeLogTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -235,11 +239,83 @@ class ReorderUiTest {
         composeRule.waitForIdle()
     }
 
+    /**
+     * The same question on the one screen that scrolls.
+     *
+     * A drag near the fold nudges the parent scroll, which is what makes moving a row past it
+     * possible in one gesture. But the scroll moves the content the drag offset is measured in, and
+     * nothing put that back: the card slid out from under the finger by however far the list had
+     * scrolled, and — worse, because it is saved — the offset then understated how far the finger had
+     * actually travelled through the list, so the row came to rest above where it was dropped.
+     */
+    @Test
+    fun aDragThatScrollsTheParentKeepsTheRowUnderTheFinger() {
+        val rows = listOf("a", "b", "c", "d", "e", "f", "g", "h")
+        var order by mutableStateOf(rows)
+        lateinit var scroll: ScrollState
+        composeRule.setContent {
+            ForgeLogTheme {
+                scroll = rememberScrollState()
+                Box(modifier = Modifier.height(VIEWPORT).verticalScroll(scroll)) {
+                    ReorderableColumn(
+                        items = order,
+                        key = { it },
+                        onMove = { from, to ->
+                            order = order.toMutableList().apply { add(to, removeAt(from)) }
+                        },
+                        onDragEnd = {},
+                        scrollState = scroll,
+                    ) { item, dragModifier ->
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(ROW_HEIGHT)
+                                .onSizeChanged { heightsPx[item] = it.height.toFloat() },
+                        ) {
+                            DragHandle(dragModifier = dragModifier, testTag = "handle-$item") {
+                                Text(text = item, modifier = Modifier.testTag("label-$item"))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        composeRule.waitForIdle()
+        val rowHeight = heightsPx.getValue("a")
+        val startedAt = topOf("handle-a")
+
+        // Fast enough to nudge the scroll: several of these in a row, each past the threshold.
+        composeRule.onNodeWithTag("handle-a").performTouchInput {
+            down(center)
+            advanceEventTime(LONG_PRESS_MS)
+            repeat(4) {
+                moveBy(Offset(0f, rowHeight * 0.75f))
+                advanceEventTime(16)
+            }
+        }
+        composeRule.waitForIdle()
+
+        val travelled = rowHeight * 3f
+        assertTrue("the parent never scrolled, so this proves nothing", scroll.value > 0)
+        assertEquals(
+            "the card slid out from under the finger by what the list had scrolled",
+            travelled.toDouble(),
+            (topOf("handle-a") - startedAt).toDouble(),
+            rowHeight / 2.0,
+        )
+
+        composeRule.onNodeWithTag("handle-a").performTouchInput { up() }
+        composeRule.waitForIdle()
+    }
+
     private fun topOf(tag: String): Float =
         composeRule.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot.top
 
     private companion object {
         val ROW_HEIGHT = 64.dp
+
+        /** Short enough that eight rows do not fit, so the parent has somewhere to scroll. */
+        val VIEWPORT = 200.dp
 
         /** Four times the others, the way a card with six logged sets stands beside an empty one. */
         val TALL_ROW = 256.dp

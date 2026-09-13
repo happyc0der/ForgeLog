@@ -174,7 +174,17 @@ fun <T> ReorderableColumn(
                                     if (currentIndex < 0) return@detectDragGesturesAfterLongPress
 
                                     scrollState?.let { state ->
-                                        scope.launch { state.autoScroll(dragAmount.y) }
+                                        scope.launch {
+                                            // Whatever the parent scrolls has to be added back. The
+                                            // offset is measured in content the scroll just moved,
+                                            // so without this the row slides out from under the
+                                            // finger by however far the list went -- and the
+                                            // distance the target index is worked out from
+                                            // understates how far through the list the finger has
+                                            // actually travelled, which is the part that gets
+                                            // saved.
+                                            dragOffset += state.autoScroll(dragAmount.y)
+                                        }
                                     }
 
                                     val target = targetIndex(
@@ -247,12 +257,22 @@ private fun travelled(
     return if (to > from) distance.toFloat() else -distance.toFloat()
 }
 
-/** Nudges the parent scroll when a drag nears the top or bottom of the viewport. */
-private suspend fun ScrollState.autoScroll(dragAmount: Float) {
-    val threshold = 12f
-    if (kotlin.math.abs(dragAmount) < threshold) return
-    scrollBy(dragAmount.coerceIn(-AUTO_SCROLL_STEP, AUTO_SCROLL_STEP))
+/**
+ * Nudges the parent scroll along with a quick drag, and reports how far it went.
+ *
+ * The trigger is speed, not nearness to an edge: past [SCROLL_TRIGGER] pixels in one event, the list
+ * follows the finger a little. A drag that means to cross the fold is a fast one, and this is what
+ * lets it, without needing to know where in the viewport the row currently sits.
+ *
+ * The return value is the distance actually scrolled, which the caller owes back to the drag offset.
+ */
+private suspend fun ScrollState.autoScroll(dragAmount: Float): Float {
+    if (kotlin.math.abs(dragAmount) < SCROLL_TRIGGER) return 0f
+    return scrollBy(dragAmount.coerceIn(-AUTO_SCROLL_STEP, AUTO_SCROLL_STEP))
 }
+
+/** The per-event drag distance that counts as quick. */
+private const val SCROLL_TRIGGER = 12f
 
 private const val AUTO_SCROLL_STEP = 24f
 
