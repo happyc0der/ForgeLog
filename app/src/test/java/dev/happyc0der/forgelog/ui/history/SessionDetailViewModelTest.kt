@@ -30,6 +30,11 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import dev.happyc0der.forgelog.domain.settings.AppSettings
+import dev.happyc0der.forgelog.domain.settings.SettingsRepository
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import java.io.IOException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -79,13 +84,26 @@ class SessionDetailViewModelTest {
         env.tearDown()
     }
 
-    private fun viewModel(id: Long = sessionId): SessionDetailViewModel = SessionDetailViewModel(
+    private fun viewModel(
+        id: Long = sessionId,
+        settings: SettingsRepository = env.settingsRepository,
+    ): SessionDetailViewModel = SessionDetailViewModel(
         savedStateHandle = SavedStateHandle(mapOf("sessionId" to id)),
         application = ApplicationProvider.getApplicationContext<Application>(),
         workoutSessionRepository = env.sessionRepository,
         exerciseRepository = env.exerciseRepository,
-        settingsRepository = env.settingsRepository,
+        settingsRepository = settings,
     ).also(created::add)
+
+    /**
+     * Settings that cannot be read. DataStore's flow throws on a read it cannot complete — a full
+     * disk, say — and only corruption is handled for it, by the replace handler in DatabaseModule.
+     */
+    private class UnreadableSettings(
+        private val delegate: SettingsRepository,
+    ) : SettingsRepository by delegate {
+        override val settings: Flow<AppSettings> = flow { throw IOException("no space left") }
+    }
 
     @Test
     fun `the session and its summary load`() = runTest {
@@ -458,6 +476,26 @@ class SessionDetailViewModelTest {
             var state = awaitItem()
             while (state.errorMessage == null) state = awaitItem()
             assertNotNull(state.errorMessage)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    /**
+     * Settings failing must not take the screen down with it.
+     *
+     * The session detail and the exercise list are each caught; settings was not, alone among the
+     * places this app combines it. An uncaught failure completes the combine exceptionally, the
+     * collecting stateIn throws inside viewModelScope, and nothing is left to render the error state
+     * that exists for exactly this — so the app goes, rather than the screen saying so.
+     */
+    @Test
+    fun `settings that cannot be read leave the screen standing`() = runTest {
+        val vm = viewModel(settings = UnreadableSettings(env.settingsRepository))
+
+        vm.uiState.test {
+            var state = awaitItem()
+            while (state.isLoading) state = awaitItem()
+            assertNotNull("the screen said nothing about the failure", state.errorMessage)
             cancelAndIgnoreRemainingEvents()
         }
     }

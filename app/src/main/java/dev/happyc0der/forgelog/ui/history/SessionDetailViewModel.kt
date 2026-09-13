@@ -13,6 +13,7 @@ import dev.happyc0der.forgelog.domain.model.SessionDetail
 import dev.happyc0der.forgelog.domain.model.SetLog
 import dev.happyc0der.forgelog.domain.repository.ExerciseRepository
 import dev.happyc0der.forgelog.domain.repository.WorkoutSessionRepository
+import dev.happyc0der.forgelog.domain.settings.AppSettings
 import dev.happyc0der.forgelog.domain.settings.SettingsRepository
 import dev.happyc0der.forgelog.domain.workout.SetPrefill
 import dev.happyc0der.forgelog.domain.workout.SetTargets
@@ -70,7 +71,11 @@ class SessionDetailViewModel @Inject constructor(
     val uiState: StateFlow<SessionDetailUiState> = combine(
         workoutSessionRepository.observeSessionDetail(sessionId)
             .reportErrors(null) { reportError(it) },
-        settingsRepository.settings,
+        // Caught like the other two. Left bare, a settings read that fails -- DataStore throws on
+        // one it cannot complete, and only corruption is handled for it -- completed this combine
+        // exceptionally, so the collecting stateIn threw inside viewModelScope and nothing was left
+        // to show the error state just below. The screen went, rather than saying so.
+        settingsRepository.settings.reportErrors(AppSettings()) { reportError(it) },
         exerciseRepository.observeExercises(includeArchived = true)
             .reportErrors(emptyList()) { reportError(it) },
         isEditing,
