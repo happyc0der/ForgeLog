@@ -20,8 +20,12 @@ import androidx.compose.ui.unit.dp
 import dev.happyc0der.forgelog.R
 import dev.happyc0der.forgelog.domain.model.StoredNumbers
 
-/** How a session or an exercise felt, on the app's 1–5 scale. */
-/** The scale the control offers, which is the one the backup importer checks. */
+/**
+ * How a session or an exercise felt: the scale this control offers.
+ *
+ * Not its own scale — the same one the backup importer checks on the way back in, so the two cannot
+ * drift into a file the app will not restore.
+ */
 val FEELING_RANGE = StoredNumbers.FEELING_RANGE
 
 /**

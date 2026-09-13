@@ -19,7 +19,7 @@ object StoredNumbers {
     /** Counts and whole seconds: reps, sets, durations, rests. */
     const val MAX_WHOLE: Int = 999_999
 
-    /** Measured quantities: weights, distances, body measurements. */
+    /** Measured quantities: a set's weight and distance, and the targets planned for them. */
     const val MAX_MEASUREMENT: Double = 999_999.99
 
     /** Whole values that can be stored and read back, for clamping a converted entry. */
