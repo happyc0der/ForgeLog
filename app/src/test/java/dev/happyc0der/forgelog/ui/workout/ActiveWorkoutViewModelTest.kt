@@ -43,6 +43,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import dev.happyc0der.forgelog.domain.model.StoredNumbers
 
 /**
  * The logger had no tests at all, on the screen a workout is actually spent in.
@@ -548,6 +549,70 @@ class ActiveWorkoutViewModelTest {
                 sets().single().weight ?: 0.0,
                 0.0,
             )
+        } finally {
+            vm.viewModelScope.cancel()
+        }
+    }
+
+    /*
+     * How hard a set felt, which is the one thing the logger writes that the backup importer will
+     * turn a whole file away for. Neither of these actions had a test.
+     */
+
+    @Test
+    fun `every rpe and rir the logger offers is stored and can be cleared`() = runTest {
+        val vm = viewModel()
+        try {
+            vm.uiState.test {
+                awaitUntil { it.detail != null }
+                vm.addSet(sessionExerciseId)
+                val set = awaitUntil { it.exercises.single().item.sets.isNotEmpty() }
+                    .exercises.single().item.sets.single()
+
+                StoredNumbers.RPE_RANGE.forEach { rpe ->
+                    vm.onSetRpe(set, rpe)
+                    runCurrent()
+                    assertEquals("rpe $rpe was not stored", rpe, sets().single().rpe)
+                }
+                StoredNumbers.RIR_RANGE.forEach { rir ->
+                    vm.onSetRir(set, rir)
+                    runCurrent()
+                    assertEquals("rir $rir was not stored", rir, sets().single().rir)
+                }
+
+                // Null is a real answer -- "not said" -- and has to clear what was there.
+                vm.onSetRpe(set, null)
+                vm.onSetRir(set, null)
+                runCurrent()
+                assertNull(sets().single().rpe)
+                assertNull(sets().single().rir)
+                cancelAndIgnoreRemainingEvents()
+            }
+        } finally {
+            vm.viewModelScope.cancel()
+        }
+    }
+
+    /** And each writes its own column: the two are one line apart and take the same kind of value. */
+    @Test
+    fun `rpe and rir do not write over one another`() = runTest {
+        val vm = viewModel()
+        try {
+            vm.uiState.test {
+                awaitUntil { it.detail != null }
+                vm.addSet(sessionExerciseId)
+                val set = awaitUntil { it.exercises.single().item.sets.isNotEmpty() }
+                    .exercises.single().item.sets.single()
+
+                vm.onSetRpe(set, 9)
+                runCurrent()
+                vm.onSetRir(set, 1)
+                runCurrent()
+
+                assertEquals(9, sets().single().rpe)
+                assertEquals(1, sets().single().rir)
+                cancelAndIgnoreRemainingEvents()
+            }
         } finally {
             vm.viewModelScope.cancel()
         }

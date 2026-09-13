@@ -83,6 +83,7 @@ import dev.happyc0der.forgelog.ui.testing.TestTags
 import dev.happyc0der.forgelog.ui.util.label
 import dev.happyc0der.forgelog.ui.util.openHowToUrl
 import kotlinx.coroutines.launch
+import dev.happyc0der.forgelog.domain.model.StoredNumbers
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -621,13 +622,14 @@ private fun SetRow(
             NullableIntDropdown(
                 label = stringResource(R.string.workout_field_rpe),
                 selected = set.rpe,
-                options = listOf(null) + (1..10).toList(),
+                // The scale the backup importer checks, not a literal that agrees with it today.
+                options = listOf(null) + StoredNumbers.RPE_RANGE.toList(),
                 onSelected = { viewModel.onSetRpe(set, it) },
             )
             NullableIntDropdown(
                 label = stringResource(R.string.workout_field_rir),
                 selected = set.rir,
-                options = listOf(null) + (0..10).toList(),
+                options = listOf(null) + StoredNumbers.RIR_RANGE.toList(),
                 onSelected = { viewModel.onSetRir(set, it) },
             )
             SetEntryTextField(
