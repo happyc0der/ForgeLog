@@ -29,6 +29,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import dev.happyc0der.forgelog.data.local.setLogEntity
+import dev.happyc0der.forgelog.domain.model.SessionStatus
 
 /**
  * The completion summary is what a finished workout leads to, so it has to describe the session as
@@ -141,6 +143,68 @@ class WorkoutSummaryViewModelTest {
             assertNotNull("expected a heaviest-weight record, got ${state.records}", heaviest)
             assertEquals(205.0, heaviest!!.candidate.weightLb ?: 0.0, 0.001)
             assertEquals(185.0, heaviest.previousBest?.weightLb ?: 0.0, 0.001)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    /**
+     * Records for a lift with no library row left.
+     *
+     * A logged exercise can point at nothing — the library entry was deleted at some earlier version,
+     * or the backup it was restored from already had it that way. Records are normally found by
+     * asking for every session containing exercise X, which cannot be asked when there is no X, so
+     * the summary falls back to reading recent sessions whole and matching on the name that was
+     * logged. That fallback branch was reached by no test: replacing it with an empty list broke
+     * nothing, and the only symptom would have been a lift the user has done for months announcing
+     * itself as a first-time best.
+     */
+    @Test
+    fun `a lift with no library row still has its earlier bests found`() = runTest {
+        val dao = env.database.workoutSessionDao()
+
+        suspend fun unlinkedSession(startedAt: Long, weight: Double): Long {
+            val sessionId = dao.insertSession(
+                sessionEntity(
+                    sessionName = "Session",
+                    startedAt = startedAt,
+                    completedAt = startedAt + 3_600_000L,
+                    status = SessionStatus.COMPLETED,
+                ),
+            )
+            val exerciseId = dao.insertSessionExercise(
+                sessionExerciseEntity(
+                    sessionId = sessionId,
+                    exerciseId = null,
+                    displayNameSnapshot = "Gone From Library",
+                ),
+            )
+            dao.upsertSetLog(
+                setLogEntity(
+                    sessionExerciseId = exerciseId,
+                    setNumber = 1,
+                    reps = 5,
+                    weight = weight,
+                    completed = true,
+                    completedAt = startedAt + 60_000L,
+                ),
+            )
+            return sessionId
+        }
+
+        unlinkedSession(startedAt = 1_000_000L, weight = 185.0)
+        val today = unlinkedSession(startedAt = 90_000_000L, weight = 205.0)
+
+        viewModel(today).uiState.test {
+            val state = awaitUntil { it.summary != null }
+            val heaviest = state.records.firstOrNull { it.kind == RecordKind.HEAVIEST_WEIGHT }
+            assertNotNull("no record found for a lift with no library row: ${state.records}", heaviest)
+            assertEquals(205.0, heaviest!!.candidate.weightLb ?: 0.0, 0.001)
+            assertEquals(
+                "the earlier session was not found, so today read as a first-ever",
+                185.0,
+                heaviest.previousBest?.weightLb ?: 0.0,
+                0.001,
+            )
             cancelAndIgnoreRemainingEvents()
         }
     }
