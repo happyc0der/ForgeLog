@@ -36,6 +36,8 @@ import java.io.IOException
 import java.time.LocalDateTime
 import java.time.ZoneId
 import kotlinx.coroutines.flow.first
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -449,6 +451,76 @@ class HistoryViewModelTest {
             vm.retry()
             while (state.errorMessage != null || state.programs.isEmpty()) state = awaitItem()
             assertTrue("PPL" in state.programs.map { it.name })
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    /*
+     * Choosing a preset is asynchronous: it reads the week-start setting before it can work out the
+     * range. The code already knows two taps can finish out of order and cancels the previous job --
+     * "the latest tap wins". Picking a custom range is the same race with a different second tap,
+     * and it cancels for the same reason, but nothing exercised that path.
+     *
+     * Left uncancelled, a preset chosen a moment earlier lands afterwards and quietly replaces the
+     * dates the user picked by hand, with the chip still reading Custom.
+     */
+
+    @Test
+    fun `a custom range chosen right after a preset is the one that survives`() = runTest {
+        val vm = viewModel()
+        val from = 1_000L
+        val until = 2_000L
+        vm.uiState.test {
+            awaitItem()
+
+            // The preset's job is queued, suspended before it can read the setting.
+            vm.onPresetSelected(DateRangePreset.THIS_WEEK)
+            vm.setDateRange(from, until)
+            advanceUntilIdle()
+
+            var state = expectMostRecentItem()
+            assertEquals(DateRangePreset.CUSTOM, state.preset)
+            assertEquals(from, state.filter.fromEpochMs)
+            assertEquals(until, state.filter.untilEpochMs)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    /** And the other way round, so the cancelling is not simply one-directional. */
+    @Test
+    fun `a preset chosen right after a custom range is the one that survives`() = runTest {
+        val vm = viewModel()
+        vm.uiState.test {
+            awaitItem()
+
+            vm.setDateRange(1_000L, 2_000L)
+            vm.onPresetSelected(DateRangePreset.THIS_WEEK)
+            advanceUntilIdle()
+
+            val state = expectMostRecentItem()
+            assertEquals(DateRangePreset.THIS_WEEK, state.preset)
+            assertNotEquals(1_000L, state.filter.fromEpochMs)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `clearing both ends of a custom range goes back to all time`() = runTest {
+        val vm = viewModel()
+        vm.uiState.test {
+            awaitItem()
+
+            vm.setDateRange(1_000L, 2_000L)
+            advanceUntilIdle()
+            assertEquals(DateRangePreset.CUSTOM, expectMostRecentItem().preset)
+
+            vm.setDateRange(null, null)
+            advanceUntilIdle()
+
+            val state = expectMostRecentItem()
+            assertEquals(DateRangePreset.ALL_TIME, state.preset)
+            assertNull(state.filter.fromEpochMs)
+            assertNull(state.filter.untilEpochMs)
             cancelAndIgnoreRemainingEvents()
         }
     }
