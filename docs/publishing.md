@@ -21,31 +21,19 @@ password.
 
 ---
 
-## 1. Finish the repo side
+## 1. Finish the repo side — done
 
-- [ ] **Replace `[your contact email]` in `PRIVACY.md`** (line 84). This is the urgent one: the page
-      is already public, so the placeholder is on display to anyone who looks. Push, and the
-      published page updates within a minute
-- [ ] **Create the release keystore.** Keep the file and the password somewhere you cannot lose
-      them — losing the key means never being able to update the listing again:
+- [x] ~~Replace `[your contact email]` in `PRIVACY.md`~~
+- [x] ~~Create the release keystore~~ — `forgelog-release.jks`, RSA 4096, gitignored
+- [x] ~~Create `keystore.properties`~~ — gitignored, and `assembleRelease` now signs with your key
+      rather than producing an unsigned APK
+- [x] ~~Build the bundle~~ — `./gradlew bundleRelease`, 5.2 MB at
+      `app/build/outputs/bundle/release/app-release.aab`
+- [x] ~~Publish a GitHub release~~ — v1.0, with the signed 2.3 MB APK attached, which is what the
+      README's install link points at
 
-      keytool -genkeypair -v -keystore forgelog-release.jks -keyalg RSA -keysize 4096 \
-        -validity 10000 -alias forgelog
-
-- [ ] **Create `keystore.properties` at the repo root** with exactly these four keys. `storeFile`
-      resolves relative to the repo root, and both this file and `*.jks` are already gitignored:
-
-      storeFile=forgelog-release.jks
-      storePassword=...
-      keyAlias=forgelog
-      keyPassword=...
-
-- [ ] **Build the bundle.** Play takes an AAB, not an APK, for new apps:
-
-      ./gradlew bundleRelease
-
-      It lands at `app/build/outputs/bundle/release/app-release.aab`, about 5 MB as a container;
-      Play serves roughly 2.2 MB per device from it.
+Keep the keystore and its password somewhere you cannot lose them. Losing either means never being
+able to update the app again — not on Play, not over a sideloaded install.
 
 ## 2. Make the store assets
 

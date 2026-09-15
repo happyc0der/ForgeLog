@@ -3,9 +3,11 @@
 The checks a release needs that no test can make. `docs/play-console.md` has the text the Console
 asks for; this has the things to do with a phone in your hand.
 
-The backup round trip is done — the one that mattered most, and it passed. Everything else here is
-still to do. What a test *can* cover already is: 830 unit tests, 38 instrumented on each of API 26
-and API 36, lint clean on debug and release. What follows is what those cannot reach.
+The backup round trip is done — the one that mattered most, and it passed. So is everything on the
+repository side: the contact address, the keystore, a signed APK and bundle, and a GitHub release.
+What is left needs the Play Console or a graphics editor. What a test *can* cover already is: 830
+unit tests, 38 instrumented on each of API 26 and API 36, lint clean on debug and release. What
+follows is what those cannot reach.
 
 Verified on a device already, so it is not repeated below: the first-run experience, the full
 program → workout → summary loop on the shrunk build, process death mid-workout, saved state under
@@ -88,16 +90,14 @@ that saves you.
 
 ## B. Only you can do these
 
-- [ ] **Put a real contact address in `PRIVACY.md`** — it still reads `[your contact email]`, and
-      the policy is now live at a public URL, so that placeholder is on display. Push the fix and
-      the published page updates within a minute
+- [x] ~~Put a real contact address in `PRIVACY.md`~~ — done
 - [x] ~~Host the privacy policy~~ — done, GitHub Pages serves it from this repository at
       <https://happyc0der.github.io/ForgeLog/privacy-policy>
-- [ ] Paste that URL into the Console's Privacy policy field and into the Data safety form
-- [ ] Create the release keystore and `keystore.properties`. Both are gitignored, and
-      `app/build.gradle.kts` wires a signing config only when that file exists, so nothing breaks
-      until you add it
-- [ ] `./gradlew bundleRelease`
+- [x] ~~Create the release keystore and `keystore.properties`~~ — done, and `assembleRelease` now
+      produces a signed APK. Both files are gitignored; neither has ever been committed
+- [x] ~~`./gradlew bundleRelease`~~ — done, 5.2 MB
+- [ ] Paste the privacy policy URL into the Console's Privacy policy field and into the Data safety
+      form
 - [ ] Screenshots, the 1024×500 feature graphic, the 512×512 icon
 - [ ] The Data safety form and the foreground-service declaration — both already drafted in
       `docs/play-console.md`

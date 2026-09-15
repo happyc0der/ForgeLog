@@ -166,8 +166,8 @@ generated site.
 If Pages is ever turned off, `https://github.com/happyc0der/ForgeLog/blob/main/PRIVACY.md` is also
 publicly reachable and acceptable to Play, though it reads less well to a user.
 
-Whichever you choose, replace **[your contact email]** in `PRIVACY.md` before publishing, and paste
-the final URL into the Console's Privacy policy field and into the Data safety form.
+The contact address in `PRIVACY.md` is filled in. What remains is pasting the URL into the Console's
+Privacy policy field and into the Data safety form.
 
 ---
 
@@ -176,14 +176,13 @@ the final URL into the Console's Privacy policy field and into the Data safety f
 `docs/release-checks.md` is the companion to this list, not an alternative to it: that one covers
 what to verify with a phone in your hand, this one what the Console needs.
 
-- [ ] Replace **[your contact email]** in `PRIVACY.md` — the Data safety form asks for it, so it
-      blocks submission
-- [ ] Create a release keystore and `keystore.properties` (never committed — both are gitignored)
-- [ ] `./gradlew bundleRelease` for the AAB Play wants
-- [ ] Install `./gradlew installReleaseCheck` and run one workout end to end, including an export
-      and a restore, on the shrunk build — see `docs/release-checks.md`, which sets out the backup
-      round trip step by step, since it is the one flow no test covers
-- [ ] Host the privacy policy and put the URL in the Console
+- [x] ~~Replace **[your contact email]** in `PRIVACY.md`~~ — done
+- [x] ~~Create a release keystore and `keystore.properties`~~ — done, never committed
+- [x] ~~`./gradlew bundleRelease` for the AAB Play wants~~ — done
+- [x] ~~Run the backup round trip on the shrunk build~~ — done and passed; see
+      `docs/release-checks.md` section A
+- [x] ~~Host the privacy policy~~ — done, and the URL is in this file
+- [ ] Put that URL into the Console's Privacy policy field
 - [ ] Screenshots: phone screenshots are required; Home, the logger mid-workout, History and
       Analytics show it best
 - [ ] Feature graphic (1024×500) and the 512×512 icon
