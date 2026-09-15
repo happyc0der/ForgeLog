@@ -20,6 +20,31 @@ Nothing here needs a network. The app declares no `INTERNET` permission.
 What that means for your data is written out in [PRIVACY.md](PRIVACY.md); the Play Console text
 is drafted in [docs/play-console.md](docs/play-console.md).
 
+## Install it
+
+**[Download the latest APK from Releases](https://github.com/happyc0der/ForgeLog/releases/latest)**,
+open it on your phone, and allow your browser to install unknown apps when Android asks. That prompt
+is Android's normal warning for anything not from the Play Store; it appears once, for the browser
+you downloaded with.
+
+- Android 8.0 or newer. About 2.3 MB, and one file works on every phone — it carries all four CPU
+  architectures
+- Five permissions, all ordinary: foreground service, notifications, vibrate, wake lock. No
+  `INTERNET` permission, so it cannot send your training anywhere even if it wanted to
+
+**Updating.** There is no auto-update — check Releases, download the newer APK and open it. It
+installs over the top and keeps your data, as long as it came from here: Android refuses an update
+signed with a different key, and the only way past that is uninstalling, which deletes your training.
+So do not mix an APK from Releases with one built yourself unless you signed it with the same key.
+[Obtainium](https://github.com/ImranR98/Obtainium) can watch this repository and do the updating for
+you.
+
+**Back up before you update.** Settings → *Export everything (JSON)*. There is no cloud copy by
+design, so the file you export is the only copy there is. It takes ten seconds and it is the only
+thing that can undo a bad day.
+
+Prefer to build it yourself? Everything below is how.
+
 ## Prerequisites
 
 - **Android Studio** (a version that supports AGP 9.3.x — Narwhal or newer)
