@@ -13,6 +13,19 @@ program → workout → summary loop on the shrunk build, process death mid-work
 sessions logged from it, and that the release APK ships five permissions, no `INTERNET`, no QA code
 and is not debuggable.
 
+Also verified on the shrunk build, since R8 is the one thing the tests cannot reach: every screen
+opens without a crash — Home, Programs, a program's detail, the day builder, the exercise library,
+the exercise editor, History, a session's detail, Analytics and Settings — with the process id
+unchanged throughout, which is the reliable signal, since a crash restarts the process. And the set
+editor survives repeated rotation with its dialog up, which is the sharpest test available: it
+restores eleven `rememberSaveable` fields, two of them through `ExerciseUnit.valueOf` and
+`SetType.valueOf`, and an enum whose constant names R8 had renamed would throw there and nowhere
+else. The mapping file says why it holds: R8 renames the enum's static *fields* (`LB` becomes `f`)
+but leaves the name strings the constructor is handed, which is what `valueOf` matches on.
+
+What that leaves unchecked in the shrunk build is the backup round trip, because it goes through the
+system file picker — which is section A below, and still the thing most worth doing.
+
 ---
 
 ## A. Run these on a phone
