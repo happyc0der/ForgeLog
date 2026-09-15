@@ -285,6 +285,8 @@
     <string name="analytics_change_up">+%1$d%%</string>
     <string name="analytics_change_down">%1$d%%</string>
     <string name="analytics_change_none">no baseline</string>
+    <!-- Shown for a period with nothing logged in it yet, where a percentage would read as -100%. -->
+    <string name="analytics_change_pending">—</string>
 
     <string name="settings_title">Settings</string>
 

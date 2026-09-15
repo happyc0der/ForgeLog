@@ -271,6 +271,7 @@ private fun ChangeRow(comparison: PeriodComparison, weightUnit: ExerciseUnit) {
         ChangeLine(
             label = stringResource(R.string.analytics_metric_volume),
             ratio = comparison.changeRatio { it.loadLb },
+            hasNoBaseline = comparison.hasNoBaseline,
             previous = comparison.previous.loadLb
                 .takeIf { it > 0.0 }
                 ?.let { Formatters.volume(it, weightUnit) },
@@ -278,18 +279,20 @@ private fun ChangeRow(comparison: PeriodComparison, weightUnit: ExerciseUnit) {
         ChangeLine(
             label = stringResource(R.string.analytics_metric_sets),
             ratio = comparison.changeRatio { it.totalSets.toDouble() },
+            hasNoBaseline = comparison.hasNoBaseline,
             previous = comparison.previous.totalSets.takeIf { it > 0 }?.toString(),
         )
         ChangeLine(
             label = stringResource(R.string.analytics_metric_sessions),
             ratio = comparison.changeRatio { it.sessionCount.toDouble() },
+            hasNoBaseline = comparison.hasNoBaseline,
             previous = comparison.previous.sessionCount.takeIf { it > 0 }?.toString(),
         )
     }
 }
 
 @Composable
-private fun ChangeLine(label: String, ratio: Double?, previous: String?) {
+private fun ChangeLine(label: String, ratio: Double?, hasNoBaseline: Boolean, previous: String?) {
     val percent = ratio?.let { (it * 100).toInt() }
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(
@@ -299,9 +302,11 @@ private fun ChangeLine(label: String, ratio: Double?, previous: String?) {
         )
         Text(
             text = when {
-                percent == null -> stringResource(R.string.analytics_change_none)
-                percent >= 0 -> stringResource(R.string.analytics_change_up, percent)
-                else -> stringResource(R.string.analytics_change_down, percent)
+                percent != null && percent >= 0 -> stringResource(R.string.analytics_change_up, percent)
+                percent != null -> stringResource(R.string.analytics_change_down, percent)
+                // "no baseline" is the more specific thing to say, so it wins when both are empty.
+                hasNoBaseline -> stringResource(R.string.analytics_change_none)
+                else -> stringResource(R.string.analytics_change_pending)
             } + (previous?.let { " (was $it)" } ?: ""),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,

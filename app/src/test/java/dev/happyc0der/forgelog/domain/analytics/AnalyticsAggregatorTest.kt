@@ -18,6 +18,8 @@ import org.junit.Test
 import java.time.DayOfWeek
 import java.time.LocalDateTime
 import java.time.ZoneId
+import org.junit.Assert.assertTrue
+import org.junit.Assert.assertFalse
 
 class AnalyticsAggregatorTest {
 
@@ -121,6 +123,62 @@ class AnalyticsAggregatorTest {
 
         val noBaseline = AnalyticsAggregator.compare(current, emptyList())
         assertNull(noBaseline.changeRatio { it.loadLb })
+    }
+
+    /**
+     * A week with nothing in it yet is not a hundred-percent collapse.
+     *
+     * The arithmetic works perfectly for it -- 0 against last week's total is exactly -100% -- which
+     * is why this needs saying. Every Monday morning, before the first session of the week, every
+     * figure on the comparison would otherwise read as a total loss.
+     */
+    @Test
+    fun `a period with nothing logged yet reports no change rather than minus one hundred percent`() {
+        val previous = listOf(
+            session(2L, epochAt(4), epochAt(4) + 100L, sets = listOf(setLog(id = 2L, reps = 5, weight = 100.0))),
+        )
+        val notStartedYet = AnalyticsAggregator.compare(emptyList(), previous)
+
+        assertNull(notStartedYet.changeRatio { it.loadLb })
+        assertNull(notStartedYet.changeRatio { it.totalSets.toDouble() })
+        assertNull(notStartedYet.changeRatio { it.sessionCount.toDouble() })
+        assertTrue("the screen needs to know which of the two empties this is", notStartedYet.currentIsEmpty)
+        assertFalse("there is a baseline here; it is this week that is empty", notStartedYet.hasNoBaseline)
+    }
+
+    /** And the two empties stay distinguishable, because the screen words them differently. */
+    @Test
+    fun `an empty baseline and an empty period are told apart`() {
+        val logged = listOf(
+            session(1L, epochAt(11), epochAt(11) + 100L, sets = listOf(setLog(id = 1L, reps = 5, weight = 120.0))),
+        )
+
+        val noBaseline = AnalyticsAggregator.compare(logged, emptyList())
+        assertTrue(noBaseline.hasNoBaseline)
+        assertFalse(noBaseline.currentIsEmpty)
+
+        val nothingYet = AnalyticsAggregator.compare(emptyList(), logged)
+        assertFalse(nothingYet.hasNoBaseline)
+        assertTrue(nothingYet.currentIsEmpty)
+
+        val neither = AnalyticsAggregator.compare(emptyList(), emptyList())
+        assertTrue(neither.hasNoBaseline)
+        assertTrue(neither.currentIsEmpty)
+    }
+
+    /** A real drop is still a real drop: training less is not the same as not training. */
+    @Test
+    fun `training less than last time still reports the fall`() {
+        val previous = listOf(
+            session(2L, epochAt(4), epochAt(4) + 100L, sets = listOf(setLog(id = 2L, reps = 10, weight = 100.0))),
+        )
+        val current = listOf(
+            session(1L, epochAt(11), epochAt(11) + 100L, sets = listOf(setLog(id = 1L, reps = 5, weight = 100.0))),
+        )
+
+        val comparison = AnalyticsAggregator.compare(current, previous)
+
+        assertEquals(-0.5, comparison.changeRatio { it.loadLb } ?: 0.0, 0.0001)
     }
 
     @Test

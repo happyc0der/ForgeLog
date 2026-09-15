@@ -3,9 +3,9 @@
 The checks a release needs that no test can make. `docs/play-console.md` has the text the Console
 asks for; this has the things to do with a phone in your hand.
 
-Nothing here has been done. Everything a test *can* cover already is: 827 unit tests, 38
-instrumented on each of API 26 and API 36, lint clean on debug and release. What follows is what those
-cannot reach.
+The backup round trip is done — the one that mattered most, and it passed. Everything else here is
+still to do. What a test *can* cover already is: 830 unit tests, 38 instrumented on each of API 26
+and API 36, lint clean on debug and release. What follows is what those cannot reach.
 
 Verified on a device already, so it is not repeated below: the first-run experience, the full
 program → workout → summary loop on the shrunk build, process death mid-workout, saved state under
@@ -32,9 +32,14 @@ system file picker — which is section A below, and still the thing most worth 
 
 ### The backup round trip
 
-**The most valuable check left, and the one not to skip.** Export and restore is the app's only
-recovery path, and it is the one flow that has never been run end to end — because it goes through
-the system file picker, which the automated checks cannot drive.
+**Done, on the shrunk build, on 14 September — and it passed.** Export, delete everything, restore:
+the programs came back with their day counts and completion counts unchanged, and a session spot-
+checked afterwards held the same duration, volume, set count and exercise count as before. A photo
+offered at the restore step was refused with a sentence, with the data left alone.
+
+Kept here because it has to be redone whenever the backup format or the restore path changes. Export
+and restore is the app's only recovery path, and it goes through the system file picker, which the
+automated checks cannot drive.
 
 Everything either side of the picker is covered: the serializer, the wipe-and-replace transaction,
 the `ContentResolver` that carries the bytes (seven device tests), the JSON key names pinned against
@@ -49,12 +54,12 @@ real app, export first.
 ./gradlew installReleaseCheck
 ```
 
-- [ ] Settings → **Export JSON** → choose a location. Confirm the file is there and is not
+- [x] Settings → **Export JSON** → choose a location. Confirm the file is there and is not
       near-empty.
-- [ ] Settings → **Delete all data**, typing `DELETE` to confirm.
-- [ ] Settings → **Restore from JSON** → pick that file. Confirm the message's session and set
+- [x] Settings → **Delete all data**, typing `DELETE` to confirm.
+- [x] Settings → **Restore from JSON** → pick that file. Confirm the message's session and set
       counts match what was there, and that History and Analytics show the same totals as before.
-- [ ] At the Restore step, pick **a file the app did not write** — a photo will do. Confirm it is
+- [x] At the Restore step, pick **a file the app did not write** — a photo will do. Confirm it is
       refused with a sentence that says what is wrong, not a crash.
 
 ### Know what a damaged database looks like

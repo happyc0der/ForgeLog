@@ -58,12 +58,26 @@ data class PeriodComparison(
     val current: PeriodMetrics,
     val previous: PeriodMetrics,
 ) {
-    /** Null when there is nothing to compare against, so the UI can say so instead of showing 0%. */
+    /** Nothing logged in the period on show, so the comparison is of a week that has not happened. */
+    val currentIsEmpty: Boolean get() = current.sessionCount == 0
+
+    /** Nothing logged in the period before, so there is no baseline to measure against. */
+    val hasNoBaseline: Boolean get() = previous.sessionCount == 0
+
+    /**
+     * Null when a percentage would be a lie, which happens at both ends.
+     *
+     * With no baseline there is nothing to divide by. With nothing logged *yet* in the period on
+     * show, the arithmetic does work -- it comes out at exactly -100% -- and that is the problem: on
+     * the Monday morning of every week, before the first session, every figure here would read as a
+     * total collapse rather than as a week that has not started. The caller tells the two apart by
+     * [hasNoBaseline] and [currentIsEmpty], since they want different words.
+     */
     fun changeRatio(selector: (PeriodMetrics) -> Double): Double? {
+        if (currentIsEmpty) return null
         val before = selector(previous)
-        val now = selector(current)
         if (before <= 0.0) return null
-        return (now - before) / before
+        return (selector(current) - before) / before
     }
 }
 
