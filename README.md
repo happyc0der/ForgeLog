@@ -4,6 +4,19 @@ A personal, fully offline Android app for building gym programs, running workout
 
 No accounts, no backend, no analytics, no ads. Your training data lives on your phone and leaves it only if you export it yourself.
 
+## Screenshots
+
+The QA build on the Android emulator, loaded with its sample program and twelve weeks of sessions.
+
+| | |
+|---|---|
+| ![Home](docs/screenshots/home.png) | ![Program day builder](docs/screenshots/program-builder.png) |
+| Home: the last workout and the week so far, one tap from starting the next session. | Program day builder: per-exercise targets, with drag to reorder. |
+| ![Active workout](docs/screenshots/active-workout.png) | ![History](docs/screenshots/history.png) |
+| Active workout: what you did last time beside today's sets, rest countdown in the bar. | History: every session with its duration, volume, sets and exercises. |
+| ![Analytics](docs/screenshots/analytics.png) | ![Exercise progress](docs/screenshots/analytics-trends.png) |
+| Analytics: this week against last, volume by day, sets by category. | Exercise progress: heaviest set and estimated 1RM over twelve weeks. |
+
 ## What it does
 
 - **Build programs** — programs, days, and per-exercise targets (planned sets, rep range, weight, duration, rest, pointers, notes). Duplicate a day to make a variation; drag to reorder.
